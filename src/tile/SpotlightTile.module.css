@@ -1,0 +1,169 @@
+/*
+Copyright 2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.contents {
+  block-size: 100%;
+  inline-size: 100%;
+  display: flex;
+  border-radius: var(--cpd-space-6x);
+  contain: strict;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  scroll-snap-type: inline mandatory;
+  scroll-snap-stop: always;
+  /* It would be nice to use smooth scrolling here, but Firefox has a bug where
+  it will not re-snap if the snapping point changes while it's smoothly
+  animating to another snapping point.
+  scroll-behavior: smooth; */
+}
+
+.tile.maximised .contents {
+  border-radius: 0;
+}
+
+.item {
+  height: 100%;
+  flex-basis: 100%;
+  flex-shrink: 0;
+  --media-view-fg-inset: 10px;
+}
+
+.item.snap {
+  scroll-snap-align: start;
+}
+
+.advance {
+  appearance: none;
+  cursor: pointer;
+  opacity: 0;
+  padding: calc(var(--cpd-space-3x) - var(--cpd-border-width-1));
+  border: var(--cpd-border-width-1) solid
+    var(--cpd-color-border-interactive-secondary);
+  border-radius: var(--cpd-radius-pill-effect);
+  background: var(--cpd-color-alpha-gray-1400);
+  box-shadow: var(--small-drop-shadow);
+  transition-duration: 0.1s;
+  transition-property: opacity, background-color, border-color;
+  position: absolute;
+  z-index: 1;
+  /* Center the button vertically on the tile */
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.advance > svg {
+  display: block;
+  color: var(--cpd-color-icon-on-solid-primary);
+}
+
+@media (hover) {
+  .advance:hover {
+    border-color: var(--cpd-color-bg-action-primary-hovered);
+    background: var(--cpd-color-bg-action-primary-hovered);
+  }
+}
+
+.advance:active {
+  border-color: var(--cpd-color-bg-action-primary-pressed);
+  background: var(--cpd-color-bg-action-primary-pressed);
+}
+
+.back {
+  inset-inline-start: var(--cpd-space-1x);
+}
+
+.next {
+  inset-inline-end: var(--cpd-space-1x);
+}
+
+.expand {
+  appearance: none;
+  cursor: pointer;
+  opacity: 0;
+  padding: var(--cpd-space-2x);
+  border: none;
+  border-radius: var(--cpd-radius-pill-effect);
+  background: rgba(from var(--cpd-color-gray-100) r g b / 0.6);
+  box-shadow: var(--small-drop-shadow);
+  transition:
+    opacity 0.15s,
+    background-color 0.1s;
+  z-index: 1;
+  --inset: 6px;
+  inset-block-end: var(--inset);
+  inset-inline-end: var(--inset);
+}
+
+.bottomRightButtons {
+  display: flex;
+  gap: var(--cpd-space-2x);
+  position: absolute;
+  inset-block-end: var(--cpd-space-1x);
+  inset-inline-end: var(--cpd-space-1x);
+  z-index: 1;
+}
+
+.expand > svg {
+  display: block;
+  color: var(--cpd-color-icon-primary);
+}
+
+@media (hover) {
+  .expand:hover {
+    background: var(--cpd-color-gray-400);
+  }
+}
+
+.expand:active {
+  background: var(--cpd-color-gray-100);
+}
+
+@media (hover) {
+  .tile:hover > div > button {
+    opacity: 1;
+  }
+}
+
+.tile:has(:focus-visible) > div > button {
+  opacity: 1;
+}
+
+.indicators {
+  display: flex;
+  gap: var(--cpd-space-2x);
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-end: calc(-1 * var(--cpd-space-6x));
+  width: 100%;
+  justify-content: start;
+  transition: opacity ease 0.15s;
+  opacity: 0;
+}
+
+.indicators.show {
+  opacity: 1;
+}
+
+.maximised .indicators {
+  inset-block-end: calc(-1 * var(--cpd-space-4x) - 2px);
+  justify-content: center;
+}
+
+.indicators > .item {
+  flex-basis: 32px;
+  block-size: 2px;
+  transition: background-color ease 0.15s;
+}
+
+.indicators > .item[data-visible="false"] {
+  background: var(--cpd-color-alpha-gray-600);
+}
+
+.indicators > .item[data-visible="true"] {
+  background: var(--cpd-color-gray-1400);
+}

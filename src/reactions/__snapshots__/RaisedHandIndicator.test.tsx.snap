@@ -1,0 +1,61 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`RaisedHandIndicator > renders a smaller indicator when miniature is specified 1`] = `
+<div
+  class="reactionIndicatorWidget"
+>
+  <div
+    class="reaction"
+  >
+    <span
+      aria-label="Reaction"
+      role="img"
+    >
+      ✋
+    </span>
+  </div>
+  <p>
+    00:00
+  </p>
+</div>
+`;
+
+exports[`RaisedHandIndicator > renders an indicator when a hand has been raised 1`] = `
+<div
+  class="reactionIndicatorWidget reactionIndicatorWidgetLarge"
+>
+  <div
+    class="reaction reactionLarge"
+  >
+    <span
+      aria-label="Reaction"
+      role="img"
+    >
+      ✋
+    </span>
+  </div>
+  <p>
+    00:00
+  </p>
+</div>
+`;
+
+exports[`RaisedHandIndicator > renders an indicator when a hand has been raised with the expected time 1`] = `
+<div
+  class="reactionIndicatorWidget reactionIndicatorWidgetLarge"
+>
+  <div
+    class="reaction reactionLarge"
+  >
+    <span
+      aria-label="Reaction"
+      role="img"
+    >
+      ✋
+    </span>
+  </div>
+  <p>
+    01:00
+  </p>
+</div>
+`;

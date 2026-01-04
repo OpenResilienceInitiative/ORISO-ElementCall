@@ -1,0 +1,54 @@
+/*
+Copyright 2022-2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 100%;
+}
+
+.header {
+  padding: 76px 65px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  max-width: 660px;
+  padding: 0 65px;
+}
+
+.content > * {
+  margin-top: 0;
+  margin-bottom: 32px;
+}
+
+.content > :last-child {
+  margin-bottom: 0;
+}
+
+/* Make the buttons the same width */
+.wideButton {
+  width: 291px;
+}
+
+/* Fixed height to avoid content jumping around*/
+.sendLogsSection {
+  height: 50px;
+}

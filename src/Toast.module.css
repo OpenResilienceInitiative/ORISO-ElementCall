@@ -1,0 +1,29 @@
+/*
+Copyright 2023, 2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.toast {
+  color: var(--cpd-color-text-on-solid-primary);
+  background: var(--cpd-color-alpha-gray-1200);
+  padding-inline: var(--cpd-space-3x);
+  padding-block: var(--cpd-space-1x);
+  border: none;
+  border-radius: var(--cpd-radius-pill-effect);
+  box-shadow: var(--small-drop-shadow);
+  display: flex;
+  align-items: center;
+  gap: var(--cpd-space-1x);
+}
+
+.toast > h3 {
+  margin: 0;
+}
+
+.toast > svg {
+  color: var(--cpd-color-icon-on-solid-primary);
+  flex-shrink: 0;
+  margin-inline-end: calc(-1 * var(--cpd-space-1x));
+}

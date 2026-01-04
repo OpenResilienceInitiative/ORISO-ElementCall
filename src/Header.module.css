@@ -1,0 +1,118 @@
+/*
+Copyright 2022-2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.header {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  flex-shrink: 0;
+  padding-inline: var(--inline-content-inset);
+}
+
+.nav {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  white-space: nowrap;
+  height: 80px;
+}
+
+.headerLogo {
+  color: var(--cpd-color-text-primary);
+  display: none;
+  align-items: center;
+  text-decoration: none;
+}
+
+.leftNav.hideMobile {
+  display: none;
+}
+
+.leftNav > * {
+  margin-right: 12px;
+}
+
+.leftNav h3 {
+  margin: 0;
+}
+
+.rightNav {
+  justify-content: flex-end;
+}
+
+.rightNav > * {
+  margin-right: 24px;
+}
+
+.rightNav.hideMobile {
+  display: none;
+}
+
+.nav > :last-child {
+  margin-right: 0;
+}
+
+.roomHeaderInfo {
+  display: grid;
+  column-gap: var(--cpd-space-4x);
+  grid-template-columns: auto auto;
+  grid-template-rows: 1fr auto;
+}
+
+.roomHeaderInfo[data-size="sm"] {
+  grid-template-areas: "avatar name" ". participants";
+}
+
+.roomHeaderInfo[data-size="lg"] {
+  grid-template-areas: "avatar name" "avatar participants";
+}
+
+.roomAvatar {
+  align-self: flex-start;
+  grid-area: avatar;
+}
+
+.nameLine {
+  grid-area: name;
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--cpd-space-1x);
+}
+
+.nameLine > h1 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nameLine > svg {
+  flex-shrink: 0;
+}
+
+.participantsLine {
+  grid-area: participants;
+  color: var(--cpd-color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--cpd-space-1-5x);
+}
+
+@media (min-width: 800px) {
+  .headerLogo,
+  .leftNav.hideMobile,
+  .rightNav.hideMobile {
+    display: flex;
+  }
+
+  .leftNav h3 {
+    font-size: var(--font-size-subtitle);
+  }
+}

@@ -1,0 +1,52 @@
+/*
+Copyright 2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.fixed,
+.scrolling {
+  block-size: 100%;
+}
+
+.scrolling {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  gap: var(--gap);
+}
+
+.scrolling > .slot {
+  width: var(--width);
+  height: var(--height);
+}
+
+.fixed {
+  position: relative;
+}
+
+.fixed > .slot {
+  position: absolute;
+  inline-size: 404px;
+  block-size: 233px;
+  inset-block: 0;
+  inset-inline: var(--cpd-space-3x);
+}
+
+.fixed > .slot[data-block-alignment="start"] {
+  inset-block-end: unset;
+}
+
+.fixed > .slot[data-block-alignment="end"] {
+  inset-block-start: unset;
+}
+
+.fixed > .slot[data-inline-alignment="start"] {
+  inset-inline-end: unset;
+}
+
+.fixed > .slot[data-inline-alignment="end"] {
+  inset-inline-start: unset;
+}

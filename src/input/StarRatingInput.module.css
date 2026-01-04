@@ -1,0 +1,32 @@
+/*
+Copyright 2023, 2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.starIcon {
+  cursor: pointer;
+}
+
+.starRating {
+  display: flex;
+  justify-content: center;
+  flex: 1;
+}
+
+.inputContainer {
+  display: inline-block;
+}
+
+.hideElement {
+  border: 0;
+  clip-path: content-box;
+  height: 0px;
+  width: 0px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  width: 1px;
+  display: inline-block;
+}

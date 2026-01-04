@@ -1,0 +1,141 @@
+/*
+Copyright 2022-2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.modal {
+  --inset-inline: 520px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog {
+  box-sizing: border-box;
+  inline-size: 580px;
+  max-inline-size: 90%;
+  max-block-size: 600px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-grow: 1;
+}
+
+.dialog .content {
+  background: var(--cpd-color-bg-canvas-default);
+}
+
+.drawer .content {
+  overflow: auto;
+}
+
+.drawer {
+  background: var(--cpd-color-bg-canvas-default);
+  inset-block-end: 0;
+  inset-inline: max(0px, calc((100% - var(--inset-inline)) / 2));
+  max-block-size: 90%;
+  border-start-start-radius: var(--border-radius);
+  border-start-end-radius: var(--border-radius);
+  /* Drawer comes in the Android style by default */
+  --border-radius: 28px;
+  --handle-block-size: 4px;
+  --handle-inline-size: 32px;
+  --handle-inset-block-start: var(--cpd-space-4x);
+  --handle-inset-block-end: var(--cpd-space-4x);
+}
+
+body[data-platform="ios"] .drawer {
+  --border-radius: 10px;
+  --handle-block-size: 5px;
+  --handle-inline-size: 36px;
+  --handle-inset-block-start: var(--cpd-space-1-5x);
+  --handle-inset-block-end: calc(var(--cpd-space-1x) / 4);
+}
+
+.close {
+  cursor: pointer;
+  color: var(--cpd-color-icon-secondary);
+  border-radius: var(--cpd-radius-pill-effect);
+  padding: var(--cpd-space-1x);
+  background: var(--cpd-color-bg-subtle-secondary);
+  border: none;
+}
+
+.close svg {
+  display: block;
+}
+
+@media (hover: hover) {
+  .close:hover {
+    background: var(--cpd-color-bg-subtle-primary);
+    color: var(--cpd-color-icon-primary);
+  }
+}
+
+.close:active {
+  background: var(--cpd-color-bg-subtle-primary);
+  color: var(--cpd-color-icon-primary);
+}
+
+.header {
+  background: var(--cpd-color-bg-subtle-secondary);
+  display: grid;
+}
+
+.dialog .header {
+  padding-block-start: var(--cpd-space-4x);
+  grid-template-columns:
+    var(--cpd-space-10x) 1fr minmax(var(--cpd-space-6x), auto)
+    var(--cpd-space-4x);
+  grid-template-rows: auto minmax(var(--cpd-space-4x), auto);
+  /* TODO: Support tabs */
+  grid-template-areas: ". title close ." "tabs tabs tabs tabs";
+  align-items: center;
+}
+
+.dialog .header h2 {
+  grid-area: title;
+  margin: 0;
+}
+
+.drawer .header {
+  grid-template-areas: "tabs";
+  position: relative;
+}
+
+.close {
+  grid-area: close;
+}
+
+.body {
+  flex-grow: 1;
+}
+
+.dialog .body {
+  padding-inline: var(--cpd-space-10x);
+  padding-block: var(--cpd-space-10x) var(--cpd-space-12x);
+  overflow: auto;
+}
+
+.drawer .body {
+  padding-inline: var(--cpd-space-4x);
+  padding-block: var(--cpd-space-9x) var(--cpd-space-10x);
+}
+
+.modal.tabbed .body {
+  padding-block-start: 0;
+}
+
+.handle {
+  content: "";
+  position: absolute;
+  block-size: var(--handle-block-size);
+  inset-inline: calc((100% - var(--handle-inline-size)) / 2);
+  inset-block-start: var(--handle-inset-block-start);
+  background: var(--cpd-color-icon-secondary);
+  border-radius: var(--cpd-radius-pill-effect);
+}

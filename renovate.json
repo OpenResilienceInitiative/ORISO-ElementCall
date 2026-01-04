@@ -1,0 +1,68 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:monthly",
+    ":enableVulnerabilityAlertsWithLabel(security)"
+  ],
+  "addLabels": ["dependencies"],
+  "minimumReleaseAge": "5 days",
+  "packageRules": [
+    {
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "GitHub Actions",
+      "matchDepTypes": ["action"],
+      "pinDigests": true
+    },
+    {
+      "description": "Disable Renovate for packages we want to monitor ourselves",
+      "groupName": "manually updated packages",
+      "matchDepNames": ["matrix-js-sdk"],
+      "enabled": false
+    },
+    {
+      "groupName": "matrix-widget-api",
+      "matchDepNames": ["matrix-widget-api"],
+      "extends": ["schedule:weekly"]
+    },
+    {
+      "groupName": "Compound",
+      "matchPackageNames": ["@vector-im/compound-{/,}**"],
+      "extends": ["schedule:weekly"]
+    },
+    {
+      "groupName": "LiveKit client",
+      "matchDepNames": ["livekit-client"],
+      "extends": ["schedule:weekly"]
+    },
+    {
+      "groupName": "LiveKit components",
+      "matchPackageNames": ["@livekit/components-{/,}**"],
+      "extends": ["schedule:weekly"]
+    },
+    {
+      "groupName": "Vaul",
+      "matchDepNames": ["vaul"],
+      "prHeader": "Please review modals on mobile for visual regressions."
+    },
+    {
+      "groupName": "embedded package dependencies",
+      "matchFileNames": ["embedded/**/*"]
+    },
+    {
+      "groupName": "Yarn",
+      "matchDepNames": ["yarn"]
+    }
+  ],
+  "semanticCommits": "disabled",
+  "ignoreDeps": ["posthog-js", "eslint-plugin-matrix-org"],
+  "vulnerabilityAlerts": {
+    "schedule": ["at any time"],
+    "prHourlyLimit": 0,
+    "minimumReleaseAge": null
+  }
+}

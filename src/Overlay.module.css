@@ -1,0 +1,91 @@
+/*
+Copyright 2023, 2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 12, 27, 0.528);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.bg.animate[data-state="open"] {
+  animation: fade-in 200ms;
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.bg.animate[data-state="closed"] {
+  animation: fade-out 130ms;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overlay {
+  position: fixed;
+}
+
+.overlay.animate {
+  --overlay-top: 50%;
+  left: 50%;
+  top: var(--overlay-top);
+  transform: translate(-50%, -50%);
+}
+
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(80%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(100%);
+  }
+}
+
+@keyframes zoom-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(100%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(80%);
+  }
+}
+
+.overlay.animate[data-state="open"] {
+  animation: zoom-in 200ms;
+}
+
+.overlay.animate[data-state="closed"] {
+  animation: zoom-out 130ms;
+}
+
+@media (prefers-reduced-motion) {
+  .overlay.animate[data-state="open"] {
+    animation-name: fade-in;
+  }
+
+  .overlay.animate[data-state="closed"] {
+    animation-name: fade-out;
+  }
+}

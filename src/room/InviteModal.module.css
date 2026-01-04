@@ -1,0 +1,26 @@
+/*
+Copyright 2022-2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.url {
+  text-align: center;
+  color: var(--cpd-color-text-secondary);
+  margin-block-end: var(--cpd-space-8x);
+  overflow-wrap: break-word;
+}
+
+.button {
+  width: 100%;
+}
+
+.qrCode {
+  display: flex;
+  justify-content: center;
+}
+
+.qrCode img {
+  margin-block-end: var(--cpd-space-8x);
+}

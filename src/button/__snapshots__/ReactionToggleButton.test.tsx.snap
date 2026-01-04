@@ -1,0 +1,163 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Can close reaction dialog 1`] = `
+<div
+  aria-hidden="true"
+  data-aria-hidden="true"
+>
+  <button
+    aria-disabled="false"
+    aria-expanded="true"
+    aria-haspopup="true"
+    aria-labelledby="«rbb»"
+    class="_button_vczzf_8 _has-icon_vczzf_57 _icon-only_vczzf_50"
+    data-kind="primary"
+    data-size="lg"
+    role="button"
+    tabindex="0"
+  >
+    <svg
+      aria-hidden="true"
+      fill="currentColor"
+      height="24"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        clip-rule="evenodd"
+        d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10m3.536-6.464a1 1 0 0 0-1.415-1.415A3 3 0 0 1 12 15a3 3 0 0 1-2.121-.879 1 1 0 1 0-1.414 1.415A5 5 0 0 0 12 17c1.38 0 2.632-.56 3.536-1.464M10 10.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m5.5 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"
+        fill-rule="evenodd"
+      />
+    </svg>
+  </button>
+</div>
+`;
+
+exports[`Can fully expand emoji picker 1`] = `
+<div
+  aria-hidden="true"
+  data-aria-hidden="true"
+>
+  <button
+    aria-disabled="false"
+    aria-expanded="true"
+    aria-haspopup="true"
+    aria-labelledby="«r7m»"
+    class="_button_vczzf_8 _has-icon_vczzf_57 _icon-only_vczzf_50"
+    data-kind="primary"
+    data-size="lg"
+    role="button"
+    tabindex="0"
+  >
+    <svg
+      aria-hidden="true"
+      fill="currentColor"
+      height="24"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        clip-rule="evenodd"
+        d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10m3.536-6.464a1 1 0 0 0-1.415-1.415A3 3 0 0 1 12 15a3 3 0 0 1-2.121-.879 1 1 0 1 0-1.414 1.415A5 5 0 0 0 12 17c1.38 0 2.632-.56 3.536-1.464M10 10.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m5.5 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"
+        fill-rule="evenodd"
+      />
+    </svg>
+  </button>
+</div>
+`;
+
+exports[`Can lower hand 1`] = `
+<div>
+  <button
+    aria-disabled="false"
+    aria-expanded="false"
+    aria-haspopup="true"
+    aria-labelledby="«r36»"
+    class="_button_vczzf_8 _has-icon_vczzf_57 _icon-only_vczzf_50"
+    data-kind="secondary"
+    data-size="lg"
+    role="button"
+    tabindex="0"
+  >
+    <svg
+      aria-hidden="true"
+      fill="currentColor"
+      height="24"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        clip-rule="evenodd"
+        d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10m3.536-6.464a1 1 0 0 0-1.415-1.415A3 3 0 0 1 12 15a3 3 0 0 1-2.121-.879 1 1 0 1 0-1.414 1.415A5 5 0 0 0 12 17c1.38 0 2.632-.56 3.536-1.464M10 10.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m5.5 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"
+        fill-rule="evenodd"
+      />
+    </svg>
+  </button>
+</div>
+`;
+
+exports[`Can open menu 1`] = `
+<div
+  aria-hidden="true"
+  data-aria-hidden="true"
+>
+  <button
+    aria-disabled="false"
+    aria-expanded="true"
+    aria-haspopup="true"
+    aria-labelledby="«r0»"
+    class="_button_vczzf_8 _has-icon_vczzf_57 _icon-only_vczzf_50"
+    data-kind="primary"
+    data-size="lg"
+    role="button"
+    tabindex="0"
+  >
+    <svg
+      aria-hidden="true"
+      fill="currentColor"
+      height="24"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        clip-rule="evenodd"
+        d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10m3.536-6.464a1 1 0 0 0-1.415-1.415A3 3 0 0 1 12 15a3 3 0 0 1-2.121-.879 1 1 0 1 0-1.414 1.415A5 5 0 0 0 12 17c1.38 0 2.632-.56 3.536-1.464M10 10.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m5.5 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"
+        fill-rule="evenodd"
+      />
+    </svg>
+  </button>
+</div>
+`;
+
+exports[`Can raise hand 1`] = `
+<div>
+  <button
+    aria-disabled="false"
+    aria-expanded="false"
+    aria-haspopup="true"
+    aria-labelledby="«r1j»"
+    class="_button_vczzf_8 raisedButton _has-icon_vczzf_57 _icon-only_vczzf_50"
+    data-kind="primary"
+    data-size="lg"
+    role="button"
+    tabindex="0"
+  >
+    <svg
+      aria-hidden="true"
+      fill="currentColor"
+      height="24"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M11 3a1 1 0 1 1 2 0v8.5a.5.5 0 0 0 1 0V4a1 1 0 1 1 2 0v10.2l3.284-2.597a1.081 1.081 0 0 1 1.47 1.577c-.613.673-1.214 1.367-1.818 2.064-1.267 1.463-2.541 2.934-3.943 4.235A6 6 0 0 1 5 15V7a1 1 0 0 1 1.999 0v5.5a.5.5 0 0 0 1 0V4a1 1 0 0 1 2 0v7.5a.5.5 0 0 0 1 0z"
+      />
+    </svg>
+  </button>
+</div>
+`;

@@ -1,0 +1,205 @@
+/*
+Copyright 2021-2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+@layer normalize, compound-legacy, compound;
+
+@import url("@fontsource/inter/400.css");
+@import url("@fontsource/inter/500.css");
+@import url("@fontsource/inter/600.css");
+@import url("@fontsource/inter/700.css");
+@import url("@fontsource/inconsolata/400.css");
+@import url("@fontsource/inconsolata/700.css");
+
+@import url("normalize.css/normalize.css") layer(normalize);
+@import url("@vector-im/compound-design-tokens/assets/web/css/compound-design-tokens.css")
+layer(compound);
+@import url("@vector-im/compound-web/dist/style.css") layer(compound.components);
+
+:root {
+  --font-scale: 1;
+  --font-size-micro: calc(10px * var(--font-scale));
+  --font-size-caption: calc(12px * var(--font-scale));
+  --font-size-body: calc(15px * var(--font-scale));
+  --font-size-subtitle: calc(18px * var(--font-scale));
+  --font-size-title: calc(24px * var(--font-scale));
+  --font-size-headline: calc(32px * var(--font-scale));
+
+  /* These colors are needed during the transitionary period between the old and
+  new Compound design systems, but should be removed ASAP */
+  --stopgap-color-on-solid-accent: var(--cpd-color-bg-canvas-default);
+  --stopgap-background-85: rgba(255, 255, 255, 0.85);
+  --stopgap-bgColor3: #444;
+
+  --cpd-color-border-accent: var(--cpd-color-green-800);
+  /* The distance to inset non-full-width content from the edge of the window
+  along the inline axis. This ramps up from 16px for typical mobile windows, to
+  96px for typical desktop windows. */
+  --inline-content-inset: min(
+    var(--cpd-space-24x),
+    max(var(--cpd-space-4x), calc((100vw - 900px) / 3))
+  );
+  --small-drop-shadow: 0px 1.2px 2.4px 0px rgba(0, 0, 0, 0.15);
+  --subtle-drop-shadow: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
+  --background-gradient: url("graphics/backgroundGradient.svg");
+
+  --call-view-overlay-layer: 1;
+  --call-view-header-footer-layer: 2;
+}
+
+:root,
+[class*="cpd-theme-"] {
+  --video-tile-background: var(--cpd-color-bg-subtle-secondary);
+}
+
+.cpd-theme-dark {
+  --cpd-color-border-accent: var(--cpd-color-green-1100);
+  --stopgap-color-on-solid-accent: var(--cpd-color-text-primary);
+  --stopgap-background-85: rgba(16, 19, 23, 0.85);
+}
+
+body {
+  background-color: var(--cpd-color-bg-canvas-default);
+  background-size: calc(max(1440px, 100vw)) calc(max(800px, 100vh));
+  background-repeat: no-repeat;
+  background-position: center;
+  color: var(--cpd-color-text-primary);
+  color-scheme: dark;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* This prohibits the view to scroll for pages smaller than 122px in width
+we use this for mobile pip webviews */
+.no-scroll-body {
+  position: fixed;
+  width: 100%;
+}
+
+/* We use this to not render the page at all until we know the theme.*/
+.no-theme {
+  opacity: 0;
+}
+
+html,
+body,
+#root {
+  /* We use !important here to override vaul drawers, which have a side effect
+  of setting height: auto; on the body element and messing up our layouts */
+  height: 100% !important;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  /* The root should be a separate stacking context so that portalled elements
+  like modals and menus always appear over top of it */
+  isolation: isolate;
+}
+
+/* On Android and iOS, prefer native system fonts. The global.css file of
+Compound Web is where these variables ultimately get consumed to set the page's
+font-family. */
+body[data-platform="android"] {
+  --cpd-font-family-sans: "Roboto", "Noto", "Inter", sans-serif;
+}
+
+body[data-platform="ios"] {
+  --cpd-font-family-sans:
+    -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+}
+
+@layer compound-legacy {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  a {
+    margin-top: 0;
+  }
+
+  /* Headline Semi Bold */
+  h1 {
+    font-weight: 600;
+    font-size: var(--font-size-headline);
+  }
+
+  /* Title */
+  h2 {
+    font-weight: 600;
+    font-size: var(--font-size-title);
+  }
+
+  /* Subtitle */
+  h3 {
+    font-weight: 600;
+    font-size: var(--font-size-subtitle);
+  }
+
+  /* Body Semi Bold */
+  h4 {
+    font-weight: 600;
+    font-size: var(--font-size-body);
+  }
+
+  h1,
+  h2,
+  h3 {
+    line-height: 1.2;
+  }
+
+  /* Body */
+  p {
+    font-size: var(--font-size-body);
+    line-height: var(--font-size-title);
+  }
+
+  hr {
+    width: calc(100% - 24px);
+    border: none;
+    border-top: 1px solid var(--cpd-color-border-interactive-secondary);
+    color: var(--cpd-color-border-interactive-secondary);
+    overflow: visible;
+    text-align: center;
+    height: 5px;
+    font-weight: 600;
+    font-size: var(--font-size-body);
+    line-height: 24px;
+    margin: 0 12px;
+  }
+
+  summary {
+    font-size: var(--font-size-body);
+  }
+
+  details > :not(summary) {
+    margin-left: var(--font-size-body);
+  }
+
+  details[open] > summary {
+    margin-bottom: var(--font-size-body);
+  }
+}
+
+#root > [data-overlay-container] {
+  position: relative;
+  height: 100%;
+}
+
+/* normalize.css sets the focus rings on buttons in Firefox to an unusual custom
+outline, which is inconsistent with our other components and is not sufficiently
+visible to be accessible. This resets it back to 'auto'. */
+button:-moz-focusring,
+[type="button"]:-moz-focusring,
+[type="reset"]:-moz-focusring,
+[type="submit"]:-moz-focusring {
+  outline: auto;
+}

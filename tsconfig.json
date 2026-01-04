@@ -1,0 +1,55 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "es2022",
+    "jsx": "react-jsx",
+    "lib": ["es2024", "dom", "dom.iterable"],
+
+    // From Matrix-JS-SDK
+    "strict": true,
+    "noEmit": true,
+    "noEmitOnError": true,
+    "experimentalDecorators": false,
+    "esModuleInterop": true,
+    "noUnusedLocals": true,
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "resolveJsonModule": true,
+    // Workaround for https://github.com/microsoft/TypeScript/issues/55132
+    "useDefineForClassFields": false,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      // These imports within @livekit/components-core and
+      // @livekit/components-react are broken under the "bundler" module
+      // resolution mode, so we need to resolve them manually
+      "livekit-client/dist/src/room/types": [
+        "./node_modules/livekit-client/dist/src/room/types.d.ts"
+      ],
+      "livekit-client/dist/src/room/Room": [
+        "./node_modules/livekit-client/dist/src/room/Room.d.ts"
+      ],
+      "livekit-client/dist/src/room/track/TrackPublication": [
+        "./node_modules/livekit-client/dist/src/room/track/TrackPublication.d.ts"
+      ],
+      "livekit-client/dist/src/room/participant/Participant": [
+        "./node_modules/livekit-client/dist/src/room/participant/Participant.d.ts"
+      ],
+      "livekit-client/dist/src/proto/livekit_models_pb": [
+        "./node_modules/@livekit/protocol/src/gen/livekit_models_pb.d.ts"
+      ]
+    },
+
+    // TODO: Enable the following options later.
+    // "forceConsistentCasingInFileNames": true,
+    // "noFallthroughCasesInSwitch": true,
+    // "noImplicitOverride": true,
+    // "noImplicitReturns": true,
+    // "noPropertyAccessFromIndexSignature": true,
+    // "noUncheckedIndexedAccess": true,
+    // "noUnusedParameters": true,
+
+    "plugins": [{ "name": "typescript-eslint-language-service" }]
+  },
+  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./playwright/**/*.ts"],
+  "exclude": ["**.test.ts"]
+}

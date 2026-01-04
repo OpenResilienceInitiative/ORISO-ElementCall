@@ -1,0 +1,63 @@
+.reactionIndicatorWidget {
+  display: flex;
+  background-color: #00000030;
+  border-radius: var(--cpd-radius-pill-effect);
+  box-shadow: 0 0 var(--cpd-space-2x) #00000040;
+  background: "ffffff40";
+  backdrop-filter: blur(10px);
+  outline: var(--cpd-border-width-1) solid var(--cpd-color-alpha-gray-400);
+  outline-offset: calc(-1 * var(--cpd-border-width-1));
+}
+
+.reactionIndicatorWidget > p {
+  padding: none;
+  margin-top: auto;
+  margin-bottom: auto;
+  width: 3em;
+  padding-right: var(--cpd-space-2x);
+  margin-left: calc(var(--cpd-space-2x) * -1);
+}
+
+.reactionIndicatorWidgetLarge > p {
+  padding: var(--cpd-space-2x);
+  padding-right: var(--cpd-space-4x);
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.reactionLarge {
+  margin: var(--cpd-space-2x);
+  padding: var(--cpd-space-4x);
+  padding-block: var(--cpd-space-4x);
+}
+
+.reaction {
+  margin: var(--cpd-space-1x);
+  color: white;
+  display: flex;
+  align-items: center;
+  border-radius: var(--cpd-radius-pill-effect);
+  user-select: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  max-inline-size: 100%;
+  max-width: fit-content;
+  padding: var(--cpd-space-1x);
+  padding-block: var(--cpd-space-1x);
+}
+
+.reaction > span {
+  width: var(--cpd-space-6x);
+  height: var(--cpd-space-6x);
+  display: inline-block;
+  text-align: center;
+  font-size: 1.2em;
+  /* Centralise */
+  line-height: 1.2;
+}
+
+.reactionLarge > span {
+  width: 30px;
+  height: 30px;
+  font-size: 25px;
+}

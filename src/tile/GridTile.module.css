@@ -1,0 +1,107 @@
+/*
+Copyright 2022-2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.tile {
+  --media-view-border-radius: var(--cpd-space-4x);
+  --hover-space-margin: var(--cpd-space-1x);
+  transition: outline-color ease 0.15s;
+  outline: var(--cpd-border-width-2) solid rgb(0 0 0 / 0);
+}
+
+/* Use a pseudo-element to create the expressive speaking border, since CSS
+borders don't support gradients */
+.tile::before {
+  content: "";
+  position: absolute;
+  z-index: -1; /* Put it below the outline */
+  opacity: 0; /* Hidden unless speaking */
+  transition: opacity ease 0.15s;
+  inset: calc(-1 * var(--cpd-border-width-4));
+  border-radius: var(--cpd-space-5x);
+  background-blend-mode: overlay, normal;
+}
+
+.tile.speaking {
+  /* !important because speaking border should take priority over hover */
+  outline: var(--cpd-border-width-1) solid var(--cpd-color-bg-canvas-default) !important;
+}
+
+.tile.speaking::before {
+  background:
+    linear-gradient(
+      119deg,
+      rgba(13, 92, 189, 0.7) 0%,
+      rgba(13, 189, 168, 0.7) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(13, 92, 189, 0.9) 0%,
+      rgba(13, 189, 168, 0.9) 100%
+    );
+  opacity: 1;
+}
+
+.tile.handRaised {
+  /* !important because hand raised border should take priority over hover */
+  outline: var(--cpd-border-width-2) solid var(--cpd-color-bg-canvas-default) !important;
+}
+
+.tile.handRaised::before {
+  background:
+    linear-gradient(
+      119deg,
+      var(--cpd-color-yellow-1200) 0%,
+      var(--cpd-color-yellow-900) 100%
+    ),
+    linear-gradient(
+      180deg,
+      var(--cpd-color-yellow-1200) 0%,
+      var(--cpd-color-yellow-900) 100%
+    );
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    outline: var(--cpd-border-width-2) solid
+      var(--cpd-color-border-interactive-hovered);
+  }
+}
+
+.muteIcon[data-muted="true"] {
+  color: var(--cpd-color-icon-secondary);
+}
+
+.muteIcon[data-muted="false"] {
+  color: var(--cpd-color-icon-primary);
+}
+
+.volumeSlider {
+  width: 100%;
+}
+
+.tile .switchCamera {
+  opacity: 1;
+  background: var(--cpd-color-bg-action-secondary-rest);
+  border: 1px solid var(--cpd-color-border-interactive-secondary);
+}
+
+.tile .switchCamera > svg {
+  color: var(--cpd-color-icon-primary);
+}
+
+@media (hover) {
+  .tile .switchCamera:hover {
+    background: var(--cpd-color-bg-subtle-secondary);
+    border-color: var(--cpd-color-border-interactive-hovered);
+  }
+}
+
+.tile .switchCamera:active {
+  background: var(--cpd-color-bg-subtle-primary);
+  border-color: var(--cpd-color-border-interactive-hovered);
+}

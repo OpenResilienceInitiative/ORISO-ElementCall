@@ -1,0 +1,57 @@
+/*
+Copyright 2023, 2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.slider {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.track {
+  flex-grow: 1;
+  border-radius: var(--cpd-radius-pill-effect);
+  background: var(--cpd-color-bg-subtle-primary);
+  height: var(--cpd-space-2x);
+  outline: var(--cpd-border-width-1) solid
+    var(--cpd-color-border-interactive-primary);
+  outline-offset: calc(-1 * var(--cpd-border-width-1));
+  cursor: pointer;
+  transition: outline-color ease 0.15s;
+}
+
+.track[data-disabled] {
+  cursor: initial;
+  outline-color: var(--cpd-color-border-disabled);
+}
+
+.highlight {
+  background: var(--cpd-color-bg-action-primary-rest);
+  position: absolute;
+  block-size: 100%;
+  border-radius: var(--cpd-radius-pill-effect);
+  transition: background-color ease 0.15s;
+}
+
+.highlight[data-disabled] {
+  background: var(--cpd-color-bg-action-primary-disabled);
+}
+
+.handle {
+  display: block;
+  block-size: var(--cpd-space-4x);
+  inline-size: var(--cpd-space-4x);
+  border-radius: var(--cpd-radius-pill-effect);
+  background: var(--cpd-color-bg-action-primary-rest);
+  box-shadow: 0 0 0 2px var(--cpd-color-bg-canvas-default);
+  cursor: pointer;
+  transition: background-color ease 0.15s;
+}
+
+.handle[data-disabled] {
+  cursor: initial;
+  background: var(--cpd-color-bg-action-primary-disabled);
+}

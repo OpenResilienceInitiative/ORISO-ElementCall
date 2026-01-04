@@ -1,0 +1,26 @@
+/*
+Copyright 2023, 2024 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.lock {
+  display: block;
+  padding: var(--cpd-space-1x);
+  border-radius: var(--cpd-radius-pill-effect);
+}
+
+.lock[data-encrypted="true"] {
+  color: var(--cpd-color-icon-success-primary);
+}
+
+.lock[data-encrypted="false"] {
+  color: var(--cpd-color-icon-secondary);
+}
+
+@media (hover: hover) {
+  .lock:hover {
+    background: var(--cpd-color-bg-subtle-primary);
+  }
+}
