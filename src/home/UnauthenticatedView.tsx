@@ -145,7 +145,7 @@ export const UnauthenticatedView: FC = () => {
       <div className={commonStyles.container}>
         {header === "standard" && (
           <Header>
-            <LeftNav />
+           
             <RightNav hideMobile>
               <UserMenuContainer />
             </RightNav>
@@ -185,14 +185,6 @@ export const UnauthenticatedView: FC = () => {
                 <AnalyticsNotice />
               </Text>
             )}
-            <Text size="sm" className={styles.notice}>
-              <Trans i18nKey="unauthenticated_view_ssla_caption">
-                By clicking "Go", you agree to our{" "}
-                <ExternalLink href={Config.get().ssla}>
-                  Software and Services License Agreement (SSLA)
-                </ExternalLink>
-              </Trans>
-            </Text>
             {error && (
               <FieldRow>
                 <ErrorMessage error={error} />

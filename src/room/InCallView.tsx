@@ -290,6 +290,7 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const ringOverlay = useBehavior(vm.ringOverlay$);
   const fatalCallError = useBehavior(vm.fatalError$);
+  const isPopupMode = windowMode === "pip" || windowMode === "flat";
   // Stop the rendering and throw for the error boundary
   if (fatalCallError) {
     logger.debug("fatalCallError stop rendering", fatalCallError);
@@ -721,6 +722,7 @@ export const InCallView: FC<InCallViewProps> = ({
     <MicButton
       key="audio"
       muted={!audioEnabled}
+      disableTooltip={isPopupMode}
       onClick={toggleAudio ?? undefined}
       onTouchEnd={onControlsTouchEnd}
       disabled={toggleAudio === null}
@@ -729,6 +731,7 @@ export const InCallView: FC<InCallViewProps> = ({
     <VideoButton
       key="video"
       muted={!videoEnabled}
+      disableTooltip={isPopupMode}
       onClick={toggleVideo ?? undefined}
       onTouchEnd={onControlsTouchEnd}
       disabled={toggleVideo === null}
@@ -741,13 +744,14 @@ export const InCallView: FC<InCallViewProps> = ({
         key="share_screen"
         className={styles.shareScreen}
         enabled={sharingScreen}
+        disableTooltip={isPopupMode}
         onClick={vm.toggleScreenSharing}
         onTouchEnd={onControlsTouchEnd}
         data-testid="incall_screenshare"
       />,
     );
   }
-  if (supportsReactions) {
+  if (supportsReactions && !isPopupMode) {
     buttons.push(
       <ReactionToggleButton
         vm={vm}
@@ -758,7 +762,7 @@ export const InCallView: FC<InCallViewProps> = ({
       />,
     );
   }
-  if (layout.type !== "pip")
+  if (!isPopupMode)
     buttons.push(
       <SettingsButton
         key="settings"
@@ -770,6 +774,7 @@ export const InCallView: FC<InCallViewProps> = ({
   buttons.push(
     <EndCallButton
       key="end_call"
+      disableTooltip={isPopupMode}
       onClick={function (): void {
         vm.hangup();
       }}
@@ -829,7 +834,7 @@ export const InCallView: FC<InCallViewProps> = ({
       <ReactionsOverlay vm={vm} />
       {waitingOverlay}
       {footer}
-      {layout.type !== "pip" && (
+      {!isPopupMode && (
         <>
           <RageshakeRequestModal {...rageshakeRequestModalProps} />
           <SettingsModal
