@@ -242,8 +242,10 @@ export const RoomPage: FC = () => {
   } else if (!client) {
     content = <RoomAuthView />;
   } else if (!roomIdOrAlias) {
-    // TODO: This doesn't belong here, the app routes need to be reworked
-    content = <HomePage />;
+    // In embedded/confined usage, never fall back to standalone home/start page.
+    // This avoids exposing branding/landing UI if a room-scoped route is lost.
+    content =
+      confineToRoom || header !== "standard" ? <FullScreenView /> : <HomePage />;
   } else {
     content = groupCallView();
   }

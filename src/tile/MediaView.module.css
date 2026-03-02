@@ -76,16 +76,16 @@ unconditionally select the container so we can use cqmin units */
     calc(var(--media-view-border-radius) - var(--cpd-space-3x))
   );
   display: grid;
-  grid-template-columns: 30px 1fr 30px;
-  grid-template-rows: 1fr auto;
-  grid-template-areas: "reactions status ." "nameTag nameTag button";
+  grid-template-columns: auto 1fr 30px;
+  grid-template-rows: auto 1fr;
+  grid-template-areas: "nameTag status ." "reactions . button";
   gap: var(--cpd-space-1x);
   place-items: start;
 }
 
 .nameTag {
   grid-area: nameTag;
-  place-self: end start;
+  place-self: start start;
   padding: var(--cpd-space-1x);
   padding-block: var(--cpd-space-1x);
   color: var(--cpd-color-text-primary);

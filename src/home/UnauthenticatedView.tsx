@@ -13,7 +13,7 @@ import { logger } from "matrix-js-sdk/lib/logger";
 import { useNavigate } from "react-router-dom";
 
 import { useClient } from "../ClientContext";
-import { Header, HeaderLogo, LeftNav, RightNav } from "../Header";
+import { Header, LeftNav, RightNav } from "../Header";
 import { UserMenuContainer } from "../UserMenuContainer";
 import { FieldRow, InputField, ErrorMessage } from "../input/Input";
 import {
@@ -145,16 +145,13 @@ export const UnauthenticatedView: FC = () => {
       <div className={commonStyles.container}>
         {header === "standard" && (
           <Header>
-            <LeftNav>
-              <HeaderLogo />
-            </LeftNav>
+           
             <RightNav hideMobile>
               <UserMenuContainer />
             </RightNav>
           </Header>
         )}
         <main className={commonStyles.main}>
-          <HeaderLogo className={commonStyles.logo} />
           <Heading size="lg" weight="semibold">
             {t("start_new_call")}
           </Heading>
@@ -188,14 +185,6 @@ export const UnauthenticatedView: FC = () => {
                 <AnalyticsNotice />
               </Text>
             )}
-            <Text size="sm" className={styles.notice}>
-              <Trans i18nKey="unauthenticated_view_ssla_caption">
-                By clicking "Go", you agree to our{" "}
-                <ExternalLink href={Config.get().ssla}>
-                  Software and Services License Agreement (SSLA)
-                </ExternalLink>
-              </Trans>
-            </Text>
             {error && (
               <FieldRow>
                 <ErrorMessage error={error} />

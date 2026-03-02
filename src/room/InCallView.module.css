@@ -19,11 +19,7 @@ Please see LICENSE in the repository root for full details.
   flex-shrink: 0;
   inset-block-start: 0;
   z-index: var(--call-view-header-footer-layer);
-  background: linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0) 0%,
-    var(--cpd-color-bg-canvas-default) 100%
-  );
+  background: #000;
 }
 
 .header.filler {
@@ -43,11 +39,7 @@ Please see LICENSE in the repository root for full details.
   align-items: center;
   gap: var(--cpd-space-3x);
   padding-block: var(--cpd-space-10x);
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0) 0%,
-    var(--cpd-color-bg-canvas-default) 100%
-  );
+  background: transparent;
 }
 
 .footer.hidden {
@@ -79,6 +71,7 @@ Please see LICENSE in the repository root for full details.
   align-items: center;
   gap: var(--cpd-space-2x);
   padding-inline-start: var(--cpd-space-1x);
+  display: none;
 }
 
 .buttons {

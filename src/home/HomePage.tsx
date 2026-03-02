@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { type FC } from "react";
 
 import { useClientState } from "../ClientContext";
-import { ErrorPage, LoadingPage } from "../FullScreenView";
+import { ErrorPage, FullScreenView, LoadingPage } from "../FullScreenView";
 import { UnauthenticatedView } from "./UnauthenticatedView";
 import { RegisteredView } from "./RegisteredView";
 import { usePageTitle } from "../usePageTitle";
@@ -18,6 +18,13 @@ import { widget } from "../widget.ts";
 export const HomePage: FC = () => {
   const { t } = useTranslation();
   usePageTitle(t("common.home"));
+  const isEmbedded = window.self !== window.top;
+
+  // In embedded integrations, we never want to show standalone
+  // "Start new call" home surfaces (branding/login/create call).
+  if (isEmbedded) {
+    return <FullScreenView />;
+  }
 
   const clientState = useClientState();
 

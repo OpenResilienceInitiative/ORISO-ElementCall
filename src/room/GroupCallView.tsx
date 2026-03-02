@@ -319,6 +319,10 @@ export const GroupCallView: FC<Props> = ({
     (
       reason: "timeout" | "user" | "allOthersLeft" | "decline" | "error",
     ): void => {
+      window.parent?.postMessage(
+        { type: "oriso-call-ended", reason },
+        "*",
+      );
       let playSound: CallEventSounds = "left";
       if (reason === "timeout" || reason === "decline") playSound = reason;
 

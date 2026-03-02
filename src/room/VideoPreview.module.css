@@ -58,11 +58,7 @@ video.mirror {
   justify-content: center;
   align-items: center;
   gap: var(--cpd-space-4x);
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0) 0%,
-    var(--cpd-color-bg-canvas-default) 100%
-  );
+  background: #000;
 }
 
 @media (min-aspect-ratio: 1 / 1) {

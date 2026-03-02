@@ -31,8 +31,6 @@ import {
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { useTranslation } from "react-i18next";
 
-import LogoMark from "../icons/LogoMark.svg?react";
-import LogoType from "../icons/LogoType.svg?react";
 import type { IWidgetApiRequest } from "matrix-widget-api";
 import {
   EndCallButton,
@@ -172,6 +170,22 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
     trackProcessorState$,
   ]);
 
+  useEffect(() => {
+    if (!vm) return;
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type !== "oriso-call-action") return;
+      if (data.action === "hangup") {
+        vm.hangup();
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return (): void => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [vm]);
+
   if (vm === null) return null;
 
   return (
@@ -276,6 +290,7 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const ringOverlay = useBehavior(vm.ringOverlay$);
   const fatalCallError = useBehavior(vm.fatalError$);
+  const isPopupMode = windowMode === "pip" || windowMode === "flat";
   // Stop the rendering and throw for the error boundary
   if (fatalCallError) {
     logger.debug("fatalCallError stop rendering", fatalCallError);
@@ -707,6 +722,7 @@ export const InCallView: FC<InCallViewProps> = ({
     <MicButton
       key="audio"
       muted={!audioEnabled}
+      disableTooltip={isPopupMode}
       onClick={toggleAudio ?? undefined}
       onTouchEnd={onControlsTouchEnd}
       disabled={toggleAudio === null}
@@ -715,6 +731,7 @@ export const InCallView: FC<InCallViewProps> = ({
     <VideoButton
       key="video"
       muted={!videoEnabled}
+      disableTooltip={isPopupMode}
       onClick={toggleVideo ?? undefined}
       onTouchEnd={onControlsTouchEnd}
       disabled={toggleVideo === null}
@@ -727,13 +744,14 @@ export const InCallView: FC<InCallViewProps> = ({
         key="share_screen"
         className={styles.shareScreen}
         enabled={sharingScreen}
+        disableTooltip={isPopupMode}
         onClick={vm.toggleScreenSharing}
         onTouchEnd={onControlsTouchEnd}
         data-testid="incall_screenshare"
       />,
     );
   }
-  if (supportsReactions) {
+  if (supportsReactions && !isPopupMode) {
     buttons.push(
       <ReactionToggleButton
         vm={vm}
@@ -744,7 +762,7 @@ export const InCallView: FC<InCallViewProps> = ({
       />,
     );
   }
-  if (layout.type !== "pip")
+  if (!isPopupMode)
     buttons.push(
       <SettingsButton
         key="settings"
@@ -756,6 +774,7 @@ export const InCallView: FC<InCallViewProps> = ({
   buttons.push(
     <EndCallButton
       key="end_call"
+      disableTooltip={isPopupMode}
       onClick={function (): void {
         vm.hangup();
       }}
@@ -772,20 +791,9 @@ export const InCallView: FC<InCallViewProps> = ({
           !showFooter || (!showControls && headerStyle === "none"),
       })}
     >
-      {headerStyle !== "none" && (
-        <div className={styles.logo}>
-          <LogoMark width={24} height={24} aria-hidden />
-          <LogoType
-            width={80}
-            height={11}
-            aria-label={import.meta.env.VITE_PRODUCT_NAME || "Element Call"}
-          />
-          {/* Don't mind this odd placement, it's just a little debug label */}
-          {debugTileLayout
-            ? `Tiles generation: ${tileStoreGeneration}`
-            : undefined}
-        </div>
-      )}
+      {headerStyle !== "none" && debugTileLayout
+        ? `Tiles generation: ${tileStoreGeneration}`
+        : undefined}
       {showControls && <div className={styles.buttons}>{buttons}</div>}
       {showControls && (
         <LayoutToggle
@@ -826,7 +834,7 @@ export const InCallView: FC<InCallViewProps> = ({
       <ReactionsOverlay vm={vm} />
       {waitingOverlay}
       {footer}
-      {layout.type !== "pip" && (
+      {!isPopupMode && (
         <>
           <RageshakeRequestModal {...rageshakeRequestModalProps} />
           <SettingsModal

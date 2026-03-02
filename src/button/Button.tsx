@@ -20,58 +20,73 @@ import {
 
 import styles from "./Button.module.css";
 
+interface TooltipControlProps {
+  disableTooltip?: boolean;
+}
+
 interface MicButtonProps extends ComponentPropsWithoutRef<"button"> {
   muted: boolean;
 }
 
-export const MicButton: FC<MicButtonProps> = ({ muted, ...props }) => {
+export const MicButton: FC<MicButtonProps & TooltipControlProps> = ({
+  muted,
+  disableTooltip = false,
+  ...props
+}) => {
   const { t } = useTranslation();
   const Icon = muted ? MicOffSolidIcon : MicOnSolidIcon;
   const label = muted
     ? t("unmute_microphone_button_label")
     : t("mute_microphone_button_label");
 
-  return (
-    <Tooltip label={label}>
-      <CpdButton
-        iconOnly
-        Icon={Icon}
-        kind={muted ? "primary" : "secondary"}
-        {...props}
-      />
-    </Tooltip>
+  const button = (
+    <CpdButton
+      iconOnly
+      Icon={Icon}
+      kind={muted ? "primary" : "secondary"}
+      {...props}
+    />
   );
+
+  return disableTooltip ? button : <Tooltip label={label}>{button}</Tooltip>;
 };
 
 interface VideoButtonProps extends ComponentPropsWithoutRef<"button"> {
   muted: boolean;
 }
 
-export const VideoButton: FC<VideoButtonProps> = ({ muted, ...props }) => {
+export const VideoButton: FC<VideoButtonProps & TooltipControlProps> = ({
+  muted,
+  disableTooltip = false,
+  ...props
+}) => {
   const { t } = useTranslation();
   const Icon = muted ? VideoCallOffSolidIcon : VideoCallSolidIcon;
   const label = muted
     ? t("start_video_button_label")
     : t("stop_video_button_label");
 
-  return (
-    <Tooltip label={label}>
-      <CpdButton
-        iconOnly
-        Icon={Icon}
-        kind={muted ? "primary" : "secondary"}
-        {...props}
-      />
-    </Tooltip>
+  const button = (
+    <CpdButton
+      iconOnly
+      Icon={Icon}
+      kind={muted ? "primary" : "secondary"}
+      {...props}
+    />
   );
+
+  return disableTooltip ? button : <Tooltip label={label}>{button}</Tooltip>;
 };
 
-interface ShareScreenButtonProps extends ComponentPropsWithoutRef<"button"> {
+interface ShareScreenButtonProps
+  extends ComponentPropsWithoutRef<"button">,
+    TooltipControlProps {
   enabled: boolean;
 }
 
 export const ShareScreenButton: FC<ShareScreenButtonProps> = ({
   enabled,
+  disableTooltip = false,
   ...props
 }) => {
   const { t } = useTranslation();
@@ -79,50 +94,57 @@ export const ShareScreenButton: FC<ShareScreenButtonProps> = ({
     ? t("stop_screenshare_button_label")
     : t("screenshare_button_label");
 
-  return (
-    <Tooltip label={label}>
-      <CpdButton
-        iconOnly
-        Icon={ShareScreenSolidIcon}
-        kind={enabled ? "primary" : "secondary"}
-        {...props}
-      />
-    </Tooltip>
+  const button = (
+    <CpdButton
+      iconOnly
+      Icon={ShareScreenSolidIcon}
+      kind={enabled ? "primary" : "secondary"}
+      {...props}
+    />
   );
+
+  return disableTooltip ? button : <Tooltip label={label}>{button}</Tooltip>;
 };
 
-export const EndCallButton: FC<ComponentPropsWithoutRef<"button">> = ({
+export const EndCallButton: FC<
+  ComponentPropsWithoutRef<"button"> & TooltipControlProps
+> = ({
   className,
+  disableTooltip = false,
   ...props
 }) => {
   const { t } = useTranslation();
 
-  return (
-    <Tooltip label={t("hangup_button_label")}>
-      <CpdButton
-        className={classNames(className, styles.endCall)}
-        iconOnly
-        Icon={EndCallIcon}
-        destructive
-        {...props}
-      />
-    </Tooltip>
+  const button = (
+    <CpdButton
+      className={classNames(className, styles.endCall)}
+      iconOnly
+      Icon={EndCallIcon}
+      destructive
+      {...props}
+    />
+  );
+
+  return disableTooltip ? button : (
+    <Tooltip label={t("hangup_button_label")}>{button}</Tooltip>
   );
 };
 
-export const SettingsButton: FC<ComponentPropsWithoutRef<"button">> = (
-  props,
-) => {
+export const SettingsButton: FC<
+  ComponentPropsWithoutRef<"button"> & TooltipControlProps
+> = ({ disableTooltip = false, ...props }) => {
   const { t } = useTranslation();
 
-  return (
-    <Tooltip label={t("common.settings")}>
-      <CpdButton
-        iconOnly
-        Icon={SettingsSolidIcon}
-        kind="secondary"
-        {...props}
-      />
-    </Tooltip>
+  const button = (
+    <CpdButton
+      iconOnly
+      Icon={SettingsSolidIcon}
+      kind="secondary"
+      {...props}
+    />
+  );
+
+  return disableTooltip ? button : (
+    <Tooltip label={t("common.settings")}>{button}</Tooltip>
   );
 };

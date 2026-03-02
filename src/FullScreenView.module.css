@@ -43,6 +43,43 @@ Please see LICENSE in the repository root for full details.
   margin-bottom: 0;
 }
 
+.loadingDots {
+  width: 54px;
+  height: 14px;
+  display: inline-flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.loadingDots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  animation: callDots 1.2s infinite ease-in-out;
+}
+
+.loadingDots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loadingDots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes callDots {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.6;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* Make the buttons the same width */
 .wideButton {
   width: 291px;

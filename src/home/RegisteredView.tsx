@@ -14,7 +14,7 @@ import {
 } from "react";
 import { type MatrixClient } from "matrix-js-sdk";
 import { useTranslation } from "react-i18next";
-import { Heading, Text } from "@vector-im/compound-web";
+import { Text } from "@vector-im/compound-web";
 import { logger } from "matrix-js-sdk/lib/logger";
 import { Button } from "@vector-im/compound-web";
 import { useNavigate } from "react-router-dom";
@@ -26,7 +26,7 @@ import {
   sanitiseRoomNameInput,
 } from "../utils/matrix";
 import { useGroupCallRooms } from "./useGroupCallRooms";
-import { Header, HeaderLogo, LeftNav, RightNav } from "../Header";
+import { Header, LeftNav, RightNav } from "../Header";
 import commonStyles from "./common.module.css";
 import styles from "./RegisteredView.module.css";
 import { FieldRow, InputField, ErrorMessage } from "../input/Input";
@@ -118,19 +118,13 @@ export const RegisteredView: FC<Props> = ({ client }) => {
       <div className={commonStyles.container}>
         {header === "standard" && (
           <Header>
-            <LeftNav>
-              <HeaderLogo />
-            </LeftNav>
+            <LeftNav />
             <RightNav>
               <UserMenuContainer />
             </RightNav>
           </Header>
         )}
         <main className={commonStyles.main}>
-          <HeaderLogo className={commonStyles.logo} />
-          <Heading size="lg" weight="semibold">
-            {t("start_new_call")}
-          </Heading>
           <Form className={styles.form} onSubmit={onSubmit}>
             <FieldRow className={styles.fieldRow}>
               <InputField
