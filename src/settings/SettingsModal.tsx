@@ -220,12 +220,12 @@ export const SettingsModal: FC<Props> = ({
   const tabs = [audioTab, videoTab];
   if (widget === null) tabs.push(profileTab);
   tabs.push(preferencesTab);
-  if (isRageshakeAvailable || import.meta.env.VITE_PACKAGE === "full") {
-    // for full package we want to show the analytics consent checkbox
-    // even if rageshake is not available
+  // Feedback tab hidden by requirement (keep definition for easy re-enable)
+  if (false && (isRageshakeAvailable || import.meta.env.VITE_PACKAGE === "full")) {
     tabs.push(feedbackTab);
   }
-  if (showDeveloperSettingsTab) tabs.push(developerTab);
+  // Developer tab hidden by requirement (keep definition for easy re-enable)
+  if (false && showDeveloperSettingsTab) tabs.push(developerTab);
 
   return (
     <Modal

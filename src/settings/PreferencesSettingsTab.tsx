@@ -38,6 +38,7 @@ export const PreferencesSettingsTab: FC = () => {
   };
 
   const [developerMode, setDeveloperMode] = useSetting(developerModeSetting);
+  const showDeveloperOption = false;
 
   return (
     <div>
@@ -76,20 +77,22 @@ export const PreferencesSettingsTab: FC = () => {
           onChange={(e) => onChangeSetting(e, setPlayReactionSound)}
         />
       </FieldRow>
-      <FieldRow>
-        <InputField
-          id="developerSettingsTab"
-          type="checkbox"
-          checked={developerMode}
-          label={t("settings.preferences_tab.developer_mode_label")}
-          description={t(
-            "settings.preferences_tab.developer_mode_label_description",
-          )}
-          onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-            setDeveloperMode(event.target.checked)
-          }
-        />
-      </FieldRow>
+      {showDeveloperOption && (
+        <FieldRow>
+          <InputField
+            id="developerSettingsTab"
+            type="checkbox"
+            checked={developerMode}
+            label={t("settings.preferences_tab.developer_mode_label")}
+            description={t(
+              "settings.preferences_tab.developer_mode_label_description",
+            )}
+            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+              setDeveloperMode(event.target.checked)
+            }
+          />
+        </FieldRow>
+      )}
     </div>
   );
 };

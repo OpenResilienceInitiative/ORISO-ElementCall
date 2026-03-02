@@ -31,8 +31,6 @@ import {
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { useTranslation } from "react-i18next";
 
-import LogoMark from "../icons/LogoMark.svg?react";
-import LogoType from "../icons/LogoType.svg?react";
 import type { IWidgetApiRequest } from "matrix-widget-api";
 import {
   EndCallButton,
@@ -171,6 +169,22 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
     mediaDevices,
     trackProcessorState$,
   ]);
+
+  useEffect(() => {
+    if (!vm) return;
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type !== "oriso-call-action") return;
+      if (data.action === "hangup") {
+        vm.hangup();
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return (): void => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [vm]);
 
   if (vm === null) return null;
 
@@ -772,20 +786,9 @@ export const InCallView: FC<InCallViewProps> = ({
           !showFooter || (!showControls && headerStyle === "none"),
       })}
     >
-      {headerStyle !== "none" && (
-        <div className={styles.logo}>
-          <LogoMark width={24} height={24} aria-hidden />
-          <LogoType
-            width={80}
-            height={11}
-            aria-label={import.meta.env.VITE_PRODUCT_NAME || "Element Call"}
-          />
-          {/* Don't mind this odd placement, it's just a little debug label */}
-          {debugTileLayout
-            ? `Tiles generation: ${tileStoreGeneration}`
-            : undefined}
-        </div>
-      )}
+      {headerStyle !== "none" && debugTileLayout
+        ? `Tiles generation: ${tileStoreGeneration}`
+        : undefined}
       {showControls && <div className={styles.buttons}>{buttons}</div>}
       {showControls && (
         <LayoutToggle

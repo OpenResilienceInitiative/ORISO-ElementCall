@@ -12,9 +12,37 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
     />
-    <title><%- brand %></title>
+    <title>Call</title>
     <script>
       window.global = window;
+    </script>
+    <style>
+      :root,
+      html,
+      body,
+      #root {
+        background: #000 !important;
+        background-image: none !important;
+        --background-gradient: none !important;
+      }
+    </style>
+    <script>
+      (function() {
+        var body = document.body;
+        var html = document.documentElement;
+        function forceBlack() {
+          if (!body) body = document.body;
+          if (!body) return;
+          body.style.setProperty("background-image", "none", "important");
+          body.style.setProperty("background", "#000", "important");
+          body.style.setProperty("--background-gradient", "none", "important");
+          html.style.setProperty("background-image", "none", "important");
+          html.style.setProperty("background", "#000", "important");
+          html.style.setProperty("--background-gradient", "none", "important");
+        }
+        forceBlack();
+        setInterval(forceBlack, 250);
+      })();
     </script>
 
     <!-- AUTO-AUTHENTICATION SCRIPT: Read Matrix credentials from URL parameters -->
@@ -89,7 +117,7 @@
   </head>
 
   <!-- The default class is: .no-theme {display: none}. It will be overwritten once the app is loaded. -->
-  <body class="no-theme">
+  <body class="no-theme" style="background:#000 !important; background-image:none !important;">
     <div id="root"></div>
   </body>
 </html>

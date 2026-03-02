@@ -12,7 +12,7 @@ import * as Sentry from "@sentry/react";
 import { logger } from "matrix-js-sdk/lib/logger";
 import { ErrorSolidIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
-import { Header, HeaderLogo, LeftNav, RightNav } from "./Header";
+import { Header, LeftNav, RightNav } from "./Header";
 import styles from "./FullScreenView.module.css";
 import { useUrlParams } from "./UrlParams";
 import { RichError } from "./RichError";
@@ -33,9 +33,7 @@ export const FullScreenView: FC<FullScreenViewProps> = ({
     <div className={classNames(styles.page, className)}>
       {header === "standard" && (
         <Header>
-          <LeftNav>
-            <HeaderLogo />
-          </LeftNav>
+          <LeftNav />
           <RightNav />
         </Header>
       )}
@@ -80,11 +78,13 @@ export const ErrorPage = ({ error, widget }: ErrorPageProps): ReactElement => {
 };
 
 export const LoadingPage: FC = () => {
-  const { t } = useTranslation();
-
   return (
     <FullScreenView>
-      <h1>{t("common.loading")}</h1>
+      <div className={styles.loadingDots} aria-label="Loading">
+        <span />
+        <span />
+        <span />
+      </div>
     </FullScreenView>
   );
 };

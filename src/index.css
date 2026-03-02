@@ -44,7 +44,7 @@ layer(compound);
   );
   --small-drop-shadow: 0px 1.2px 2.4px 0px rgba(0, 0, 0, 0.15);
   --subtle-drop-shadow: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
-  --background-gradient: url("graphics/backgroundGradient.svg");
+  --background-gradient: none !important;
 
   --call-view-overlay-layer: 1;
   --call-view-header-footer-layer: 2;
@@ -52,7 +52,12 @@ layer(compound);
 
 :root,
 [class*="cpd-theme-"] {
-  --video-tile-background: var(--cpd-color-bg-subtle-secondary);
+  --background-gradient: none !important;
+  --cpd-color-bg-canvas-default: #000;
+  --cpd-color-bg-subtle-secondary: #000;
+  --cpd-color-bg-subtle-primary: #000;
+  --cpd-color-alpha-gray-1400: #000;
+  --video-tile-background: #000;
 }
 
 .cpd-theme-dark {
@@ -62,10 +67,9 @@ layer(compound);
 }
 
 body {
-  background-color: var(--cpd-color-bg-canvas-default);
-  background-size: calc(max(1440px, 100vw)) calc(max(800px, 100vh));
-  background-repeat: no-repeat;
-  background-position: center;
+  background-color: #000 !important;
+  background-image: none !important;
+  background: #000 !important;
   color: var(--cpd-color-text-primary);
   color-scheme: dark;
   margin: 0;
@@ -83,7 +87,9 @@ we use this for mobile pip webviews */
 
 /* We use this to not render the page at all until we know the theme.*/
 .no-theme {
-  opacity: 0;
+  opacity: 1;
+  background: #000 !important;
+  background-image: none !important;
 }
 
 html,
@@ -112,6 +118,26 @@ body[data-platform="android"] {
 body[data-platform="ios"] {
   --cpd-font-family-sans:
     -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+}
+
+/* Hard override: remove any speaking/hand-raise gradient borders */
+.tile.speaking::before,
+.tile.handRaised::before {
+  background: #000 !important;
+}
+
+.tile.speaking,
+.tile.handRaised {
+  outline-color: #000 !important;
+}
+
+/* Hard override: kill any remaining gradient background images */
+html,
+body,
+#root,
+[class*="cpd-theme-"] {
+  background: #000 !important;
+  background-image: none !important;
 }
 
 @layer compound-legacy {

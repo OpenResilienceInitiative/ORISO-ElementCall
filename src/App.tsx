@@ -13,7 +13,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { BrowserRouter, Route, useLocation, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 import { TooltipProvider } from "@vector-im/compound-web";
 import { logger } from "matrix-js-sdk/lib/logger";
@@ -39,21 +39,6 @@ interface SimpleProviderProps {
   children: JSX.Element;
 }
 
-const BackgroundProvider: FC<SimpleProviderProps> = ({ children }) => {
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    let backgroundImage = "";
-    if (!["/login", "/register"].includes(pathname) && !widget) {
-      backgroundImage = "var(--background-gradient)";
-    }
-
-    document.getElementsByTagName("body")[0].style.backgroundImage =
-      backgroundImage;
-  }, [pathname]);
-
-  return <>{children}</>;
-};
 const ThemeProvider: FC<SimpleProviderProps> = ({ children }) => {
   useTheme();
   return children;
@@ -101,19 +86,13 @@ export const App: FC<Props> = ({ vm }) => {
 
   return (
     <BrowserRouter>
-      <BackgroundProvider>
-        <ThemeProvider>
-          <TooltipProvider>
-            <Suspense fallback={null}>
-              {header === HeaderStyle.AppBar ? (
-                <AppBar>{content}</AppBar>
-              ) : (
-                content
-              )}
-            </Suspense>
-          </TooltipProvider>
-        </ThemeProvider>
-      </BackgroundProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Suspense fallback={null}>
+            {header === HeaderStyle.AppBar ? <AppBar>{content}</AppBar> : content}
+          </Suspense>
+        </TooltipProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 };
