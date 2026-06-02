@@ -1,0 +1,29 @@
+name: CI - Feature Branch
+
+on:
+  push:
+    branches-ignore:
+    - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Enable Corepack
+      run: corepack enable
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        cache: yarn
+        node-version-file: .node-version
+
+    - name: Install dependencies
+      run: yarn install --immutable
+
+    - name: Build full package
+      run: yarn run build:full
