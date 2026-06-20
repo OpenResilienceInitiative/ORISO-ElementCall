@@ -250,10 +250,6 @@ interface IntentAndPlatformDerivedConfiguration {
   defaultAudioEnabled?: boolean;
   defaultVideoEnabled?: boolean;
 }
-interface IntentAndPlatformDerivedConfiguration {
-  defaultAudioEnabled?: boolean;
-  defaultVideoEnabled?: boolean;
-}
 
 // If you need to add a new flag to this interface, prefer a name that describes
 // a specific behavior (such as 'confineToRoom'), rather than one that describes
@@ -401,6 +397,10 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   // is false.
   const intent =
     parser.getEnumParam("intent", UserIntent) ?? UserIntent.Unknown;
+  const explicitCallIntent = parser.getEnumParam("callIntent", [
+    "audio",
+    "video",
+  ] as RTCCallIntent[]);
   // Here we only use constants and `platform` to determine the intent preset.
   let intentPreset: UrlConfiguration = {
     confineToRoom: true,
@@ -547,7 +547,14 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     autoLeaveWhenOthersLeft: parser.getFlag("autoLeave"),
     noiseSuppression: parser.getFlagParam("noiseSuppression", true),
     echoCancellation: parser.getFlagParam("echoCancellation", true),
+    callIntent: explicitCallIntent,
   };
+
+  if (explicitCallIntent) {
+    intentAndPlatformDerivedConfiguration.defaultAudioEnabled = true;
+    intentAndPlatformDerivedConfiguration.defaultVideoEnabled =
+      explicitCallIntent === "video";
+  }
 
   // Log the final configuration for debugging purposes.
   // This will only log when the cache is not yet set.

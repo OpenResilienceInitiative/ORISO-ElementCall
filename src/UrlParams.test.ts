@@ -309,6 +309,26 @@ describe("UrlParams", () => {
         ),
       ).toMatchObject(joinExistingCallDefaults("desktop"));
     });
+
+    it("accepts explicit audio callIntent", () => {
+      expect(
+        computeUrlParams("?intent=start_call&callIntent=audio&skipLobby=true"),
+      ).toMatchObject({
+        callIntent: "audio",
+        defaultAudioEnabled: true,
+        defaultVideoEnabled: false,
+      });
+    });
+
+    it("accepts explicit video callIntent", () => {
+      expect(
+        computeUrlParams("?intent=start_call&callIntent=video&skipLobby=true"),
+      ).toMatchObject({
+        callIntent: "video",
+        defaultAudioEnabled: true,
+        defaultVideoEnabled: true,
+      });
+    });
   });
 
   describe("skipLobby", () => {

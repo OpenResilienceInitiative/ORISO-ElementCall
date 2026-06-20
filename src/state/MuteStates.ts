@@ -22,7 +22,13 @@ import {
   withLatestFrom,
 } from "rxjs";
 
-import { type MediaDevices, type MediaDevice } from "../state/MediaDevices";
+import {
+  type DeviceLabel,
+  type MediaDevices,
+  type MediaDevice,
+  type SelectedAudioInputDevice,
+  type SelectedDevice,
+} from "../state/MediaDevices";
 import { ElementWidgetActions, widget } from "../widget";
 import { Config } from "../config/Config";
 import { type ObservableScope } from "./ObservableScope";
@@ -207,26 +213,31 @@ export class MuteStates {
     }),
   );
 
-  public readonly audio = new MuteState(
-    this.scope,
-    this.mediaDevices.audioInput,
-    this.joined$,
-    Config.get().media_devices.enable_audio,
-    constant(false),
-  );
-  public readonly video = new MuteState(
-    this.scope,
-    this.mediaDevices.videoInput,
-    this.joined$,
-    Config.get().media_devices.enable_video,
-    this.isEarpiece$,
-  );
+  public readonly audio: MuteState<DeviceLabel, SelectedAudioInputDevice>;
+  public readonly video: MuteState<DeviceLabel, SelectedDevice>;
 
   public constructor(
     private readonly scope: ObservableScope,
     private readonly mediaDevices: MediaDevices,
     private readonly joined$: Observable<boolean>,
+    defaultAudioEnabled?: boolean,
+    defaultVideoEnabled?: boolean,
   ) {
+    this.audio = new MuteState(
+      this.scope,
+      this.mediaDevices.audioInput,
+      this.joined$,
+      defaultAudioEnabled ?? Config.get().media_devices.enable_audio,
+      constant(false),
+    );
+    this.video = new MuteState(
+      this.scope,
+      this.mediaDevices.videoInput,
+      this.joined$,
+      defaultVideoEnabled ?? Config.get().media_devices.enable_video,
+      this.isEarpiece$,
+    );
+
     if (widget !== null) {
       // Sync our mute states with the hosting client
       const widgetApiState$ = combineLatest(
