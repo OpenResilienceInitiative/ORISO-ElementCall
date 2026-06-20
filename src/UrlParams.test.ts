@@ -145,8 +145,12 @@ describe("UrlParams", () => {
   });
 
   describe("userId", () => {
-    it("is ignored in SPA mode", () => {
+    it("is ignored from the search query in SPA mode", () => {
       expect(computeUrlParams("?userId=asd").userId).toBe(null);
+    });
+
+    it("is parsed from the fragment query in SPA mode", () => {
+      expect(computeUrlParams("", "#?userId=asd").userId).toBe("asd");
     });
 
     it("is parsed in widget mode", () => {
@@ -158,9 +162,25 @@ describe("UrlParams", () => {
     });
   });
 
+  describe("accessToken", () => {
+    it("is ignored from the search query", () => {
+      expect(computeUrlParams("?accessToken=token").accessToken).toBe(null);
+    });
+
+    it("is parsed from the fragment query", () => {
+      expect(computeUrlParams("", "#?accessToken=token").accessToken).toBe(
+        "token",
+      );
+    });
+  });
+
   describe("deviceId", () => {
-    it("is ignored in SPA mode", () => {
+    it("is ignored from the search query in SPA mode", () => {
       expect(computeUrlParams("?deviceId=asd").deviceId).toBe(null);
+    });
+
+    it("is parsed from the fragment query in SPA mode", () => {
+      expect(computeUrlParams("", "#?deviceId=asd").deviceId).toBe("asd");
     });
 
     it("is parsed in widget mode", () => {
@@ -273,6 +293,14 @@ describe("UrlParams", () => {
           "?intent=start_call&widgetId=1234&parentUrl=parent.org",
         ),
       ).toMatchObject({ ...startNewCallDefaults("desktop"), skipLobby: false });
+    });
+
+    it("accepts explicit call intent", () => {
+      expect(
+        computeUrlParams("?intent=start_call&callIntent=audio"),
+      ).toMatchObject({
+        callIntent: "audio",
+      });
     });
 
     it("accepts start_call_dm mobile", () => {
