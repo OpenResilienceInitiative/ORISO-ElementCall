@@ -22,15 +22,10 @@ import {
   withLatestFrom,
 } from "rxjs";
 
-import {
-  type DeviceLabel,
-  type MediaDevices,
-  type MediaDevice,
-  type SelectedAudioInputDevice,
-  type SelectedDevice,
-} from "../state/MediaDevices";
+import { type MediaDevices, type MediaDevice } from "../state/MediaDevices";
 import { ElementWidgetActions, widget } from "../widget";
 import { Config } from "../config/Config";
+import { getUrlParams } from "../UrlParams";
 import { type ObservableScope } from "./ObservableScope";
 import { type Behavior, constant } from "./Behavior";
 
@@ -197,6 +192,17 @@ export class MuteState<Label, Selected> {
 }
 
 export class MuteStates {
+  private readonly urlParams = getUrlParams();
+
+  private readonly defaultAudioEnabled =
+    Config.get().media_devices.enable_audio &&
+    (this.urlParams.defaultAudioEnabled ?? true);
+
+  private readonly defaultVideoEnabled =
+    Config.get().media_devices.enable_video &&
+    (this.urlParams.defaultVideoEnabled ??
+      this.urlParams.callIntent !== "audio");
+
   /**
    *  True if the selected audio output device is an earpiece.
    *  Used to force-disable video when on earpiece.
@@ -213,31 +219,26 @@ export class MuteStates {
     }),
   );
 
-  public readonly audio: MuteState<DeviceLabel, SelectedAudioInputDevice>;
-  public readonly video: MuteState<DeviceLabel, SelectedDevice>;
+  public readonly audio = new MuteState(
+    this.scope,
+    this.mediaDevices.audioInput,
+    this.joined$,
+    this.defaultAudioEnabled,
+    constant(false),
+  );
+  public readonly video = new MuteState(
+    this.scope,
+    this.mediaDevices.videoInput,
+    this.joined$,
+    this.defaultVideoEnabled,
+    this.isEarpiece$,
+  );
 
   public constructor(
     private readonly scope: ObservableScope,
     private readonly mediaDevices: MediaDevices,
     private readonly joined$: Observable<boolean>,
-    defaultAudioEnabled?: boolean,
-    defaultVideoEnabled?: boolean,
   ) {
-    this.audio = new MuteState(
-      this.scope,
-      this.mediaDevices.audioInput,
-      this.joined$,
-      defaultAudioEnabled ?? Config.get().media_devices.enable_audio,
-      constant(false),
-    );
-    this.video = new MuteState(
-      this.scope,
-      this.mediaDevices.videoInput,
-      this.joined$,
-      defaultVideoEnabled ?? Config.get().media_devices.enable_video,
-      this.isEarpiece$,
-    );
-
     if (widget !== null) {
       // Sync our mute states with the hosting client
       const widgetApiState$ = combineLatest(
