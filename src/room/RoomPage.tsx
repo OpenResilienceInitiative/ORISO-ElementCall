@@ -46,8 +46,16 @@ import { MuteStates } from "../state/MuteStates";
 import { ObservableScope } from "../state/ObservableScope";
 
 export const RoomPage: FC = () => {
-  const { confineToRoom, appPrompt, preload, header, displayName, skipLobby } =
-    useUrlParams();
+  const {
+    confineToRoom,
+    appPrompt,
+    preload,
+    header,
+    displayName,
+    skipLobby,
+    defaultAudioEnabled,
+    defaultVideoEnabled,
+  } = useUrlParams();
   const { t } = useTranslation();
   const { roomAlias, roomId, viaServers } = useRoomIdentifier();
 
@@ -74,9 +82,17 @@ export const RoomPage: FC = () => {
   );
   useEffect(() => {
     const scope = new ObservableScope();
-    setMuteStates(new MuteStates(scope, devices, joined$));
+    setMuteStates(
+      new MuteStates(
+        scope,
+        devices,
+        joined$,
+        defaultAudioEnabled,
+        defaultVideoEnabled,
+      ),
+    );
     return (): void => scope.end();
-  }, [devices, joined$]);
+  }, [devices, joined$, defaultAudioEnabled, defaultVideoEnabled]);
 
   useEffect(() => {
     // If we've finished loading, are not already authed and we've been given a display name as
