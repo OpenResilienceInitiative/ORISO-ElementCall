@@ -407,6 +407,10 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   // is false.
   const intent =
     parser.getEnumParam("intent", UserIntent) ?? UserIntent.Unknown;
+  const explicitCallIntent = parser.getEnumParam("callIntent", [
+    "audio",
+    "video",
+  ] as RTCCallIntent[]);
   // Here we only use constants and `platform` to determine the intent preset.
   let intentPreset: UrlConfiguration = {
     confineToRoom: true,
@@ -558,13 +562,19 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     autoLeaveWhenOthersLeft: parser.getFlag("autoLeave"),
     noiseSuppression: parser.getFlagParam("noiseSuppression", true),
     echoCancellation: parser.getFlagParam("echoCancellation", true),
-    callIntent: parser.getEnumParam("callIntent", ["audio", "video"]),
+    callIntent: explicitCallIntent,
   };
 
   const loggedProperties = {
     ...properties,
     accessToken: properties.accessToken ? "<redacted>" : null,
   };
+
+  if (explicitCallIntent) {
+    intentAndPlatformDerivedConfiguration.defaultAudioEnabled = true;
+    intentAndPlatformDerivedConfiguration.defaultVideoEnabled =
+      explicitCallIntent === "video";
+  }
 
   // Log the final configuration for debugging purposes.
   // This will only log when the cache is not yet set.
