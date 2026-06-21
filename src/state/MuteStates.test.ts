@@ -21,12 +21,32 @@ import { constant } from "./Behavior";
 import { ObservableScope } from "./ObservableScope";
 import { flushPromises, mockMediaDevices } from "../utils/test";
 
+vi.hoisted(() => {
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string): string | null => values.get(key) ?? null,
+      setItem: (key: string, value: string): void => {
+        values.set(key, value);
+      },
+      removeItem: (key: string): void => {
+        values.delete(key);
+      },
+      clear: (): void => {
+        values.clear();
+      },
+    },
+  });
+});
+
 const getUrlParams = vi.hoisted(() => vi.fn(() => ({})));
 vi.mock("../UrlParams", () => ({ getUrlParams }));
 
 let testScope: ObservableScope;
 
 beforeEach(() => {
+  getUrlParams.mockReturnValue({});
   testScope = new ObservableScope();
 });
 
@@ -198,15 +218,44 @@ describe("MuteStates", () => {
     // Try to switch to speaker
     audioOutputDevice.select("0000");
     await flushPromises();
-    // TODO I'd expect it to go back to previous state (enabled)??
-    // But maybe not? If you move the phone away from your ear you may not want it
-    // to automatically enable video?
-    expect(lastVideoEnabled).toBe(false);
+    // ORISO keeps media enabled by default, so returning from forced earpiece
+    // mode restores video to the default enabled state.
+    expect(lastVideoEnabled).toBe(true);
 
     // But yet it can be unmuted now
     expect(muteStates.video.setEnabled$.value).toBeDefined();
     muteStates.video.setEnabled$.value?.(true);
     await flushPromises();
     expect(lastVideoEnabled).toBe(true);
+  });
+
+  test("should disable video for audio call intent", async () => {
+    getUrlParams.mockReturnValue({
+      callIntent: "audio",
+    });
+
+    const muteStates = new MuteStates(
+      testScope,
+      mockMediaDevices({
+        audioOutput: aAudioOutputDevices(),
+        videoInput: aVideoInput(),
+      }),
+      constant(true),
+    );
+
+    let lastAudioEnabled = false;
+    let lastVideoEnabled = true;
+
+    muteStates.audio.enabled$.subscribe((enabled) => {
+      lastAudioEnabled = enabled;
+    });
+    muteStates.video.enabled$.subscribe((enabled) => {
+      lastVideoEnabled = enabled;
+    });
+
+    await flushPromises();
+
+    expect(lastAudioEnabled).toBe(true);
+    expect(lastVideoEnabled).toBe(false);
   });
 });

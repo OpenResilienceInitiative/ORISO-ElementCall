@@ -25,6 +25,7 @@ import {
 import { type MediaDevices, type MediaDevice } from "../state/MediaDevices";
 import { ElementWidgetActions, widget } from "../widget";
 import { Config } from "../config/Config";
+import { getUrlParams } from "../UrlParams";
 import { type ObservableScope } from "./ObservableScope";
 import { type Behavior, constant } from "./Behavior";
 
@@ -191,6 +192,17 @@ export class MuteState<Label, Selected> {
 }
 
 export class MuteStates {
+  private readonly urlParams = getUrlParams();
+
+  private readonly defaultAudioEnabled =
+    Config.get().media_devices.enable_audio &&
+    (this.urlParams.defaultAudioEnabled ?? true);
+
+  private readonly defaultVideoEnabled =
+    Config.get().media_devices.enable_video &&
+    (this.urlParams.defaultVideoEnabled ??
+      this.urlParams.callIntent !== "audio");
+
   /**
    *  True if the selected audio output device is an earpiece.
    *  Used to force-disable video when on earpiece.
@@ -211,14 +223,14 @@ export class MuteStates {
     this.scope,
     this.mediaDevices.audioInput,
     this.joined$,
-    Config.get().media_devices.enable_audio,
+    this.defaultAudioEnabled,
     constant(false),
   );
   public readonly video = new MuteState(
     this.scope,
     this.mediaDevices.videoInput,
     this.joined$,
-    Config.get().media_devices.enable_video,
+    this.defaultVideoEnabled,
     this.isEarpiece$,
   );
 

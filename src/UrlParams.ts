@@ -64,6 +64,11 @@ export interface UrlProperties {
   userId: string | null;
 
   /**
+   * The Matrix access token to use when ORISO opens Element Call directly.
+   */
+  accessToken: string | null;
+
+  /**
    * The display name to use for auto-registration.
    */
   displayName: string | null;
@@ -250,10 +255,6 @@ interface IntentAndPlatformDerivedConfiguration {
   defaultAudioEnabled?: boolean;
   defaultVideoEnabled?: boolean;
 }
-interface IntentAndPlatformDerivedConfiguration {
-  defaultAudioEnabled?: boolean;
-  defaultVideoEnabled?: boolean;
-}
 
 // If you need to add a new flag to this interface, prefer a name that describes
 // a specific behavior (such as 'confineToRoom'), rather than one that describes
@@ -261,7 +262,8 @@ interface IntentAndPlatformDerivedConfiguration {
 // clearer what each flag means, and helps us avoid coupling Element Call's
 // behavior to the needs of specific consumers.
 export interface UrlParams
-  extends UrlProperties,
+  extends
+    UrlProperties,
     UrlConfiguration,
     IntentAndPlatformDerivedConfiguration {}
 
@@ -303,6 +305,10 @@ class ParamParser {
   // string for backwards compatibility with versions that only used that.
   public getParam(name: string): string | null {
     return this.fragmentParams.get(name) ?? this.queryParams.get(name);
+  }
+
+  public getFragmentParam(name: string): string | null {
+    return this.fragmentParams.get(name);
   }
 
   public getEnumParam<T extends string>(
@@ -401,6 +407,10 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   // is false.
   const intent =
     parser.getEnumParam("intent", UserIntent) ?? UserIntent.Unknown;
+  const explicitCallIntent = parser.getEnumParam("callIntent", [
+    "audio",
+    "video",
+  ] as RTCCallIntent[]);
   // Here we only use constants and `platform` to determine the intent preset.
   let intentPreset: UrlConfiguration = {
     confineToRoom: true,
@@ -498,9 +508,14 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     // the room ID is, then that's what it is.
     roomId: parser.getParam("roomId"),
     password: parser.getParam("password"),
-    userId: isWidget ? parser.getParam("userId") : null,
+    userId: isWidget
+      ? parser.getParam("userId")
+      : parser.getFragmentParam("userId"),
+    accessToken: parser.getFragmentParam("accessToken"),
     displayName: parser.getParam("displayName"),
-    deviceId: isWidget ? parser.getParam("deviceId") : null,
+    deviceId: isWidget
+      ? parser.getParam("deviceId")
+      : parser.getFragmentParam("deviceId"),
     baseUrl: isWidget ? parser.getParam("baseUrl") : null,
     lang: parser.getParam("lang"),
     fonts: parser.getAllParams("font"),
@@ -547,7 +562,19 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     autoLeaveWhenOthersLeft: parser.getFlag("autoLeave"),
     noiseSuppression: parser.getFlagParam("noiseSuppression", true),
     echoCancellation: parser.getFlagParam("echoCancellation", true),
+    callIntent: explicitCallIntent,
   };
+
+  const loggedProperties = {
+    ...properties,
+    accessToken: properties.accessToken ? "<redacted>" : null,
+  };
+
+  if (explicitCallIntent) {
+    intentAndPlatformDerivedConfiguration.defaultAudioEnabled = true;
+    intentAndPlatformDerivedConfiguration.defaultVideoEnabled =
+      explicitCallIntent === "video";
+  }
 
   // Log the final configuration for debugging purposes.
   // This will only log when the cache is not yet set.
@@ -556,7 +583,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     "intent:",
     intent,
     "\nproperties:",
-    properties,
+    loggedProperties,
     "configuration:",
     configuration,
     "intentAndPlatformDerivedConfiguration:",
