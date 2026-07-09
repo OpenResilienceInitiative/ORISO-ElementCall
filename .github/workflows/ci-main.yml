@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - dev
+      - pre-dev
 
 env:
   REGISTRY: ghcr.io
@@ -56,6 +57,7 @@ jobs:
           type=sha
           type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
           type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+          type=raw,value=pre-dev,enable=${{ github.ref == 'refs/heads/pre-dev' }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v7
