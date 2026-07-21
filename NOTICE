@@ -1,0 +1,11 @@
+ORISO ElementCall
+Copyright 2025-2026 Open Resilience Initiative
+
+This repository is a modified version of element-hq/element-call
+(original work Copyright New Vector Ltd / Element, dual-licensed
+AGPL-3.0 / commercial — see the upstream LICENSE files, which are
+preserved unchanged in this repository).
+
+Modifications by the Open Resilience Initiative, 2025-2026, are
+licensed under AGPL-3.0. The git history is the record of
+modifications (AGPL-3.0 section 5(a)).
