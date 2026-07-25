@@ -19,7 +19,12 @@ import { logger } from "matrix-js-sdk/lib/logger";
 import { secureRandomBase64Url } from "matrix-js-sdk/lib/randomstring";
 import { sleep } from "matrix-js-sdk/lib/utils";
 
-import type { ICreateClientOpts, MatrixClient, Room } from "matrix-js-sdk";
+import type {
+  ICreateClientOpts,
+  IMatrixClientCreateOpts,
+  MatrixClient,
+  Room,
+} from "matrix-js-sdk";
 import IndexedDBWorker from "../IndexedDBWorker?worker";
 import { generateUrlSearchParams, getUrlParams } from "../UrlParams";
 import { Config } from "../config/Config";
@@ -61,6 +66,21 @@ async function waitForSync(client: MatrixClient): Promise<void> {
     };
     client.on(ClientEvent.Sync, onSync);
   });
+}
+
+/**
+ * Whether the Matrix session was handed to us by an embedding application
+ * (access token, user ID and device ID in the URL), as ORISO does when it opens
+ * Element Call in an iframe.
+ *
+ * In that case the device is not ours: the host application is logged in with
+ * it and owns its crypto state. We therefore neither set up crypto (a second
+ * crypto stack would fight the host over the device's keys) nor let the SDK
+ * refuse to send events into encrypted rooms because of the missing crypto.
+ */
+export function hasEmbeddedSession(): boolean {
+  const { accessToken, userId, deviceId } = getUrlParams();
+  return Boolean(accessToken && userId && deviceId);
 }
 
 /**
@@ -117,7 +137,17 @@ export async function initClient(
     logger.info("Disabling E2E: group call signalling will NOT be encrypted.");
   }
 
-  const client = createClient({
+  // See `hasEmbeddedSession`: with a borrowed device, crypto belongs to the host
+  // application. `usingExternalCrypto` tells the SDK that, so that it sends
+  // events into encrypted rooms in the clear instead of throwing "This room is
+  // configured to use encryption, but your client does not support encryption."
+  // Without it, in-call reactions (`io.element.call.reaction`) cannot be sent at
+  // all in an encrypted room. It has no effect once a crypto backend exists.
+  const embeddedSession = hasEmbeddedSession();
+
+  // `usingExternalCrypto` lives on `IMatrixClientCreateOpts`, which `createClient`
+  // passes straight to the client but doesn't accept in its own signature.
+  const createOpts: IMatrixClientCreateOpts = {
     ...baseOpts,
     ...clientOptions,
     useAuthorizationHeader: true,
@@ -126,7 +156,9 @@ export async function initClient(
     localTimeoutMs: 5000,
     useE2eForGroupCall: e2eEnabled,
     fallbackICEServerAllowed: fallbackICEServerAllowed,
-  });
+    usingExternalCrypto: embeddedSession,
+  };
+  const client = createClient(createOpts);
 
   // In case of logging in a new matrix account but there is still crypto local store. This is needed for:
   // - We lost the auth tokens and cannot restore the client resulting in registering a new user.
@@ -151,13 +183,20 @@ export async function initClient(
   }
 
   // Also creates and starts any crypto related stores.
-  try {
-    await client.initRustCrypto();
-  } catch (err) {
-    logger.warn(
-      err,
-      "Make sure to clear client stores before initializing the rust crypto.",
+  if (embeddedSession) {
+    logger.info(
+      "The session was supplied by the embedding application: skipping crypto setup, " +
+        "as the host client owns the crypto state of this device.",
     );
+  } else {
+    try {
+      await client.initRustCrypto();
+    } catch (err) {
+      logger.warn(
+        err,
+        "Make sure to clear client stores before initializing the rust crypto.",
+      );
+    }
   }
 
   // Once startClient is called, syncs are run asynchronously.
