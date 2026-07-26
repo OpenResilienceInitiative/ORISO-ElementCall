@@ -12,6 +12,22 @@ const readSource = (relativePath: string): string =>
   readFileSync(new URL(relativePath, import.meta.url), "utf8");
 
 describe("Matryoshka-only embedding boundary", () => {
+  it("pins every container build and runtime base by digest", () => {
+    for (const dockerfile of [
+      readSource("../Dockerfile"),
+      readSource("../Dockerfile.prod"),
+    ]) {
+      const fromLines = dockerfile
+        .split("\n")
+        .filter((line) => line.startsWith("FROM "));
+
+      expect(fromLines.length).toBeGreaterThan(0);
+      expect(fromLines.every((line) => /@sha256:[a-f0-9]{64}/.test(line))).toBe(
+        true,
+      );
+    }
+  });
+
   it("does not accept or persist Matrix credentials from the iframe URL", () => {
     const html = readSource("../index.html");
     const urlParams = readSource("./UrlParams.ts");
