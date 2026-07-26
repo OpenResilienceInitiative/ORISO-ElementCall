@@ -24,7 +24,6 @@ import { ClientEvent, type MatrixClient } from "matrix-js-sdk";
 import type { WidgetApi } from "matrix-widget-api";
 import { ErrorPage } from "./FullScreenView";
 import { widget } from "./widget";
-import { getUrlParams } from "./UrlParams";
 import {
   PosthogAnalytics,
   RegistrationType,
@@ -387,16 +386,6 @@ const clearSession = (): void => localStorage.removeItem("matrix-auth-store");
 const saveSession = (s: Session): void =>
   localStorage.setItem("matrix-auth-store", JSON.stringify(s));
 const loadSession = (): Session | undefined => {
-  const { accessToken, userId, deviceId } = getUrlParams();
-  if (accessToken && userId && deviceId) {
-    return {
-      user_id: userId,
-      device_id: deviceId,
-      access_token: accessToken,
-      passwordlessUser: false,
-    };
-  }
-
   const data = localStorage.getItem("matrix-auth-store");
   if (!data) {
     return undefined;

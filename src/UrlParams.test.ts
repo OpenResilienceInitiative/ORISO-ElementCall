@@ -163,14 +163,11 @@ describe("UrlParams", () => {
   });
 
   describe("accessToken", () => {
-    it("is ignored from the search query", () => {
-      expect(computeUrlParams("?accessToken=token").accessToken).toBe(null);
-    });
-
-    it("is parsed from the fragment query", () => {
-      expect(computeUrlParams("", "#?accessToken=token").accessToken).toBe(
-        "token",
-      );
+    it("is never exposed to Element Call through URL parameters", () => {
+      expect(
+        "accessToken" in
+          computeUrlParams("?accessToken=query-token", "#?accessToken=token"),
+      ).toBe(false);
     });
   });
 

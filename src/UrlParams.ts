@@ -64,11 +64,6 @@ export interface UrlProperties {
   userId: string | null;
 
   /**
-   * The Matrix access token to use when ORISO opens Element Call directly.
-   */
-  accessToken: string | null;
-
-  /**
    * The display name to use for auto-registration.
    */
   displayName: string | null;
@@ -511,7 +506,6 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     userId: isWidget
       ? parser.getParam("userId")
       : parser.getFragmentParam("userId"),
-    accessToken: parser.getFragmentParam("accessToken"),
     displayName: parser.getParam("displayName"),
     deviceId: isWidget
       ? parser.getParam("deviceId")
@@ -565,11 +559,6 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     callIntent: explicitCallIntent,
   };
 
-  const loggedProperties = {
-    ...properties,
-    accessToken: properties.accessToken ? "<redacted>" : null,
-  };
-
   if (explicitCallIntent) {
     intentAndPlatformDerivedConfiguration.defaultAudioEnabled = true;
     intentAndPlatformDerivedConfiguration.defaultVideoEnabled =
@@ -583,7 +572,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     "intent:",
     intent,
     "\nproperties:",
-    loggedProperties,
+    properties,
     "configuration:",
     configuration,
     "intentAndPlatformDerivedConfiguration:",
