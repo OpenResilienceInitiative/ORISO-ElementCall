@@ -12,6 +12,29 @@ const readSource = (relativePath: string): string =>
   readFileSync(new URL(relativePath, import.meta.url), "utf8");
 
 describe("Matryoshka-only embedding boundary", () => {
+  it("publishes immutable multi-platform images with supply-chain evidence", () => {
+    for (const workflow of [
+      readSource("../.github/workflows/ci-main.yml"),
+      readSource("../.github/workflows/build-and-publish-docker.yaml"),
+    ]) {
+      expect(workflow).toContain("platforms: linux/amd64,linux/arm64");
+      expect(workflow).toContain("provenance: mode=max");
+      expect(workflow).toContain("sbom: true");
+      expect(workflow).toContain("id-token: write");
+      expect(workflow).toContain("attestations: write");
+      expect(workflow).toContain(
+        "aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25",
+      );
+      expect(workflow).toContain(
+        "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6",
+      );
+      expect(workflow).toMatch(
+        /image-ref: .*@\$\{\{ steps\..*\.outputs\.digest \}\}/,
+      );
+      expect(workflow).toContain("subject-digest: ${{ steps.");
+    }
+  });
+
   it("pins every container build and runtime base by digest", () => {
     for (const dockerfile of [
       readSource("../Dockerfile"),
