@@ -45,4 +45,13 @@ describe("Matryoshka-only embedding boundary", () => {
       /Always treat media as unencrypted|forcing E2eeType\.NONE/,
     );
   });
+
+  it("does not retain Jitsi configuration in the local integration harness", () => {
+    const sameSiteConfig = readSource("../backend/ew.test.config.json");
+    const otherSiteConfig = readSource(
+      "../backend/ew.test.othersite.config.json",
+    );
+
+    expect(`${sameSiteConfig}\n${otherSiteConfig}`).not.toMatch(/jitsi/i);
+  });
 });
