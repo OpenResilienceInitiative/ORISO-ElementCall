@@ -159,9 +159,14 @@ export async function initClient(
   try {
     await client.initRustCrypto();
   } catch (err) {
-    logger.warn(
+    // Not fatal here on purpose — the home page and lobby still work without
+    // crypto. But calls in encrypted rooms must not proceed, so log at error
+    // level: `GroupCallView` fails the call closed when `getCrypto()` is
+    // undefined, and this is the only place that explains why.
+    logger.error(
+      "Failed to initialise crypto. Calls in encrypted rooms will be refused. " +
+        "Make sure to clear client stores before initializing the rust crypto.",
       err,
-      "Make sure to clear client stores before initializing the rust crypto.",
     );
   }
 

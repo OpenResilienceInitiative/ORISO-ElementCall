@@ -81,6 +81,10 @@ export function useRoomEncryptionSystem(roomId: string): EncryptionSystem {
   const { widgetId, parentUrl } = getUrlParams();
   const isWidget = !!widgetId && !!parentUrl;
 
+  // NOTE: the first argument is the *room id*, not the storage key —
+  // `useRoomSharedKey` prefixes it itself. Passing an already-prefixed key here
+  // produced `room-shared-key-room-shared-key-…`, so a shared secret could be
+  // written but never read back.
   const [storedPassword] = useRoomSharedKey(
     roomId,
     isWidget ? undefined : (getKeyForRoom(roomId) ?? undefined),

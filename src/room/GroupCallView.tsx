@@ -66,6 +66,7 @@ import { usePageTitle } from "../usePageTitle";
 import {
   ConnectionLostError,
   E2EENotSupportedError,
+  E2EEUnavailableError,
   ElementCallError,
   UnknownCallError,
 } from "../utils/errors.ts";
@@ -419,6 +420,13 @@ export const GroupCallView: FC<Props> = ({
   if (!isE2EESupportedBrowser() && e2eeSystem.kind !== E2eeType.NONE) {
     // If we have a encryption system but the browser does not support it.
     throw new E2EENotSupportedError();
+  }
+
+  if (e2eeSystem.kind === E2eeType.PER_PARTICIPANT && !client.getCrypto()) {
+    // Per-participant keys travel over encrypted to-device messages. Without a
+    // crypto stack they cannot be distributed, and joining anyway would publish
+    // plaintext media into a room everyone believes is encrypted. Fail closed.
+    throw new E2EEUnavailableError();
   }
 
   const shareModal = (
