@@ -8,6 +8,13 @@ RUN gzip -k ../index.html *.js *.map *.css *.wasm *-app-*.json 2>/dev/null || tr
 
 FROM nginxinc/nginx-unprivileged:1.29.5-alpine-slim@sha256:08c2bc93448bc00d2a2e86cd2f8f729220f1d48b56bbf7f211e117fcfe0c4cb6
 
+# Patch fixable HIGH CVEs in Alpine packages until the pinned base image
+# ships them: CVE-2026-45447 (libcrypto3/libssl3), CVE-2026-40200
+# (musl/musl-utils), CVE-2026-22184 (zlib).
+USER root
+RUN apk upgrade --no-cache libcrypto3 libssl3 musl musl-utils zlib
+USER 101
+
 COPY --from=builder ./dist /app
 COPY config/nginx.conf /etc/nginx/conf.d/default.conf
 
