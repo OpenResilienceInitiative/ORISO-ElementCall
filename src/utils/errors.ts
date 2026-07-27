@@ -18,6 +18,11 @@ export enum ErrorCode {
   /** LiveKit indicates that the server has hit its track limits */
   INSUFFICIENT_CAPACITY_ERROR = "INSUFFICIENT_CAPACITY_ERROR",
   E2EE_NOT_SUPPORTED = "E2EE_NOT_SUPPORTED",
+  /**
+   * The browser could support encryption, but this client has no working crypto
+   * stack — so an encrypted room's media keys cannot be exchanged.
+   */
+  E2EE_UNAVAILABLE = "E2EE_UNAVAILABLE",
   OPEN_ID_ERROR = "OPEN_ID_ERROR",
   SFU_ERROR = "SFU_ERROR",
   UNKNOWN_ERROR = "UNKNOWN_ERROR",
@@ -105,6 +110,25 @@ export class E2EENotSupportedError extends ElementCallError {
       ErrorCode.E2EE_NOT_SUPPORTED,
       ErrorCategory.CLIENT_CONFIGURATION,
       t("error.e2ee_unsupported_description"),
+    );
+  }
+}
+
+/**
+ * Raised when a call in an encrypted room cannot be encrypted, because the
+ * crypto stack failed to initialise.
+ *
+ * This deliberately fails the call instead of quietly downgrading to plaintext
+ * media: in a counselling context an unencrypted call that looks like an
+ * encrypted one is worse than no call at all.
+ */
+export class E2EEUnavailableError extends ElementCallError {
+  public constructor() {
+    super(
+      t("error.e2ee_unavailable"),
+      ErrorCode.E2EE_UNAVAILABLE,
+      ErrorCategory.CLIENT_CONFIGURATION,
+      t("error.e2ee_unavailable_description"),
     );
   }
 }

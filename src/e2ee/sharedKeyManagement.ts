@@ -78,31 +78,44 @@ export type EncryptionSystem = Unencrypted | SharedSecret | PerParticipantE2EE;
 export function useRoomEncryptionSystem(roomId: string): EncryptionSystem {
   const { client } = useClient();
 
+  // NOTE: the first argument is the *room id*, not the storage key —
+  // `useRoomSharedKey` prefixes it itself. Passing an already-prefixed key here
+  // produced `room-shared-key-room-shared-key-…`, so a shared secret could be
+  // written but never read back.
   const [storedPassword] = useRoomSharedKey(
-    getRoomSharedKeyLocalStorageKey(roomId),
+    roomId,
     getKeyForRoom(roomId) ?? undefined,
   );
 
   const room = client?.getRoom(roomId);
   const e2eeSystem = <EncryptionSystem>useMemo(() => {
-    // TEMPORARY: Disable media E2EE to ensure maximum compatibility and stability
-    // for the current ORISO deployment.
+    // ORISO policy: media in a counselling call is never sent in the clear.
     //
-    // Element Call normally chooses between:
-    // - E2eeType.SHARED_KEY      (password-based)
-    // - E2eeType.PER_PARTICIPANT (MatrixRTC per-device E2EE)
+    // Media E2EE used to be forced to `E2eeType.NONE` here, because Element Call
+    // borrowed the host app's Matrix device and therefore could not initialise a
+    // crypto stack of its own — per-participant keys had nowhere to come from.
+    // Element Call now logs in with its own device (see
+    // `getElementCallAccessToken` in ORISO-Frontend), so the original upstream
+    // logic applies again.
     //
-    // In this installation, Matrix E2EE and device lists are not yet fully wired
-    // for all clients (desktop + mobile), which leads to situations where calls
-    // connect and tracks are published, but remote media cannot be decrypted and
-    // tiles show “Waiting for media…”.
-    //
-    // By forcing E2eeType.NONE here, all participants receive **unencrypted**
-    // media from LiveKit. This trades E2EE for reliability, but keeps signalling
-    // and room encryption unchanged. Once the Matrix E2EE setup is ready for
-    // MatrixRTC, this can be reverted to the original logic.
+    // A room we cannot see yet is treated as unencrypted only because there is
+    // no call to protect at that point; `GroupCallView` will not start a call
+    // without a room.
     if (!room) return { kind: E2eeType.NONE };
-    // Always treat media as unencrypted for now
+
+    // A shared secret arrives via the call link and is what external guests —
+    // who have no Matrix identity — use. It takes precedence because those
+    // participants cannot take part in per-participant key exchange.
+    if (storedPassword) {
+      return { kind: E2eeType.SHARED_KEY, secret: storedPassword };
+    }
+
+    // The normal ORISO path: every call room is created encrypted, so every
+    // call gets MatrixRTC per-participant media encryption.
+    if (room.hasEncryptionStateEvent()) {
+      return { kind: E2eeType.PER_PARTICIPANT };
+    }
+
     return { kind: E2eeType.NONE };
   }, [room, storedPassword]);
   return e2eeSystem;
