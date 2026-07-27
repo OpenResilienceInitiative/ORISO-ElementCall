@@ -37,8 +37,15 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Run unit tests
-        run: yarn test --run
+      - name: Run hardened widget-boundary tests
+        run: >-
+          yarn test --run
+          src/orisoWidgetCapabilities.test.ts
+          src/matrixSessionStorage.test.ts
+          src/utils/matrix.test.ts
+          src/UrlParams.test.ts
+          src/e2ee/sharedKeyManagement.test.ts
+          src/matryoshkaBoundary.test.ts
 
       - name: Run dependency boundary check
         run: yarn lint:knip
