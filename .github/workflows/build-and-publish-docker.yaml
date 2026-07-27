@@ -22,6 +22,7 @@ jobs:
       contents: write # required to upload release asset
       id-token: write
       attestations: write
+      # Required by actions/attest when it records the registry artifact.
       artifact-metadata: write
       packages: write
     steps:
@@ -86,6 +87,15 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
+
+      - name: Verify the SLSA provenance predicate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh attestation verify
+          "oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.image.outputs.digest }}"
+          --repo "${{ github.repository }}"
+          --predicate-type "https://slsa.dev/provenance/v1"
 
       - name: Record immutable release digest
         run: echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.image.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"

@@ -171,6 +171,22 @@ describe("UrlParams", () => {
     });
   });
 
+  describe("password", () => {
+    it("is ignored in widget mode", () => {
+      expect(
+        computeUrlParams(
+          "?widgetId=12345&parentUrl=https%3A%2F%2Fapp.oriso.example&password=iframe-secret",
+        ).password,
+      ).toBeNull();
+    });
+
+    it("remains available to standalone call links", () => {
+      expect(computeUrlParams("?password=standalone-secret").password).toBe(
+        "standalone-secret",
+      );
+    });
+  });
+
   describe("deviceId", () => {
     it("is ignored from the search query in SPA mode", () => {
       expect(computeUrlParams("?deviceId=asd").deviceId).toBe(null);

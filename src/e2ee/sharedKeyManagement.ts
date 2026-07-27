@@ -58,7 +58,8 @@ const useRoomSharedKey = (
 };
 
 export function getKeyForRoom(roomId: string): string | null {
-  const { roomId: urlRoomId, password } = getUrlParams();
+  const { roomId: urlRoomId, password, widgetId, parentUrl } = getUrlParams();
+  if (widgetId && parentUrl) return null;
   if (roomId !== urlRoomId)
     logger.warn(
       "requested key for a roomId which is not the current call room id (from the URL)",
@@ -77,20 +78,22 @@ export type EncryptionSystem = Unencrypted | SharedSecret | PerParticipantE2EE;
 
 export function useRoomEncryptionSystem(roomId: string): EncryptionSystem {
   const { client } = useClient();
+  const { widgetId, parentUrl } = getUrlParams();
+  const isWidget = !!widgetId && !!parentUrl;
 
   const [storedPassword] = useRoomSharedKey(
     roomId,
-    getKeyForRoom(roomId) ?? undefined,
+    isWidget ? undefined : (getKeyForRoom(roomId) ?? undefined),
   );
 
   const room = client?.getRoom(roomId);
   const e2eeSystem = <EncryptionSystem>useMemo(() => {
     if (!room) return { kind: E2eeType.NONE };
-    if (storedPassword)
+    if (!isWidget && storedPassword)
       return { kind: E2eeType.SHARED_KEY, secret: storedPassword };
     if (room.hasEncryptionStateEvent())
       return { kind: E2eeType.PER_PARTICIPANT };
     return { kind: E2eeType.NONE };
-  }, [room, storedPassword]);
+  }, [isWidget, room, storedPassword]);
   return e2eeSystem;
 }

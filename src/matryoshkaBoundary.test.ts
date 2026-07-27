@@ -32,6 +32,9 @@ describe("Matryoshka-only embedding boundary", () => {
         /image-ref: .*@\$\{\{ steps\..*\.outputs\.digest \}\}/,
       );
       expect(workflow).toContain("subject-digest: ${{ steps.");
+      expect(workflow).toContain(
+        '--predicate-type "https://slsa.dev/provenance/v1"',
+      );
     }
   });
 

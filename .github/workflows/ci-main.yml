@@ -1,6 +1,9 @@
 name: CI - Main
 
 on:
+  pull_request:
+    branches:
+      - pre-dev
   push:
     branches:
       - main
@@ -12,13 +15,81 @@ env:
   ORG: openresilienceinitiative
 
 jobs:
-  build:
+  quality:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: yarn
+          node-version-file: .node-version
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run unit tests
+        run: yarn test --run
+
+      - name: Run dependency boundary check
+        run: yarn lint:knip
+
+      - name: Lint the hardened widget boundary
+        run: >-
+          yarn eslint --max-warnings 0
+          src/widget.ts
+          src/orisoWidgetCapabilities.ts
+          src/orisoWidgetCapabilities.test.ts
+          src/matrixSessionStorage.ts
+          src/matrixSessionStorage.test.ts
+          src/UrlParams.ts
+          src/UrlParams.test.ts
+          src/utils/matrix.ts
+          src/utils/matrix.test.ts
+          src/e2ee/sharedKeyManagement.ts
+          src/e2ee/sharedKeyManagement.test.ts
+          src/ClientContext.tsx
+          src/matryoshkaBoundary.test.ts
+
+      - name: Check formatting of the hardened boundary
+        run: >-
+          yarn prettier -c
+          src/widget.ts
+          src/orisoWidgetCapabilities.ts
+          src/orisoWidgetCapabilities.test.ts
+          src/matrixSessionStorage.ts
+          src/matrixSessionStorage.test.ts
+          src/UrlParams.ts
+          src/UrlParams.test.ts
+          src/utils/matrix.ts
+          src/utils/matrix.test.ts
+          src/e2ee/sharedKeyManagement.ts
+          src/e2ee/sharedKeyManagement.test.ts
+          src/ClientContext.tsx
+          src/matryoshkaBoundary.test.ts
+
+      - name: Build full package
+        run: yarn build:full
+
+  publish-image:
+    if: github.event_name == 'push'
+    needs: quality
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
       id-token: write
       attestations: write
+      # Required by actions/attest when it records the registry artifact.
       artifact-metadata: write
       packages: write
 
@@ -39,7 +110,7 @@ jobs:
         run: yarn install --immutable
 
       - name: Build full package
-        run: yarn run build:full
+        run: yarn build:full
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -93,6 +164,15 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.ORG }}/element-call
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
+
+      - name: Verify the SLSA provenance predicate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh attestation verify
+          "oci://${{ env.REGISTRY }}/${{ env.ORG }}/element-call@${{ steps.image.outputs.digest }}"
+          --repo "${{ github.repository }}"
+          --predicate-type "https://slsa.dev/provenance/v1"
 
       - name: Record immutable release digest
         run: echo '${{ env.REGISTRY }}/${{ env.ORG }}/element-call@${{ steps.image.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"

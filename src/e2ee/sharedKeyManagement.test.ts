@@ -8,7 +8,7 @@ Please see LICENSE in the repository root for full details.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 
-import { useRoomEncryptionSystem } from "./sharedKeyManagement";
+import { getKeyForRoom, useRoomEncryptionSystem } from "./sharedKeyManagement";
 import { E2eeType } from "./e2eeType";
 
 const useClientMock = vi.hoisted(() => vi.fn());
@@ -23,12 +23,19 @@ const setup = ({
   encrypted,
   password = null,
   roomExists = true,
+  widgetMode = true,
 }: {
   encrypted: boolean;
   password?: string | null;
   roomExists?: boolean;
+  widgetMode?: boolean;
 }): void => {
-  getUrlParamsMock.mockReturnValue({ roomId: ROOM_ID, password });
+  getUrlParamsMock.mockReturnValue({
+    roomId: ROOM_ID,
+    password,
+    widgetId: widgetMode ? "oriso-call" : null,
+    parentUrl: widgetMode ? "https://app.oriso.example" : null,
+  });
   useClientMock.mockReturnValue({
     client: {
       getRoom: (
@@ -58,22 +65,20 @@ describe("useRoomEncryptionSystem", () => {
     expect(result.current).toEqual({ kind: E2eeType.PER_PARTICIPANT });
   });
 
-  it("prefers a shared secret from the call link", () => {
-    setup({ encrypted: true, password: "secret-from-link" });
+  it("ignores a shared secret from the call link in widget mode", () => {
+    setup({ encrypted: true, password: "secret-from-link", widgetMode: true });
 
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
-    expect(result.current).toEqual({
-      kind: E2eeType.SHARED_KEY,
-      secret: "secret-from-link",
-    });
+    expect(result.current).toEqual({ kind: E2eeType.PER_PARTICIPANT });
+    expect(getKeyForRoom(ROOM_ID)).toBeNull();
   });
 
-  it("reads a shared secret from the same storage key it writes", () => {
-    setup({ encrypted: true, password: "written-once" });
+  it("reads a shared secret from the same storage key in standalone mode", () => {
+    setup({ encrypted: true, password: "written-once", widgetMode: false });
     renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
-    setup({ encrypted: true, password: null });
+    setup({ encrypted: true, password: null, widgetMode: false });
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
     expect(result.current).toEqual({
@@ -85,6 +90,15 @@ describe("useRoomEncryptionSystem", () => {
         key.startsWith("room-shared-key-"),
       ),
     ).toEqual([`room-shared-key-${ROOM_ID}`]);
+  });
+
+  it("ignores a previously stored shared key in widget mode", () => {
+    localStorage.setItem(`room-shared-key-${ROOM_ID}`, "legacy-iframe-secret");
+    setup({ encrypted: true, widgetMode: true });
+
+    const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
+
+    expect(result.current).toEqual({ kind: E2eeType.PER_PARTICIPANT });
   });
 
   it("uses no media encryption for an unencrypted room", () => {

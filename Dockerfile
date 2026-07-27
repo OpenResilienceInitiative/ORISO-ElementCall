@@ -6,7 +6,7 @@ COPY ./dist /dist
 WORKDIR /dist/assets
 RUN gzip -k ../index.html *.js *.map *.css *.wasm *-app-*.json 
 
-FROM nginxinc/nginx-unprivileged:alpine-slim@sha256:90d82b3358df5758b3c57d20f2565082ce6f744906e7dc09afd0096c1b8eb2b5
+FROM nginxinc/nginx-unprivileged:1.29.5-alpine-slim@sha256:08c2bc93448bc00d2a2e86cd2f8f729220f1d48b56bbf7f211e117fcfe0c4cb6
 
 COPY --from=builder ./dist /app
 
