@@ -77,6 +77,11 @@ export async function initClient(
   clientOptions: ICreateClientOpts,
   restore: boolean,
 ): Promise<MatrixClient> {
+  const { widgetId, parentUrl } = getUrlParams();
+  if (widgetId && parentUrl) {
+    throw new Error("Standalone Matrix clients are disabled in widget mode");
+  }
+
   let indexedDB: IDBFactory | undefined;
   try {
     indexedDB = window.indexedDB;

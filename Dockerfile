@@ -1,4 +1,4 @@
-FROM alpine AS builder
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS builder
 
 COPY ./dist /dist
 
@@ -6,7 +6,7 @@ COPY ./dist /dist
 WORKDIR /dist/assets
 RUN gzip -k ../index.html *.js *.map *.css *.wasm *-app-*.json 
 
-FROM nginxinc/nginx-unprivileged:alpine-slim
+FROM nginxinc/nginx-unprivileged:1.29.5-alpine-slim@sha256:08c2bc93448bc00d2a2e86cd2f8f729220f1d48b56bbf7f211e117fcfe0c4cb6
 
 COPY --from=builder ./dist /app
 

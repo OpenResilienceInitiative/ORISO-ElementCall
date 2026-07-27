@@ -112,8 +112,10 @@ const logger = rootLogger.getChild("[InCallView]");
 
 const maxTapDurationMs = 400;
 
-export interface ActiveCallProps
-  extends Omit<InCallViewProps, "vm" | "livekitRoom" | "connState"> {
+export interface ActiveCallProps extends Omit<
+  InCallViewProps,
+  "vm" | "livekitRoom" | "connState"
+> {
   e2eeSystem: EncryptionSystem;
   // TODO refactor those reasons into an enum
   onLeft: (
@@ -169,22 +171,6 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
     mediaDevices,
     trackProcessorState$,
   ]);
-
-  useEffect(() => {
-    if (!vm) return;
-    const handleMessage = (event: MessageEvent) => {
-      const data = event.data;
-      if (!data || typeof data !== "object") return;
-      if (data.type !== "oriso-call-action") return;
-      if (data.action === "hangup") {
-        vm.hangup();
-      }
-    };
-    window.addEventListener("message", handleMessage);
-    return (): void => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [vm]);
 
   if (vm === null) return null;
 

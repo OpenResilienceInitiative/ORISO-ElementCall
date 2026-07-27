@@ -64,11 +64,6 @@ export interface UrlProperties {
   userId: string | null;
 
   /**
-   * The Matrix access token to use when ORISO opens Element Call directly.
-   */
-  accessToken: string | null;
-
-  /**
    * The display name to use for auto-registration.
    */
   displayName: string | null;
@@ -507,11 +502,12 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     // what would we do if it were invalid? If the widget API says that's what
     // the room ID is, then that's what it is.
     roomId: parser.getParam("roomId"),
-    password: parser.getParam("password"),
+    // Shared-key URLs are a standalone-mode compatibility feature. Widget
+    // media keys must arrive through the host-owned Matrix crypto boundary.
+    password: isWidget ? null : parser.getParam("password"),
     userId: isWidget
       ? parser.getParam("userId")
       : parser.getFragmentParam("userId"),
-    accessToken: parser.getFragmentParam("accessToken"),
     displayName: parser.getParam("displayName"),
     deviceId: isWidget
       ? parser.getParam("deviceId")
@@ -565,11 +561,6 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     callIntent: explicitCallIntent,
   };
 
-  const loggedProperties = {
-    ...properties,
-    accessToken: properties.accessToken ? "<redacted>" : null,
-  };
-
   if (explicitCallIntent) {
     intentAndPlatformDerivedConfiguration.defaultAudioEnabled = true;
     intentAndPlatformDerivedConfiguration.defaultVideoEnabled =
@@ -583,7 +574,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     "intent:",
     intent,
     "\nproperties:",
-    loggedProperties,
+    properties,
     "configuration:",
     configuration,
     "intentAndPlatformDerivedConfiguration:",

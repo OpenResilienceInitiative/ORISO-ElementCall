@@ -58,7 +58,8 @@ const useRoomSharedKey = (
 };
 
 export function getKeyForRoom(roomId: string): string | null {
-  const { roomId: urlRoomId, password } = getUrlParams();
+  const { roomId: urlRoomId, password, widgetId, parentUrl } = getUrlParams();
+  if (widgetId && parentUrl) return null;
   if (roomId !== urlRoomId)
     logger.warn(
       "requested key for a roomId which is not the current call room id (from the URL)",
@@ -77,6 +78,8 @@ export type EncryptionSystem = Unencrypted | SharedSecret | PerParticipantE2EE;
 
 export function useRoomEncryptionSystem(roomId: string): EncryptionSystem {
   const { client } = useClient();
+  const { widgetId, parentUrl } = getUrlParams();
+  const isWidget = !!widgetId && !!parentUrl;
 
   // NOTE: the first argument is the *room id*, not the storage key —
   // `useRoomSharedKey` prefixes it itself. Passing an already-prefixed key here
@@ -84,39 +87,17 @@ export function useRoomEncryptionSystem(roomId: string): EncryptionSystem {
   // written but never read back.
   const [storedPassword] = useRoomSharedKey(
     roomId,
-    getKeyForRoom(roomId) ?? undefined,
+    isWidget ? undefined : (getKeyForRoom(roomId) ?? undefined),
   );
 
   const room = client?.getRoom(roomId);
   const e2eeSystem = <EncryptionSystem>useMemo(() => {
-    // ORISO policy: media in a counselling call is never sent in the clear.
-    //
-    // Media E2EE used to be forced to `E2eeType.NONE` here, because Element Call
-    // borrowed the host app's Matrix device and therefore could not initialise a
-    // crypto stack of its own — per-participant keys had nowhere to come from.
-    // Element Call now logs in with its own device (see
-    // `getElementCallAccessToken` in ORISO-Frontend), so the original upstream
-    // logic applies again.
-    //
-    // A room we cannot see yet is treated as unencrypted only because there is
-    // no call to protect at that point; `GroupCallView` will not start a call
-    // without a room.
     if (!room) return { kind: E2eeType.NONE };
-
-    // A shared secret arrives via the call link and is what external guests —
-    // who have no Matrix identity — use. It takes precedence because those
-    // participants cannot take part in per-participant key exchange.
-    if (storedPassword) {
+    if (!isWidget && storedPassword)
       return { kind: E2eeType.SHARED_KEY, secret: storedPassword };
-    }
-
-    // The normal ORISO path: every call room is created encrypted, so every
-    // call gets MatrixRTC per-participant media encryption.
-    if (room.hasEncryptionStateEvent()) {
+    if (room.hasEncryptionStateEvent())
       return { kind: E2eeType.PER_PARTICIPANT };
-    }
-
     return { kind: E2eeType.NONE };
-  }, [room, storedPassword]);
+  }, [isWidget, room, storedPassword]);
   return e2eeSystem;
 }

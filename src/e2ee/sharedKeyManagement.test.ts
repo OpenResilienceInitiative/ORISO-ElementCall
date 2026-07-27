@@ -1,5 +1,5 @@
 /*
-Copyright 2026 ORISO / Open Resilience Initiative
+Copyright 2026 Open Resilience Initiative
 
 SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
@@ -8,7 +8,7 @@ Please see LICENSE in the repository root for full details.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 
-import { useRoomEncryptionSystem } from "./sharedKeyManagement";
+import { getKeyForRoom, useRoomEncryptionSystem } from "./sharedKeyManagement";
 import { E2eeType } from "./e2eeType";
 
 const useClientMock = vi.hoisted(() => vi.fn());
@@ -23,15 +23,27 @@ const setup = ({
   encrypted,
   password = null,
   roomExists = true,
+  widgetMode = true,
 }: {
   encrypted: boolean;
   password?: string | null;
   roomExists?: boolean;
+  widgetMode?: boolean;
 }): void => {
-  getUrlParamsMock.mockReturnValue({ roomId: ROOM_ID, password });
+  getUrlParamsMock.mockReturnValue({
+    roomId: ROOM_ID,
+    password,
+    widgetId: widgetMode ? "oriso-call" : null,
+    parentUrl: widgetMode ? "https://app.oriso.example" : null,
+  });
   useClientMock.mockReturnValue({
     client: {
-      getRoom: (roomId: string) =>
+      getRoom: (
+        roomId: string,
+      ): {
+        roomId: string;
+        hasEncryptionStateEvent: () => boolean;
+      } | null =>
         roomExists && roomId === ROOM_ID
           ? { roomId, hasEncryptionStateEvent: () => encrypted }
           : null,
@@ -45,9 +57,7 @@ afterEach(() => {
 });
 
 describe("useRoomEncryptionSystem", () => {
-  it("uses per-participant media encryption in an encrypted room", () => {
-    // This is the ORISO default: every call room is created encrypted, so every
-    // call must end up here. A regression to NONE means plaintext media.
+  it("uses per-participant media encryption in an encrypted widget room", () => {
     setup({ encrypted: true });
 
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
@@ -55,26 +65,20 @@ describe("useRoomEncryptionSystem", () => {
     expect(result.current).toEqual({ kind: E2eeType.PER_PARTICIPANT });
   });
 
-  it("prefers a shared secret from the call link over per-participant keys", () => {
-    // External guests have no Matrix identity and cannot take part in
-    // per-participant key exchange, so a link password wins.
-    setup({ encrypted: true, password: "s3cret-from-link" });
+  it("ignores a shared secret from the call link in widget mode", () => {
+    setup({ encrypted: true, password: "secret-from-link", widgetMode: true });
 
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
-    expect(result.current).toEqual({
-      kind: E2eeType.SHARED_KEY,
-      secret: "s3cret-from-link",
-    });
+    expect(result.current).toEqual({ kind: E2eeType.PER_PARTICIPANT });
+    expect(getKeyForRoom(ROOM_ID)).toBeNull();
   });
 
-  it("reads a shared secret back from local storage under the same key it was written to", () => {
-    // Regression guard: the room id used to be double-prefixed on read, so a
-    // stored secret was written but never found again.
-    setup({ encrypted: true, password: "written-once" });
+  it("reads a shared secret from the same storage key in standalone mode", () => {
+    setup({ encrypted: true, password: "written-once", widgetMode: false });
     renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
-    setup({ encrypted: true, password: null });
+    setup({ encrypted: true, password: null, widgetMode: false });
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
     expect(result.current).toEqual({
@@ -88,7 +92,16 @@ describe("useRoomEncryptionSystem", () => {
     ).toEqual([`room-shared-key-${ROOM_ID}`]);
   });
 
-  it("reports no encryption for an unencrypted room", () => {
+  it("ignores a previously stored shared key in widget mode", () => {
+    localStorage.setItem(`room-shared-key-${ROOM_ID}`, "legacy-iframe-secret");
+    setup({ encrypted: true, widgetMode: true });
+
+    const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
+
+    expect(result.current).toEqual({ kind: E2eeType.PER_PARTICIPANT });
+  });
+
+  it("uses no media encryption for an unencrypted room", () => {
     setup({ encrypted: false });
 
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
@@ -96,7 +109,7 @@ describe("useRoomEncryptionSystem", () => {
     expect(result.current).toEqual({ kind: E2eeType.NONE });
   });
 
-  it("reports no encryption while the room is not known yet", () => {
+  it("uses no media encryption while the room is unavailable", () => {
     setup({ encrypted: true, roomExists: false });
 
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));

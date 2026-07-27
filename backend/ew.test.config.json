@@ -42,9 +42,6 @@
     "breadcrumbs": true,
     "feature_group_calls": true
   },
-  "jitsi": {
-    "preferred_domain": "meet.element.io"
-  },
   "element_call": {
     "participant_limit": 8,
     "brand": "Element Call"
