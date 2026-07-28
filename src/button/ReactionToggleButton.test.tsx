@@ -12,7 +12,10 @@ import { userEvent } from "@testing-library/user-event";
 import { type ReactNode } from "react";
 
 import { ReactionToggleButton } from "./ReactionToggleButton";
-import { ElementCallReactionEventType } from "../reactions";
+import {
+  ElementCallReactionEventType,
+  LoweredHandReactionKey,
+} from "../reactions";
 import { type CallViewModel } from "../state/CallViewModel/CallViewModel";
 import { getBasicCallViewModelEnvironment } from "../utils/test-viewmodel";
 import { alice, local, localRtcMember } from "../utils/test-fixtures";
@@ -86,11 +89,10 @@ test("Can raise hand", async () => {
 });
 
 test("Can lower hand", async () => {
-  const reactionEventId = "$my-reaction-event:example.org";
   const user = userEvent.setup();
   const { vm, rtcSession, handRaisedSubject$ } =
     getBasicCallViewModelEnvironment([local, alice]);
-  const { getByLabelText, container } = render(
+  const { getByLabelText } = render(
     <TestComponent vm={vm} rtcSession={rtcSession} />,
   );
   await user.click(getByLabelText("Reactions"));
@@ -99,22 +101,29 @@ test("Can lower hand", async () => {
     handRaisedSubject$.next({
       [localIdent]: {
         time: new Date(),
-        reactionEventId,
+        reactionEventId: "$my-reaction-event:example.org",
         membershipEventId: localRtcMember.eventId!,
       },
     });
   });
   await user.click(getByLabelText("Reactions"));
   await user.click(getByLabelText("Lower hand"));
-  expect(rtcSession.room.client.redactEvent).toHaveBeenCalledWith(
+  expect(rtcSession.room.client.sendEvent).toHaveBeenLastCalledWith(
     rtcSession.room.roomId,
-    reactionEventId,
+    "m.reaction",
+    {
+      "m.relates_to": {
+        event_id: localRtcMember.eventId,
+        key: LoweredHandReactionKey,
+        rel_type: "m.annotation",
+      },
+    },
   );
   act(() => {
-    // Mock receiving a redacted reaction.
+    // Mock receiving the matching lower-hand reaction.
     handRaisedSubject$.next({});
   });
-  expect(container).toMatchSnapshot();
+  expect(getByLabelText("Reactions")).toHaveAttribute("aria-expanded", "false");
 });
 
 test("Can react with emoji", async () => {

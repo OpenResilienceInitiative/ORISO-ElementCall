@@ -58,7 +58,8 @@ const useRoomSharedKey = (
 };
 
 export function getKeyForRoom(roomId: string): string | null {
-  const { roomId: urlRoomId, password } = getUrlParams();
+  const { roomId: urlRoomId, password, widgetId, parentUrl } = getUrlParams();
+  if (widgetId && parentUrl) return null;
   if (roomId !== urlRoomId)
     logger.warn(
       "requested key for a roomId which is not the current call room id (from the URL)",
@@ -77,33 +78,26 @@ export type EncryptionSystem = Unencrypted | SharedSecret | PerParticipantE2EE;
 
 export function useRoomEncryptionSystem(roomId: string): EncryptionSystem {
   const { client } = useClient();
+  const { widgetId, parentUrl } = getUrlParams();
+  const isWidget = !!widgetId && !!parentUrl;
 
+  // NOTE: the first argument is the *room id*, not the storage key —
+  // `useRoomSharedKey` prefixes it itself. Passing an already-prefixed key here
+  // produced `room-shared-key-room-shared-key-…`, so a shared secret could be
+  // written but never read back.
   const [storedPassword] = useRoomSharedKey(
-    getRoomSharedKeyLocalStorageKey(roomId),
-    getKeyForRoom(roomId) ?? undefined,
+    roomId,
+    isWidget ? undefined : (getKeyForRoom(roomId) ?? undefined),
   );
 
   const room = client?.getRoom(roomId);
   const e2eeSystem = <EncryptionSystem>useMemo(() => {
-    // TEMPORARY: Disable media E2EE to ensure maximum compatibility and stability
-    // for the current ORISO deployment.
-    //
-    // Element Call normally chooses between:
-    // - E2eeType.SHARED_KEY      (password-based)
-    // - E2eeType.PER_PARTICIPANT (MatrixRTC per-device E2EE)
-    //
-    // In this installation, Matrix E2EE and device lists are not yet fully wired
-    // for all clients (desktop + mobile), which leads to situations where calls
-    // connect and tracks are published, but remote media cannot be decrypted and
-    // tiles show “Waiting for media…”.
-    //
-    // By forcing E2eeType.NONE here, all participants receive **unencrypted**
-    // media from LiveKit. This trades E2EE for reliability, but keeps signalling
-    // and room encryption unchanged. Once the Matrix E2EE setup is ready for
-    // MatrixRTC, this can be reverted to the original logic.
     if (!room) return { kind: E2eeType.NONE };
-    // Always treat media as unencrypted for now
+    if (!isWidget && storedPassword)
+      return { kind: E2eeType.SHARED_KEY, secret: storedPassword };
+    if (room.hasEncryptionStateEvent())
+      return { kind: E2eeType.PER_PARTICIPANT };
     return { kind: E2eeType.NONE };
-  }, [room, storedPassword]);
+  }, [isWidget, room, storedPassword]);
   return e2eeSystem;
 }

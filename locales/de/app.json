@@ -88,6 +88,8 @@
     "connection_lost_description": "Ihre Verbindung zum Anruf wurde unterbrochen.",
     "e2ee_unsupported": "Inkompatibler Browser",
     "e2ee_unsupported_description": "Ihr Webbrowser unterstützt keine verschlüsselten Anrufe. Zu den unterstützten Browsern gehören Chrome, Safari und Firefox 117+.",
+    "e2ee_unavailable": "Verschlüsselter Anruf nicht möglich",
+    "e2ee_unavailable_description": "Dieser Anruf konnte nicht verschlüsselt werden und wurde deshalb nicht gestartet. Laden Sie die Seite neu und versuchen Sie es erneut. Bleibt das Problem bestehen, wenden Sie sich an den Support.",
     "generic": "Etwas ist schief gelaufen",
     "generic_description": "Durch das Senden von Debugprotokollen können wir das Problem leichter eingrenzen.",
     "insufficient_capacity": "Unzureichende Kapazität",

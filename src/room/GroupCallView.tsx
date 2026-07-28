@@ -56,6 +56,7 @@ import {
   useUrlParams,
 } from "../UrlParams";
 import { E2eeType } from "../e2ee/e2eeType";
+import { isPerParticipantE2EEUnavailable } from "../e2ee/e2eeAvailability";
 import { useAudioContext } from "../useAudioContext";
 import {
   callEventAudioSounds,
@@ -66,6 +67,7 @@ import { usePageTitle } from "../usePageTitle";
 import {
   ConnectionLostError,
   E2EENotSupportedError,
+  E2EEUnavailableError,
   ElementCallError,
   UnknownCallError,
 } from "../utils/errors.ts";
@@ -319,9 +321,6 @@ export const GroupCallView: FC<Props> = ({
     (
       reason: "timeout" | "user" | "allOthersLeft" | "decline" | "error",
     ): void => {
-      if (reason === "user" || reason === "timeout" || reason === "decline") {
-        window.parent?.postMessage({ type: "oriso-call-ended", reason }, "*");
-      }
       let playSound: CallEventSounds = "left";
       if (reason === "timeout" || reason === "decline") playSound = reason;
 
@@ -422,6 +421,21 @@ export const GroupCallView: FC<Props> = ({
   if (!isE2EESupportedBrowser() && e2eeSystem.kind !== E2eeType.NONE) {
     // If we have a encryption system but the browser does not support it.
     throw new E2EENotSupportedError();
+  }
+
+  if (
+    isPerParticipantE2EEUnavailable(
+      e2eeSystem.kind,
+      Boolean(client.getCrypto()),
+      Boolean(widget),
+    )
+  ) {
+    // Per-participant keys travel over encrypted to-device messages. Without a
+    // host or local crypto owner they cannot be distributed, and joining anyway
+    // would publish plaintext media into a room everyone believes is encrypted.
+    // The Matryoshka driver itself still fails closed if the host crypto path is
+    // unavailable or an unencrypted key send is attempted.
+    throw new E2EEUnavailableError();
   }
 
   const shareModal = (

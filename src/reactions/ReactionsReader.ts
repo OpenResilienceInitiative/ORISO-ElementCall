@@ -22,6 +22,8 @@ import { BehaviorSubject, delay } from "rxjs";
 
 import {
   ElementCallReactionEventType,
+  LoweredHandReactionKey,
+  RaisedHandReactionKey,
   type ECallReactionEventContent,
   GenericReaction,
   ReactionSet,
@@ -325,7 +327,7 @@ export class ReactionsReader {
         return;
       }
 
-      if (content?.["m.relates_to"].key === "🖐️") {
+      if (content?.["m.relates_to"].key === RaisedHandReactionKey) {
         this.addRaisedHand(
           `${membershipEvent.userId}:${membershipEvent.deviceId}`,
           {
@@ -333,6 +335,10 @@ export class ReactionsReader {
             membershipEventId,
             time: new Date(event.localTimestamp),
           },
+        );
+      } else if (content?.["m.relates_to"].key === LoweredHandReactionKey) {
+        this.removeRaisedHand(
+          `${membershipEvent.userId}:${membershipEvent.deviceId}`,
         );
       }
     } else if (event.getType() === EventType.RoomRedaction) {

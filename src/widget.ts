@@ -6,19 +6,16 @@ Please see LICENSE in the repository root for full details.
 */
 
 import { logger } from "matrix-js-sdk/lib/logger";
-import { EventType, createRoomWidgetClient } from "matrix-js-sdk";
-import {
-  WidgetApi,
-  MatrixCapabilities,
-  WidgetApiToWidgetAction,
-} from "matrix-widget-api";
+import { createRoomWidgetClient } from "matrix-js-sdk";
+import { WidgetApi, WidgetApiToWidgetAction } from "matrix-widget-api";
 
 import type { MatrixClient } from "matrix-js-sdk";
 import type { IWidgetApiRequest } from "matrix-widget-api";
 import { LazyEventEmitter } from "./LazyEventEmitter";
 import { getUrlParams } from "./UrlParams";
 import { Config } from "./config/Config";
-import { ElementCallReactionEventType } from "./reactions";
+import { clearStandaloneMatrixSession } from "./matrixSessionStorage";
+import { buildOrisoWidgetCapabilities } from "./orisoWidgetCapabilities";
 
 // Subset of the actions in element-web
 export enum ElementWidgetActions {
@@ -65,10 +62,12 @@ export const widget = ((): WidgetHelpers | null => {
     const { widgetId, parentUrl } = getUrlParams();
 
     if (widgetId && parentUrl) {
+      // A widget never owns a Matrix login. Remove sessions left by older SPA
+      // builds before any component or auth hook can observe them.
+      clearStandaloneMatrixSession();
       const parentOrigin = new URL(parentUrl).origin;
       logger.info("Widget API is available");
       const api = new WidgetApi(widgetId, parentOrigin);
-      api.requestCapability(MatrixCapabilities.AlwaysOnScreen);
 
       // Set up the lazy action emitter, but only for select actions that we
       // intend for the app to handle
@@ -105,63 +104,9 @@ export const widget = ((): WidgetHelpers | null => {
       if (!deviceId) throw new Error("Device ID must be supplied");
       if (!baseUrl) throw new Error("Base URL must be supplied");
 
-      // These are all the event types the app uses
-      const sendEvent = [
-        EventType.CallNotify, // Sent as a deprecated fallback
-        EventType.RTCNotification,
-      ];
-      const sendRecvEvent = [
-        "org.matrix.rageshake_request",
-        EventType.CallEncryptionKeysPrefix,
-        EventType.Reaction,
-        EventType.RoomRedaction,
-        ElementCallReactionEventType,
-        EventType.RTCDecline,
-      ];
-
-      const sendState = [
-        userId, // Legacy call membership events
-        `_${userId}_${deviceId}_m.call`, // Session membership events
-        `${userId}_${deviceId}_m.call`, // The above with no leading underscore, for room versions whose auth rules allow it
-      ].map((stateKey) => ({
-        eventType: EventType.GroupCallMemberPrefix,
-        stateKey,
-      }));
-      const receiveState = [
-        { eventType: EventType.RoomCreate },
-        { eventType: EventType.RoomName },
-        { eventType: EventType.RoomMember },
-        { eventType: EventType.RoomEncryption },
-        { eventType: EventType.GroupCallMemberPrefix },
-      ];
-
-      const sendRecvToDevice = [
-        EventType.CallInvite,
-        EventType.CallCandidates,
-        EventType.CallAnswer,
-        EventType.CallHangup,
-        EventType.CallReject,
-        EventType.CallSelectAnswer,
-        EventType.CallNegotiate,
-        EventType.CallSDPStreamMetadataChanged,
-        EventType.CallSDPStreamMetadataChangedPrefix,
-        EventType.CallReplaces,
-        EventType.CallEncryptionKeysPrefix,
-      ];
-
       const client = createRoomWidgetClient(
         api,
-        {
-          sendEvent: [...sendEvent, ...sendRecvEvent],
-          receiveEvent: sendRecvEvent,
-          sendState,
-          receiveState,
-          sendToDevice: sendRecvToDevice,
-          receiveToDevice: sendRecvToDevice,
-          turnServers: false,
-          sendDelayedEvents: true,
-          updateDelayedEvents: true,
-        },
+        buildOrisoWidgetCapabilities(userId, deviceId),
         roomId,
         {
           baseUrl,

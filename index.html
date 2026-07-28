@@ -27,7 +27,7 @@
       }
     </style>
     <script>
-      (function() {
+      (function () {
         var body = document.body;
         var html = document.documentElement;
         function forceBlack() {
@@ -42,56 +42,6 @@
         }
         forceBlack();
         setInterval(forceBlack, 250);
-      })();
-    </script>
-
-    <!-- AUTO-AUTHENTICATION SCRIPT: Read Matrix credentials from URL parameters -->
-    <script>
-      (function() {
-        console.log('🔷 Element Call Auto-Auth Script Starting...');
-        
-        // Parse URL parameters (check both hash and search params)
-        const hashParams = window.location.hash.includes('?') 
-          ? new URLSearchParams(window.location.hash.split('?')[1])
-          : new URLSearchParams();
-        const searchParams = new URLSearchParams(window.location.search);
-        
-        // Get credentials from URL (check both locations)
-        const accessToken = hashParams.get('accessToken') || searchParams.get('accessToken');
-        const userId = hashParams.get('userId') || searchParams.get('userId');
-        const deviceId = hashParams.get('deviceId') || searchParams.get('deviceId');
-        const homeserver = hashParams.get('homeserver') || searchParams.get('homeserver');
-        
-        console.log('🔍 Checking for Matrix credentials in URL...');
-        console.log('   User ID:', userId || 'NOT FOUND');
-        console.log('   Token:', accessToken ? 'EXISTS (length: ' + accessToken.length + ')' : 'NOT FOUND');
-        console.log('   Device ID:', deviceId || 'NOT FOUND');
-        console.log('   Homeserver:', homeserver || 'NOT FOUND');
-        
-        if (accessToken && userId) {
-          console.log('✅ Matrix credentials found in URL! Setting up Element Call session...');
-          
-          try {
-            // Element Call expects session in localStorage with key "matrix-auth-store"
-            // Format: { user_id, device_id, access_token, passwordlessUser }
-            const session = {
-              user_id: userId,
-              device_id: deviceId || 'element-call-device',
-              access_token: accessToken,
-              passwordlessUser: false
-            };
-            
-            localStorage.setItem('matrix-auth-store', JSON.stringify(session));
-            
-            console.log('✅ Element Call session created in localStorage');
-            console.log('   Session:', { user_id: userId, device_id: session.device_id, has_token: !!accessToken });
-            console.log('✅ Element Call will auto-authenticate on load!');
-          } catch (e) {
-            console.error('❌ Failed to create Element Call session:', e);
-          }
-        } else {
-          console.log('ℹ️  No Matrix credentials in URL (normal for direct access)');
-        }
       })();
     </script>
 
@@ -117,7 +67,10 @@
   </head>
 
   <!-- The default class is: .no-theme {display: none}. It will be overwritten once the app is loaded. -->
-  <body class="no-theme" style="background:#000 !important; background-image:none !important;">
+  <body
+    class="no-theme"
+    style="background: #000 !important; background-image: none !important"
+  >
     <div id="root"></div>
   </body>
 </html>
