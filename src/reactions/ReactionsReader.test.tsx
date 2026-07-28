@@ -24,7 +24,11 @@ import {
 } from "../utils/test-fixtures";
 import { getBasicRTCSession } from "../utils/test-viewmodel";
 import { testScope, withTestScheduler } from "../utils/test";
-import { ElementCallReactionEventType, ReactionSet } from ".";
+import {
+  ElementCallReactionEventType,
+  LoweredHandReactionKey,
+  ReactionSet,
+} from ".";
 
 afterEach(() => {
   vitest.useRealTimers();
@@ -125,6 +129,78 @@ test("handles a redaction", () => {
             }),
             rtcSession.room,
             undefined,
+          );
+        },
+      });
+      expectObservable(raisedHands$).toBe("abc", {
+        a: {},
+        b: {
+          [`${localRtcMember.userId}:${localRtcMember.deviceId}`]: {
+            reactionEventId,
+            membershipEventId: localRtcMember.eventId,
+            time: localTimestamp,
+          },
+        },
+        c: {},
+      });
+    });
+  });
+});
+
+test("handles a room-confined lower-hand reaction without redaction capability", () => {
+  const { rtcSession } = getBasicRTCSession([local, alice]);
+  const reactionEventId = "$my_event_id:example.org";
+  const localTimestamp = new Date();
+  withTestScheduler(({ schedule, expectObservable }) => {
+    renderHook(() => {
+      const { raisedHands$ } = new ReactionsReader(
+        testScope(),
+        rtcSession.asMockedSession(),
+      );
+      schedule("abc", {
+        a: () => {},
+        b: () => {
+          rtcSession.room.emit(
+            MatrixRoomEvent.Timeline,
+            new MatrixEvent({
+              room_id: rtcSession.room.roomId,
+              event_id: reactionEventId,
+              sender: localRtcMember.userId,
+              type: EventType.Reaction,
+              origin_server_ts: localTimestamp.getTime(),
+              content: {
+                "m.relates_to": {
+                  event_id: localRtcMember.eventId,
+                  key: "🖐️",
+                },
+              },
+            }),
+            rtcSession.room,
+            undefined,
+            false,
+            {} as IRoomTimelineData,
+          );
+        },
+        c: () => {
+          rtcSession.room.emit(
+            MatrixRoomEvent.Timeline,
+            new MatrixEvent({
+              room_id: rtcSession.room.roomId,
+              event_id: "$lowered-hand:example.org",
+              sender: localRtcMember.userId,
+              type: EventType.Reaction,
+              origin_server_ts: localTimestamp.getTime() + 1,
+              content: {
+                "m.relates_to": {
+                  event_id: localRtcMember.eventId,
+                  key: LoweredHandReactionKey,
+                },
+              },
+            }),
+            rtcSession.room,
+            undefined,
+            false,
+            {} as IRoomTimelineData,
           );
         },
       });

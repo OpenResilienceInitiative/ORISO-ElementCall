@@ -31,6 +31,8 @@ import baduntssSoundOgg from "../sound/reactions/baduntss.ogg?url";
 import baduntssSoundMp3 from "../sound/reactions/baduntss.mp3?url";
 
 export const ElementCallReactionEventType = "io.element.call.reaction";
+export const RaisedHandReactionKey = "🖐️";
+export const LoweredHandReactionKey = "org.oriso.call.hand_lowered";
 
 export interface ReactionOption {
   /**
