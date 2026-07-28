@@ -38,7 +38,12 @@ export const buildOrisoWidgetCapabilities = (
     sendEvent: rtcEvents,
     receiveEvent: rtcEvents,
     sendState: groupCallStateKeys,
+    // create/name/member are read-only boot metadata. The ORISO host driver
+    // still confines every state read to the single active call room.
     receiveState: [
+      { eventType: EventType.RoomCreate },
+      { eventType: EventType.RoomName },
+      { eventType: EventType.RoomMember },
       { eventType: EventType.RoomEncryption },
       { eventType: EventType.GroupCallMemberPrefix },
     ],
