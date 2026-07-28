@@ -56,6 +56,7 @@ import {
   useUrlParams,
 } from "../UrlParams";
 import { E2eeType } from "../e2ee/e2eeType";
+import { isPerParticipantE2EEUnavailable } from "../e2ee/e2eeAvailability";
 import { useAudioContext } from "../useAudioContext";
 import {
   callEventAudioSounds,
@@ -422,10 +423,18 @@ export const GroupCallView: FC<Props> = ({
     throw new E2EENotSupportedError();
   }
 
-  if (e2eeSystem.kind === E2eeType.PER_PARTICIPANT && !client.getCrypto()) {
+  if (
+    isPerParticipantE2EEUnavailable(
+      e2eeSystem.kind,
+      Boolean(client.getCrypto()),
+      Boolean(widget),
+    )
+  ) {
     // Per-participant keys travel over encrypted to-device messages. Without a
-    // crypto stack they cannot be distributed, and joining anyway would publish
-    // plaintext media into a room everyone believes is encrypted. Fail closed.
+    // host or local crypto owner they cannot be distributed, and joining anyway
+    // would publish plaintext media into a room everyone believes is encrypted.
+    // The Matryoshka driver itself still fails closed if the host crypto path is
+    // unavailable or an unencrypted key send is attempted.
     throw new E2EEUnavailableError();
   }
 
