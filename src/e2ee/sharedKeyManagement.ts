@@ -78,7 +78,7 @@ export type EncryptionSystem = Unencrypted | SharedSecret | PerParticipantE2EE;
 
 export function useRoomEncryptionSystem(roomId: string): EncryptionSystem {
   const { client } = useClient();
-  const { widgetId, parentUrl } = getUrlParams();
+  const { widgetId, parentUrl, perParticipantE2EE } = getUrlParams();
   const isWidget = !!widgetId && !!parentUrl;
 
   // NOTE: the first argument is the *room id*, not the storage key —
@@ -95,9 +95,20 @@ export function useRoomEncryptionSystem(roomId: string): EncryptionSystem {
     if (!room) return { kind: E2eeType.NONE };
     if (!isWidget && storedPassword)
       return { kind: E2eeType.SHARED_KEY, secret: storedPassword };
+    // In widget mode the embedding host owns Matrix crypto, so it also decides
+    // whether media is end-to-end encrypted — it is the only side that knows
+    // whether its own key distribution is working. Deriving this from the room
+    // state alone turned media E2EE on for every encrypted room the moment the
+    // widget path shipped, and a single broken link in the key chain then
+    // presents as a connected call with no audio and no error at all.
+    // Absent flag means no media E2EE: signalling stays encrypted either way.
+    if (isWidget)
+      return perParticipantE2EE && room.hasEncryptionStateEvent()
+        ? { kind: E2eeType.PER_PARTICIPANT }
+        : { kind: E2eeType.NONE };
     if (room.hasEncryptionStateEvent())
       return { kind: E2eeType.PER_PARTICIPANT };
     return { kind: E2eeType.NONE };
-  }, [isWidget, room, storedPassword]);
+  }, [isWidget, perParticipantE2EE, room, storedPassword]);
   return e2eeSystem;
 }

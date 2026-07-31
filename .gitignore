@@ -30,3 +30,7 @@ yarn-error.log
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Local Docker Desktop workaround for the backend compose (see docker-compose.local-synapse-fix.yml)
+backend/synapse_tmp/
+backend/synapse_tmp_othersite/
