@@ -426,7 +426,12 @@ export const GroupCallView: FC<Props> = ({
   if (
     isPerParticipantE2EEUnavailable(
       e2eeSystem.kind,
-      Boolean(client.getCrypto()),
+      // Optional call on purpose. A client that does not expose `getCrypto` at
+      // all — a partial one in a test, an older SDK — used to crash the whole
+      // call view with a TypeError here, which is a worse outcome than the
+      // unencrypted call this guard exists to prevent. Absent means "no crypto",
+      // and the guard below decides what that costs.
+      Boolean(client.getCrypto?.()),
       Boolean(widget),
     )
   ) {
