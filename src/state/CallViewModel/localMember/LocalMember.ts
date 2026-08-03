@@ -44,6 +44,7 @@ import {
   FailToStartLivekitConnection,
   MembershipManagerError,
   MediaPermissionDeniedError,
+  isBrowserMediaPermissionDenied,
   UnknownCallError,
 } from "../../../utils/errors.ts";
 import { ElementWidgetActions, widget } from "../../../widget.ts";
@@ -304,10 +305,11 @@ export const createLocalMembership$ = ({
         } catch (error) {
           const cause =
             error instanceof Error ? error : new Error(String(error));
-          if (
+          const permissionDenied =
             MediaDeviceFailure.getFailure(error) ===
-            MediaDeviceFailure.PermissionDenied
-          ) {
+              MediaDeviceFailure.PermissionDenied ||
+            (await isBrowserMediaPermissionDenied(error));
+          if (permissionDenied) {
             setPublishError(new MediaPermissionDeniedError(cause));
           } else {
             setPublishError(new UnknownCallError(cause));

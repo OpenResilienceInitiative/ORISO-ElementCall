@@ -146,6 +146,46 @@ export class MediaPermissionDeniedError extends ElementCallError {
   }
 }
 
+type MediaPermissionName = "microphone" | "camera";
+type PermissionQuery = (name: MediaPermissionName) => Promise<PermissionState>;
+
+const queryBrowserPermission: PermissionQuery = async (name) =>
+  (
+    await navigator.permissions.query({
+      name,
+    } as PermissionDescriptor)
+  ).state;
+
+/**
+ * Chromium can surface a denied getUserMedia request from an embedded call as
+ * NotSupportedError instead of NotAllowedError. Only reinterpret that broad
+ * error when the Permissions API independently confirms a denied media
+ * permission, so genuine unsupported-media failures remain generic.
+ */
+export const isBrowserMediaPermissionDenied = async (
+  error: unknown,
+  queryPermission: PermissionQuery = queryBrowserPermission,
+): Promise<boolean> => {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("name" in error) ||
+    error.name !== "NotSupportedError"
+  ) {
+    return false;
+  }
+
+  try {
+    const states = await Promise.all([
+      queryPermission("microphone"),
+      queryPermission("camera"),
+    ]);
+    return states.includes("denied");
+  } catch {
+    return false;
+  }
+};
+
 export class UnknownCallError extends ElementCallError {
   public constructor(error: Error) {
     super(
