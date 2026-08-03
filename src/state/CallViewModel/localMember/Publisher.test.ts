@@ -57,6 +57,52 @@ describe("Publisher", () => {
 
   afterEach(() => scope.end());
 
+  it("enables E2EE when the LiveKit room has E2EE configured", () => {
+    const livekitRoom = mockLivekitRoom({
+      hasE2EESetup: true,
+      localParticipant: mockLocalParticipant({}),
+      setE2EEEnabled: vi.fn().mockResolvedValue(undefined),
+    });
+    connection = {
+      state$: constant(LivekitConenctionState.Connected),
+      livekitRoom,
+    } as unknown as Connection;
+
+    new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    expect(livekitRoom.setE2EEEnabled).toHaveBeenCalledOnce();
+    expect(livekitRoom.setE2EEEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("does not toggle E2EE when the LiveKit room has no E2EE setup", () => {
+    const livekitRoom = mockLivekitRoom({
+      hasE2EESetup: false,
+      localParticipant: mockLocalParticipant({}),
+    });
+    connection = {
+      state$: constant(LivekitConenctionState.Connected),
+      livekitRoom,
+    } as unknown as Connection;
+
+    new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    expect(livekitRoom.setE2EEEnabled).not.toHaveBeenCalled();
+  });
+
   it("throws if livekit room could not publish", async () => {
     const publisher = new Publisher(
       scope,

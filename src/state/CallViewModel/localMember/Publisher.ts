@@ -62,11 +62,11 @@ export class Publisher {
     const { controlledAudioDevices } = getUrlParams();
 
     const room = connection.livekitRoom;
-    // NOTE: For the ORISO deployment we do **not** use LiveKit’s built‑in
-    // media E2EE – Element Call runs with plain SFU media over TLS. Calling
-    // `setE2EEEnabled` when no E2EE options are configured causes noisy
-    // “e2ee not configured” errors in the logs without changing behaviour.
-    // We therefore skip toggling E2EE entirely here.
+    if (room.hasE2EESetup) {
+      void room.setE2EEEnabled(true).catch((error: Error) => {
+        this.logger.error("Failed to enable E2EE on LiveKit room", error);
+      });
+    }
 
     // Setup track processor syncing (blur)
     this.observeTrackProcessors(scope, room, trackerProcessorState$);
