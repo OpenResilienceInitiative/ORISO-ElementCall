@@ -422,6 +422,30 @@ describe("Start connection states", () => {
     fakeLivekitRoom.emit(RoomEvent.Disconnected);
     expect(restartRequired).toHaveBeenCalledOnce();
   });
+
+  it("requests replacement before publishing an established room's final disconnected state", async () => {
+    setupTest();
+    const connection = setupRemoteConnection();
+    const restartRequired = vi.fn();
+    const observedStates: (ConnectionState | Error)[] = [];
+    connection.restartRequired$.subscribe(restartRequired);
+    connection.state$.subscribe((state) => observedStates.push(state));
+
+    await connection.start();
+    observedStates.length = 0;
+
+    // Room emits ConnectionStateChanged synchronously before RoomEvent.Disconnected.
+    // A fatal consumer can end the call scope in that gap, so recovery must be
+    // requested from this earlier event and the terminal state must stay hidden.
+    fakeLivekitRoom.state = LivekitConnectionState.Disconnected;
+    fakeLivekitRoom.emit(
+      RoomEvent.ConnectionStateChanged,
+      LivekitConnectionState.Disconnected,
+    );
+
+    expect(restartRequired).toHaveBeenCalledOnce();
+    expect(observedStates).not.toContain(ConnectionState.LivekitDisconnected);
+  });
 });
 
 describe("remote participants", () => {

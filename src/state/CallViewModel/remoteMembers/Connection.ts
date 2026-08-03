@@ -113,6 +113,7 @@ export class Connection {
   private readonly restartRequiredSubject$ = new Subject<void>();
   public readonly restartRequired$: Observable<void> =
     this.restartRequiredSubject$;
+  private restartRequested = false;
 
   /**
    * Whether the connection has been stopped.
@@ -158,6 +159,17 @@ export class Connection {
           // It is save to cast lkState to ConnectionState as they are fully overlapping.
           if (lkState === ConnectionState.LivekitConnected) {
             this.wasConnected = true;
+          }
+          if (
+            lkState === ConnectionState.LivekitDisconnected &&
+            this.wasConnected &&
+            !this.stopped
+          ) {
+            // RoomEvent.ConnectionStateChanged is emitted before
+            // RoomEvent.Disconnected. Request replacement here so a consumer
+            // cannot tear down the call scope on the terminal state first.
+            this.requestConnectionReplacement();
+            return;
           }
           this._state$.next(lkState);
         });
@@ -209,6 +221,15 @@ export class Connection {
       this.transport.livekit_service_url,
       this.transport.livekit_alias,
     );
+  }
+
+  private requestConnectionReplacement(): void {
+    if (this.restartRequested) return;
+    this.restartRequested = true;
+    this.logger.warn(
+      "LiveKit lost server-side participant state; requesting a fresh connection",
+    );
+    this.restartRequiredSubject$.next();
   }
 
   /**
@@ -265,10 +286,7 @@ export class Connection {
         reason === DisconnectReason.STATE_MISMATCH ||
         (reason === undefined && this.wasConnected && !this.stopped)
       ) {
-        this.logger.warn(
-          "LiveKit lost server-side participant state; requesting a fresh connection",
-        );
-        this.restartRequiredSubject$.next();
+        this.requestConnectionReplacement();
       }
     };
     this.livekitRoom.on(RoomEvent.Disconnected, onDisconnected);
