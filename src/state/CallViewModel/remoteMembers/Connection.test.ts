@@ -402,6 +402,26 @@ describe("Start connection states", () => {
     );
     expect(restartRequired).toHaveBeenCalledOnce();
   });
+
+  it("requests replacement when an established room exhausts reconnect without a reason", async () => {
+    setupTest();
+    const connection = setupRemoteConnection();
+    const restartRequired = vi.fn();
+    connection.restartRequired$.subscribe(restartRequired);
+
+    // LiveKit may emit an unqualified disconnect before a first join succeeds;
+    // that must not create an automatic retry loop.
+    fakeLivekitRoom.emit(RoomEvent.Disconnected);
+    expect(restartRequired).not.toHaveBeenCalled();
+
+    await connection.start();
+    fakeLivekitRoom.emit(RoomEvent.Disconnected);
+    expect(restartRequired).toHaveBeenCalledOnce();
+
+    testScope.end();
+    fakeLivekitRoom.emit(RoomEvent.Disconnected);
+    expect(restartRequired).toHaveBeenCalledOnce();
+  });
 });
 
 describe("remote participants", () => {

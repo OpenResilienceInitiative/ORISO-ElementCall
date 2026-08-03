@@ -120,6 +120,9 @@ export class Connection {
    * */
   protected stopped = false;
 
+  /** Whether this room completed at least one successful LiveKit join. */
+  private wasConnected = false;
+
   /**
    * Starts the connection.
    *
@@ -153,6 +156,9 @@ export class Connection {
         )
         .subscribe((lkState) => {
           // It is save to cast lkState to ConnectionState as they are fully overlapping.
+          if (lkState === ConnectionState.LivekitConnected) {
+            this.wasConnected = true;
+          }
           this._state$.next(lkState);
         });
 
@@ -249,7 +255,16 @@ export class Connection {
     );
 
     const onDisconnected = (reason?: DisconnectReason): void => {
-      if (reason === DisconnectReason.STATE_MISMATCH) {
+      // During a failed reconnect, livekit-client consumes the server's
+      // STATE_MISMATCH response internally. When its retry policy is exhausted,
+      // RoomEvent.Disconnected is emitted without forwarding that reason. An
+      // unqualified disconnect is therefore recoverable only after this Room
+      // has previously completed a join; doing the same before a first join
+      // would turn configuration/authentication failures into retry loops.
+      if (
+        reason === DisconnectReason.STATE_MISMATCH ||
+        (reason === undefined && this.wasConnected && !this.stopped)
+      ) {
         this.logger.warn(
           "LiveKit lost server-side participant state; requesting a fresh connection",
         );
