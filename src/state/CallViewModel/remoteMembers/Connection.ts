@@ -12,11 +12,13 @@ import {
 } from "@livekit/components-core";
 import {
   ConnectionError,
+  DisconnectReason,
+  RoomEvent,
   type Room as LivekitRoom,
   type RemoteParticipant,
 } from "livekit-client";
 import { type LivekitTransport } from "matrix-js-sdk/lib/matrixrtc";
-import { BehaviorSubject, map } from "rxjs";
+import { BehaviorSubject, map, Subject, type Observable } from "rxjs";
 import { type Logger } from "matrix-js-sdk/lib/logger";
 
 import {
@@ -102,6 +104,15 @@ export class Connection {
    * It is therefore more low-level than what should be presented to the user.
    */
   public readonly remoteParticipants$: Behavior<RemoteParticipant[]>;
+
+  /**
+   * Emits when LiveKit confirms that its server-side participant state was
+   * lost. The connection manager must replace this entire connection so all
+   * room observers, E2EE workers, publishers, and local tracks are recreated.
+   */
+  private readonly restartRequiredSubject$ = new Subject<void>();
+  public readonly restartRequired$: Observable<void> =
+    this.restartRequiredSubject$;
 
   /**
    * Whether the connection has been stopped.
@@ -237,7 +248,19 @@ export class Connection {
       connectedParticipantsObserver(this.livekitRoom),
     );
 
+    const onDisconnected = (reason?: DisconnectReason): void => {
+      if (reason === DisconnectReason.STATE_MISMATCH) {
+        this.logger.warn(
+          "LiveKit lost server-side participant state; requesting a fresh connection",
+        );
+        this.restartRequiredSubject$.next();
+      }
+    };
+    this.livekitRoom.on(RoomEvent.Disconnected, onDisconnected);
+
     scope.onEnd(() => {
+      this.livekitRoom.off(RoomEvent.Disconnected, onDisconnected);
+      this.restartRequiredSubject$.complete();
       this.logger.info(`Connection scope ended, stopping connection`);
       void this.stop();
     });

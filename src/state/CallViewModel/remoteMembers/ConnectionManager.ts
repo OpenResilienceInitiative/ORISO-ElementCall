@@ -7,7 +7,15 @@ Please see LICENSE in the repository root for full details.
 */
 
 import { type LivekitTransport } from "matrix-js-sdk/lib/matrixrtc";
-import { combineLatest, map, of, switchMap, tap } from "rxjs";
+import {
+  BehaviorSubject,
+  combineLatest,
+  map,
+  of,
+  switchMap,
+  take,
+  tap,
+} from "rxjs";
 import { type Logger } from "matrix-js-sdk/lib/logger";
 import { type RemoteParticipant } from "livekit-client";
 
@@ -17,6 +25,9 @@ import { Epoch, type ObservableScope } from "../../ObservableScope.ts";
 import { generateItemsWithEpoch } from "../../../utils/observable.ts";
 import { areLivekitTransportsEqual } from "./MatrixLivekitMembers.ts";
 import { type ConnectionFactory } from "./ConnectionFactory.ts";
+
+const transportKey = (transport: LivekitTransport): string =>
+  `${transport.livekit_service_url}|${transport.livekit_alias}`;
 
 export class ConnectionManagerData {
   private readonly store: Map<string, [Connection, RemoteParticipant[]]> =
@@ -35,7 +46,7 @@ export class ConnectionManagerData {
   }
 
   private getKey(transport: LivekitTransport): string {
-    return transport.livekit_service_url + "|" + transport.livekit_alias;
+    return transportKey(transport);
   }
 
   public getConnections(): Connection[] {
@@ -110,34 +121,62 @@ export function createConnectionManager$({
     ),
   );
 
+  const restartGenerations = new Map<string, number>();
+  const restartTick$ = new BehaviorSubject(0);
+  const transportsWithGeneration$ = scope.behavior(
+    combineLatest([transports$, restartTick$]).pipe(
+      map(([transports]) =>
+        transports.mapInner((items) =>
+          items.map((transport) => ({
+            transport,
+            generation: restartGenerations.get(transportKey(transport)) ?? 0,
+          })),
+        ),
+      ),
+    ),
+  );
+
   /**
    * Connections for each transport in use by one or more session members.
    */
   const connections$ = scope.behavior(
-    transports$.pipe(
+    transportsWithGeneration$.pipe(
       generateItemsWithEpoch(
         function* (transports) {
-          for (const transport of transports)
+          for (const { transport, generation } of transports)
             yield {
-              keys: [transport.livekit_service_url, transport.livekit_alias],
+              keys: [
+                transport.livekit_service_url,
+                transport.livekit_alias,
+                generation,
+              ],
               data: undefined,
             };
         },
-        (scope, _data$, serviceUrl, alias) => {
+        (connectionScope, _data$, serviceUrl, alias, generation) => {
           logger.debug(`Creating connection to ${serviceUrl} (${alias})`);
+          const transport: LivekitTransport = {
+            type: "livekit",
+            livekit_service_url: serviceUrl,
+            livekit_alias: alias,
+          };
           const connection = connectionFactory.createConnection(
-            {
-              type: "livekit",
-              livekit_service_url: serviceUrl,
-              livekit_alias: alias,
-            },
-            scope,
+            transport,
+            connectionScope,
             logger,
           );
-          // Start the connection immediately
-          // Use connection state to track connection progress
+          connection.restartRequired$
+            .pipe(connectionScope.bind(), take(1))
+            .subscribe(() => {
+              logger.warn(
+                `Replacing connection to ${serviceUrl} (${alias}) after LiveKit state mismatch`,
+              );
+              restartGenerations.set(transportKey(transport), generation + 1);
+              restartTick$.next(restartTick$.value + 1);
+            });
+          // Subscribe to replacement requests before starting so even an
+          // immediate disconnect cannot be missed.
           void connection.start();
-          // TODO subscribe to connection state to retry or log issues?
           return connection;
         },
       ),

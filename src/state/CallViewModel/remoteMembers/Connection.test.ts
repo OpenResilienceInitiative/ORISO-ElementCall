@@ -21,6 +21,7 @@ import {
   type Room as LivekitRoom,
   RoomEvent,
   ConnectionState as LivekitConnectionState,
+  DisconnectReason,
 } from "livekit-client";
 import fetchMock from "fetch-mock";
 import EventEmitter from "events";
@@ -374,6 +375,32 @@ describe("Start connection states", () => {
 
     expect(stopSpy).toHaveBeenCalled();
     expect(fakeLivekitRoom.disconnect).toHaveBeenCalled();
+  });
+
+  it("requests replacement only when LiveKit reports a state mismatch", () => {
+    setupTest();
+    const connection = setupRemoteConnection();
+    const restartRequired = vi.fn();
+    connection.restartRequired$.subscribe(restartRequired);
+
+    fakeLivekitRoom.emit(
+      RoomEvent.Disconnected,
+      DisconnectReason.SERVER_SHUTDOWN,
+    );
+    expect(restartRequired).not.toHaveBeenCalled();
+
+    fakeLivekitRoom.emit(
+      RoomEvent.Disconnected,
+      DisconnectReason.STATE_MISMATCH,
+    );
+    expect(restartRequired).toHaveBeenCalledOnce();
+
+    testScope.end();
+    fakeLivekitRoom.emit(
+      RoomEvent.Disconnected,
+      DisconnectReason.STATE_MISMATCH,
+    );
+    expect(restartRequired).toHaveBeenCalledOnce();
   });
 });
 

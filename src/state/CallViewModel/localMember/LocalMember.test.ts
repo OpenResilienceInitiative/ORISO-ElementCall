@@ -318,6 +318,80 @@ describe("LocalMembership", () => {
     defaultCreateLocalMemberValues.createPublisherFactory.mockReset();
   });
 
+  it("recreates and republishes local tracks when a connection is replaced", async () => {
+    const scope = new ObservableScope();
+    const localTransport$ = new BehaviorSubject(aTransport);
+    const firstData = new ConnectionManagerData();
+    firstData.add(connectionTransportAConnected, []);
+    const connectionManagerData$ = new BehaviorSubject(new Epoch(firstData, 0));
+    const publishers: Array<{
+      createAndSetupTracks: ReturnType<typeof vi.fn>;
+      startPublishing: ReturnType<typeof vi.fn>;
+      stopPublishing: ReturnType<typeof vi.fn>;
+      stopTracks: ReturnType<typeof vi.fn>;
+    }> = [];
+
+    defaultCreateLocalMemberValues.createPublisherFactory.mockImplementation(
+      () => {
+        const tracks$ = new BehaviorSubject<LocalTrack[]>([]);
+        const publishing$ = new BehaviorSubject(false);
+        const publisher = {
+          createAndSetupTracks: vi.fn(async () => {
+            await Promise.resolve();
+            tracks$.next([{}] as LocalTrack[]);
+          }),
+          startPublishing: vi.fn(async () => {
+            await Promise.resolve();
+            publishing$.next(true);
+            return tracks$.value;
+          }),
+          stopPublishing: vi.fn(),
+          stopTracks: vi.fn(() => tracks$.next([])),
+          tracks$,
+          publishing$,
+        };
+        publishers.push(publisher);
+        return publisher as unknown as Publisher;
+      },
+    );
+
+    const localMembership = createLocalMembership$({
+      scope,
+      ...defaultCreateLocalMemberValues,
+      connectionManager: { connectionManagerData$ },
+      localTransport$,
+    });
+    localMembership.requestJoinAndPublish();
+    await flushPromises();
+
+    expect(publishers).toHaveLength(1);
+    expect(publishers[0].createAndSetupTracks).toHaveBeenCalledOnce();
+    expect(publishers[0].startPublishing).toHaveBeenCalledOnce();
+
+    const replacementConnection = {
+      ...connectionTransportAConnected,
+      livekitRoom: mockLivekitRoom({
+        localParticipant: {
+          isScreenShareEnabled: false,
+          trackPublications: [],
+        } as unknown as LocalParticipant,
+      }),
+    } as unknown as Connection;
+    const replacementData = new ConnectionManagerData();
+    replacementData.add(replacementConnection, []);
+    connectionManagerData$.next(new Epoch(replacementData, 1));
+    await flushPromises();
+
+    expect(publishers).toHaveLength(2);
+    expect(publishers[0].stopPublishing).toHaveBeenCalled();
+    expect(publishers[0].stopTracks).toHaveBeenCalled();
+    expect(publishers[1].createAndSetupTracks).toHaveBeenCalledOnce();
+    expect(publishers[1].startPublishing).toHaveBeenCalledOnce();
+
+    scope.end();
+    defaultCreateLocalMemberValues.createPublisherFactory.mockReset();
+  });
+
   it("only start tracks if requested", async () => {
     const scope = new ObservableScope();
 

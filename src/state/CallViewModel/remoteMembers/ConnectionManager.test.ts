@@ -6,7 +6,7 @@ Please see LICENSE in the repository root for full details.
 */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { BehaviorSubject } from "rxjs";
+import { BehaviorSubject, Subject } from "rxjs";
 import { type LivekitTransport } from "matrix-js-sdk/lib/matrixrtc";
 import { type RemoteParticipant } from "livekit-client";
 import { logger } from "matrix-js-sdk/lib/logger";
@@ -18,7 +18,7 @@ import {
 } from "./ConnectionManager.ts";
 import { type ConnectionFactory } from "./ConnectionFactory.ts";
 import { type Connection } from "./Connection.ts";
-import { withTestScheduler } from "../../../utils/test.ts";
+import { flushPromises, withTestScheduler } from "../../../utils/test.ts";
 import { areLivekitTransportsEqual } from "./MatrixLivekitMembers.ts";
 import { type Behavior } from "../../Behavior.ts";
 
@@ -53,6 +53,7 @@ beforeEach(() => {
         const mockConnection = {
           transport,
           remoteParticipants$: new BehaviorSubject([]),
+          restartRequired$: new Subject<void>(),
         } as unknown as Connection;
         vi.mocked(mockConnection).start = vi.fn();
         vi.mocked(mockConnection).stop = vi.fn();
@@ -197,6 +198,51 @@ describe("connections$ stream", () => {
       });
     });
   });
+
+  test("replaces a connection after LiveKit reports lost server state", async () => {
+    const restartRequiredSubjects: Subject<void>[] = [];
+    vi.mocked(fakeConnectionFactory).createConnection.mockImplementation(
+      (transport: LivekitTransport, scope: ObservableScope) => {
+        const restartRequired$ = new Subject<void>();
+        restartRequiredSubjects.push(restartRequired$);
+        const mockConnection = {
+          transport,
+          remoteParticipants$: new BehaviorSubject([]),
+          restartRequired$,
+          start: vi.fn(),
+          stop: vi.fn(),
+        } as unknown as Connection;
+        scope.onEnd(() => {
+          void mockConnection.stop();
+        });
+        allCreatedConnections.push(mockConnection);
+        return mockConnection;
+      },
+    );
+
+    const inputTransports$ = new BehaviorSubject(new Epoch([TRANSPORT_1], 0));
+    const { connectionManagerData$ } = createConnectionManager$({
+      scope: testScope,
+      connectionFactory: fakeConnectionFactory,
+      inputTransports$,
+      logger,
+    });
+
+    expect(allCreatedConnections).toHaveLength(1);
+    expect(
+      connectionManagerData$.value.value.getConnectionForTransport(TRANSPORT_1),
+    ).toBe(allCreatedConnections[0]);
+
+    restartRequiredSubjects[0].next();
+    await flushPromises();
+
+    expect(allCreatedConnections).toHaveLength(2);
+    expect(allCreatedConnections[0].stop).toHaveBeenCalledOnce();
+    expect(allCreatedConnections[1].start).toHaveBeenCalledOnce();
+    expect(
+      connectionManagerData$.value.value.getConnectionForTransport(TRANSPORT_1),
+    ).toBe(allCreatedConnections[1]);
+  });
 });
 
 describe("connectionManagerData$ stream", () => {
@@ -230,6 +276,7 @@ describe("connectionManagerData$ stream", () => {
           const mockConnection = {
             transport,
             remoteParticipants$: getRemoteParticipantsFor(transport),
+            restartRequired$: new Subject<void>(),
           } as unknown as Connection;
           vi.mocked(mockConnection).start = vi.fn();
           vi.mocked(mockConnection).stop = vi.fn();
