@@ -139,6 +139,7 @@ export class Publisher {
         })
         .catch((error) => {
           this.logger.error("Failed to create tracks", error);
+          throw error;
         });
     }
     throw Error("audio and video is false");

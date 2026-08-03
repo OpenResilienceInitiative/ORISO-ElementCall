@@ -164,4 +164,28 @@ describe("Publisher", () => {
       connection.livekitRoom.localParticipant.publishTrack,
     ).toHaveBeenCalledTimes(3);
   });
+
+  it("propagates media permission failures to the caller", async () => {
+    (muteStates.audio.enabled$ as BehaviorSubject<boolean>).next(true);
+    const permissionError = new DOMException(
+      "Permission denied",
+      "NotAllowedError",
+    );
+    (
+      connection.livekitRoom.localParticipant.createTracks as Mock
+    ).mockRejectedValue(permissionError);
+
+    const publisher = new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    await expect(publisher.createAndSetupTracks()).rejects.toBe(
+      permissionError,
+    );
+  });
 });
