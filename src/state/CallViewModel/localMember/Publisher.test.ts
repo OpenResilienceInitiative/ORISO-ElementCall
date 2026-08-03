@@ -188,4 +188,42 @@ describe("Publisher", () => {
       permissionError,
     );
   });
+
+  it("retries track creation without installing mute handlers twice", async () => {
+    (muteStates.audio.enabled$ as BehaviorSubject<boolean>).next(true);
+    const permissionError = new DOMException(
+      "Permission denied",
+      "NotAllowedError",
+    );
+    (connection.livekitRoom.localParticipant.createTracks as Mock)
+      .mockRejectedValueOnce(permissionError)
+      .mockResolvedValueOnce([{}, {}]);
+
+    const makeHandlerInstaller = (): Mock => {
+      const installer = vi.fn(() => {
+        if (installer.mock.calls.length > 1) {
+          throw new Error("Multiple mute state handlers are not supported");
+        }
+      });
+      return installer;
+    };
+    muteStates.audio.setHandler = makeHandlerInstaller();
+    muteStates.video.setHandler = makeHandlerInstaller();
+
+    const publisher = new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    await expect(publisher.createAndSetupTracks()).rejects.toBe(
+      permissionError,
+    );
+    await expect(publisher.createAndSetupTracks()).resolves.not.toThrow();
+    expect(muteStates.audio.setHandler).toHaveBeenCalledOnce();
+    expect(muteStates.video.setHandler).toHaveBeenCalledOnce();
+  });
 });
