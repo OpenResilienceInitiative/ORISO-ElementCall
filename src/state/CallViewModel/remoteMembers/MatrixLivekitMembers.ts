@@ -12,6 +12,7 @@ import {
 } from "matrix-js-sdk/lib/matrixrtc";
 import { combineLatest, filter, map } from "rxjs";
 import { logger as rootLogger } from "matrix-js-sdk/lib/logger";
+import { getParticipantId } from "matrix-js-sdk/lib/matrixrtc/utils";
 
 import { type Behavior } from "../../Behavior";
 import { type IConnectionManager } from "./ConnectionManager";
@@ -106,20 +107,10 @@ export function createMatrixLivekitMembers$({
         // Each change in the keys (new key, missing key) will result in a call to the factory function.
         function* ([membershipsWithTransports, managerData]) {
           for (const { membership, transport } of membershipsWithTransports) {
-            // NOTE: Upstream Element Call assumes the LiveKit JWT service sets
-            // the participant identity to `${membership.userId}:${membership.deviceId}`.
-            // In our ORISO deployment, the custom LiveKit token service uses the
-            // Matrix `device_id` *alone* as the LiveKit participant identity.
-            //
-            // If we kept the upstream assumption, the code here would look for
-            // identities like `@user:server:DEVICE`, which never exist, so every
-            // remote member's `participant` would stay `null` and tiles would
-            // remain stuck on “Waiting for media…”.
-            //
-            // To match our token service, derive the participantId directly from
-            // membership.deviceId. We still include the userId in the generator
-            // keys to keep them unique across different users.
-            const participantId = membership.deviceId;
+            const participantId = getParticipantId(
+              membership.userId,
+              membership.deviceId,
+            );
 
             const participants = transport
               ? managerData.getParticipantForTransport(transport)
