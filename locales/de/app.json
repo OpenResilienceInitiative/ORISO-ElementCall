@@ -19,7 +19,8 @@
     "sign_in": "Anmelden",
     "sign_out": "Abmelden",
     "submit": "Absenden",
-    "upload_file": "Datei hochladen"
+    "upload_file": "Datei hochladen",
+    "try_again": "Erneut versuchen"
   },
   "analytics_notice": "Mit der Teilnahme an der Beta akzeptierst du die Sammlung von anonymen Daten, die wir zur Verbesserung des Produkts verwenden. Weitere Informationen zu den von uns erhobenen Daten findest du in unserer <2>Datenschutzerklärung</2> und unseren <6>Cookie-Richtlinien</6>.",
   "app_selection_modal": {
@@ -94,6 +95,8 @@
     "generic_description": "Durch das Senden von Debugprotokollen können wir das Problem leichter eingrenzen.",
     "insufficient_capacity": "Unzureichende Kapazität",
     "insufficient_capacity_description": "Der Server hat seine maximale Kapazität erreicht, daher ist ein Beitritt zum Anruf derzeit nicht möglich. Bitte später erneut versuchen oder den Serveradministrator kontaktieren, falls das Problem weiterhin besteht.",
+    "media_permission_denied": "Medienzugriff blockiert",
+    "media_permission_denied_description": "Erlaube in den Browsereinstellungen den Zugriff auf Mikrofon oder Kamera und versuche es erneut. Du kannst im Anruf bleiben und die Medien anderer Teilnehmender empfangen.",
     "matrix_rtc_focus_missing": "Der Server ist nicht für die Verwendung mit {{brand}} konfiguriert. Bitte den Serveradministrator kontaktieren (Domain: {{domain}}, Fehlercode: {{ errorCode }}).",
     "open_elsewhere": "In einem anderen Tab geöffnet",
     "open_elsewhere_description": "{{brand}} wurde in einem anderen Tab geöffnet. Wenn das nicht richtig klingt, versuchen Sie, die Seite neu zu laden.",

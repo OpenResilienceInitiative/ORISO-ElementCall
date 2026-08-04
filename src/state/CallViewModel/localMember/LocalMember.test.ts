@@ -32,7 +32,10 @@ import {
   PublishState,
   TrackState,
 } from "./LocalMember";
-import { MatrixRTCTransportMissingError } from "../../../utils/errors";
+import {
+  MatrixRTCTransportMissingError,
+  MediaPermissionDeniedError,
+} from "../../../utils/errors";
 import { Epoch, ObservableScope } from "../../ObservableScope";
 import { constant } from "../../Behavior";
 import { ConnectionManagerData } from "../remoteMembers/ConnectionManager";
@@ -368,6 +371,59 @@ describe("LocalMembership", () => {
     expect(publishers[0].stopPublishing).toHaveBeenCalled();
     expect(publishers[0].stopTracks).toHaveBeenCalled();
     publisherFactory.mockClear();
+  });
+
+  it("surfaces a media permission failure and retries track creation", async () => {
+    const scope = new ObservableScope();
+    const localTransport$ = new BehaviorSubject(aTransport);
+    const tracks$ = new BehaviorSubject<LocalTrack[]>([]);
+    const publishing$ = new BehaviorSubject(false);
+    const permissionError = new DOMException(
+      "Permission denied",
+      "NotAllowedError",
+    );
+    const createAndSetupTracks = vi
+      .fn()
+      .mockRejectedValueOnce(permissionError)
+      .mockImplementationOnce(async () => {
+        await Promise.resolve();
+        tracks$.next([{}, {}] as LocalTrack[]);
+      });
+
+    defaultCreateLocalMemberValues.createPublisherFactory.mockReturnValue({
+      stopPublishing: vi.fn(),
+      stopTracks: vi.fn(),
+      createAndSetupTracks,
+      tracks$,
+      publishing$,
+    } as unknown as Publisher);
+
+    const connectionManagerData = new ConnectionManagerData();
+    connectionManagerData.add(connectionTransportAConnected, []);
+    const localMembership = createLocalMembership$({
+      scope,
+      ...defaultCreateLocalMemberValues,
+      connectionManager: {
+        connectionManagerData$: constant(new Epoch(connectionManagerData)),
+      },
+      localTransport$,
+    });
+
+    localMembership.startTracks();
+    await flushPromises();
+    expect(createAndSetupTracks).toHaveBeenCalledOnce();
+    expect(localMembership.mediaError$.value).toBeInstanceOf(
+      MediaPermissionDeniedError,
+    );
+
+    localMembership.startTracks();
+    await flushPromises();
+    expect(createAndSetupTracks).toHaveBeenCalledTimes(2);
+    expect(localMembership.mediaError$.value).toBeNull();
+    expect(localMembership.tracks$.value).toHaveLength(2);
+
+    scope.end();
+    defaultCreateLocalMemberValues.createPublisherFactory.mockClear();
   });
   // TODO add an integration test combining publisher and localMembership
   //

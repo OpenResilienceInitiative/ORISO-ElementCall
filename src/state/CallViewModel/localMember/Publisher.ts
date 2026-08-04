@@ -41,6 +41,8 @@ import { type ObservableScope } from "../../ObservableScope.ts";
  * The Publisher is also responsible for creating the media tracks.
  */
 export class Publisher {
+  private muteStatesObserved = false;
+
   /**
    * Creates a new Publisher.
    * @param scope - The observable scope to use for managing the publisher.
@@ -117,7 +119,10 @@ export class Publisher {
     this.logger.debug("createAndSetupTracks called");
     const lkRoom = this.connection.livekitRoom;
     // Observe mute state changes and update LiveKit microphone/camera states accordingly
-    this.observeMuteStates(this.scope);
+    if (!this.muteStatesObserved) {
+      this.observeMuteStates(this.scope);
+      this.muteStatesObserved = true;
+    }
 
     // TODO-MULTI-SFU: Prepublish a microphone track
     const audio = this.muteStates.audio.enabled$.value;
@@ -139,6 +144,7 @@ export class Publisher {
         })
         .catch((error) => {
           this.logger.error("Failed to create tracks", error);
+          throw error;
         });
     }
     throw Error("audio and video is false");

@@ -13,11 +13,16 @@ import {
   type MockedFunction,
   vi,
 } from "vitest";
-import { render, type RenderResult } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  type RenderResult,
+} from "@testing-library/react";
 import { type MatrixClient, JoinRule, type RoomState } from "matrix-js-sdk";
 import { type RelationsContainer } from "matrix-js-sdk/lib/models/relations-container";
 import { type LocalParticipant } from "livekit-client";
-import { of } from "rxjs";
+import { BehaviorSubject, of } from "rxjs";
 import { BrowserRouter } from "react-router-dom";
 import { TooltipProvider } from "@vector-im/compound-web";
 import { RoomContext, useLocalParticipant } from "@livekit/components-react";
@@ -42,6 +47,10 @@ import { useRoomEncryptionSystem } from "../e2ee/sharedKeyManagement";
 import { LivekitRoomAudioRenderer } from "../livekit/MatrixAudioRenderer";
 import { MediaDevicesContext } from "../MediaDevicesContext";
 import { HeaderStyle } from "../UrlParams";
+import {
+  type ElementCallError,
+  MediaPermissionDeniedError,
+} from "../utils/errors";
 
 vi.hoisted(
   () =>
@@ -98,8 +107,11 @@ beforeEach(() => {
   useRoomEncryptionSystemMock.mockReturnValue({ kind: E2eeType.NONE });
 });
 
-function createInCallView(): RenderResult & {
+function createInCallView(
+  mediaError: ElementCallError | null = null,
+): RenderResult & {
   rtcSession: MockRTCSession;
+  retryMedia: ReturnType<typeof vi.fn>;
 } {
   const client = {
     getUser: () => null,
@@ -137,6 +149,11 @@ function createInCallView(): RenderResult & {
     },
   );
   const { vm, rtcSession } = getBasicCallViewModelEnvironment([local, alice]);
+  const retryMedia = vi.fn();
+  Object.assign(vm, {
+    mediaError$: new BehaviorSubject(mediaError),
+    retryMedia,
+  });
 
   rtcSession.joined = true;
   const renderResult = render(
@@ -178,6 +195,7 @@ function createInCallView(): RenderResult & {
   return {
     ...renderResult,
     rtcSession,
+    retryMedia,
   };
 }
 
@@ -186,6 +204,23 @@ describe("InCallView", () => {
     it("renders", () => {
       const { container } = createInCallView();
       expect(container).toMatchSnapshot();
+    });
+
+    it("explains denied media permissions, reflects muted media, and retries", () => {
+      const { retryMedia } = createInCallView(new MediaPermissionDeniedError());
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Media access blocked",
+      );
+      expect(
+        screen.getByRole("button", { name: "Unmute microphone" }),
+      ).toHaveAttribute("aria-disabled", "true");
+      expect(
+        screen.getByRole("button", { name: "Start video" }),
+      ).toHaveAttribute("aria-disabled", "true");
+
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(retryMedia).toHaveBeenCalledOnce();
     });
   });
 });

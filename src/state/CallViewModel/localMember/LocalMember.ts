@@ -11,6 +11,7 @@ import {
   ParticipantEvent,
   type LocalParticipant,
   type ScreenShareCaptureOptions,
+  MediaDeviceFailure,
 } from "livekit-client";
 import { observeParticipantEvents } from "@livekit/components-core";
 import {
@@ -23,12 +24,10 @@ import {
   catchError,
   combineLatest,
   distinctUntilChanged,
-  from,
   map,
   type Observable,
   of,
   pairwise,
-  startWith,
   switchMap,
   tap,
 } from "rxjs";
@@ -44,6 +43,8 @@ import {
   ElementCallError,
   FailToStartLivekitConnection,
   MembershipManagerError,
+  MediaPermissionDeniedError,
+  isBrowserMediaPermissionDenied,
   UnknownCallError,
 } from "../../../utils/errors.ts";
 import { ElementWidgetActions, widget } from "../../../widget.ts";
@@ -160,6 +161,8 @@ export const createLocalMembership$ = ({
   requestJoinAndPublish: () => void;
   requestDisconnect: () => void;
   localMemberState$: Behavior<LocalMemberState>;
+  /** A non-fatal media capture or publishing error. */
+  mediaError$: Behavior<ElementCallError | null>;
   sharingScreen$: Behavior<boolean>;
   /**
    * Callback to toggle screen sharing. If null, screen sharing is not possible.
@@ -225,7 +228,7 @@ export const createLocalMembership$ = ({
 
   // This should be used in a combineLatest with publisher$ to connect.
   // to make it possible to call startTracks before the preferredTransport$ has resolved.
-  const trackStartRequested = Promise.withResolvers<void>();
+  const trackStartRequest$ = new BehaviorSubject(0);
 
   // This should be used in a combineLatest with publisher$ to connect.
   // to make it possible to call startTracks before the preferredTransport$ has resolved.
@@ -245,13 +248,25 @@ export const createLocalMembership$ = ({
     publisher$.pipe(switchMap((p) => p?.publishing$ ?? constant(false))),
   );
 
+  // Media errors are non-fatal: participants can still receive media even if
+  // local track capture or publication failed.
+  const publishError$ = new BehaviorSubject<ElementCallError | null>(null);
+  const setPublishError = (e: ElementCallError): void => {
+    if (publishError$.value !== null) {
+      logger.error("Replacing Media Error:", publishError$.value, e);
+    }
+    publishError$.next(e);
+  };
+
+  const clearPublishError = (): void => publishError$.next(null);
+
   const startTracks = (): Behavior<LocalTrack[]> => {
-    trackStartRequested.resolve();
+    trackStartRequest$.next(trackStartRequest$.value + 1);
     return tracks$;
   };
 
   const requestJoinAndPublish = (): void => {
-    trackStartRequested.resolve();
+    if (trackStartRequest$.value === 0) trackStartRequest$.next(1);
     joinAndPublishRequested$.next(true);
   };
 
@@ -281,15 +296,25 @@ export const createLocalMembership$ = ({
   // Use reconcile here to not run concurrent createAndSetupTracks calls
   // `tracks$` will update once they are ready.
   scope.reconcile(
-    scope.behavior(
-      combineLatest([publisher$, tracks$, from(trackStartRequested.promise)]),
-      null,
-    ),
-    async (valueIfReady) => {
-      if (!valueIfReady) return;
-      const [publisher, tracks] = valueIfReady;
-      if (publisher && tracks.length === 0) {
-        await publisher.createAndSetupTracks().catch((e) => logger.error(e));
+    scope.behavior(combineLatest([publisher$, tracks$, trackStartRequest$])),
+    async ([publisher, tracks, requestCount]) => {
+      if (publisher && tracks.length === 0 && requestCount > 0) {
+        try {
+          await publisher.createAndSetupTracks();
+          clearPublishError();
+        } catch (error) {
+          const cause =
+            error instanceof Error ? error : new Error(String(error));
+          const permissionDenied =
+            MediaDeviceFailure.getFailure(error) ===
+              MediaDeviceFailure.PermissionDenied ||
+            (await isBrowserMediaPermissionDenied(error));
+          if (permissionDenied) {
+            setPublishError(new MediaPermissionDeniedError(cause));
+          } else {
+            setPublishError(new UnknownCallError(cause));
+          }
+        }
       }
     },
   );
@@ -297,13 +322,19 @@ export const createLocalMembership$ = ({
   // Based on `connectRequested$` we start publishing tracks. (once they are there!)
   scope.reconcile(
     scope.behavior(
-      combineLatest([publisher$, tracks$, joinAndPublishRequested$]),
+      combineLatest([
+        publisher$,
+        tracks$,
+        joinAndPublishRequested$,
+        trackStartRequest$,
+      ]),
     ),
     async ([publisher, tracks, shouldJoinAndPublish]) => {
       if (shouldJoinAndPublish === publisher?.publishing$.value) return;
       if (tracks.length !== 0 && shouldJoinAndPublish) {
         try {
           await publisher?.startPublishing();
+          clearPublishError();
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
@@ -320,16 +351,6 @@ export const createLocalMembership$ = ({
   );
 
   // STATE COMPUTATION
-
-  // These are non fatal since we can join a room and concume media even though publishing failed.
-  const publishError$ = new BehaviorSubject<ElementCallError | null>(null);
-  const setPublishError = (e: ElementCallError): void => {
-    if (publishError$.value !== null) {
-      logger.error("Multiple Media Errors:", e);
-    } else {
-      publishError$.next(e);
-    }
-  };
 
   const fatalTransportError$ = new BehaviorSubject<ElementCallError | null>(
     null,
@@ -354,10 +375,7 @@ export const createLocalMembership$ = ({
       tracks$,
       publishing$,
       joinAndPublishRequested$,
-      from(trackStartRequested.promise).pipe(
-        map(() => true),
-        startWith(false),
-      ),
+      trackStartRequest$.pipe(map((requestCount) => requestCount > 0)),
     ]).pipe(
       map(
         ([
@@ -613,6 +631,7 @@ export const createLocalMembership$ = ({
     requestJoinAndPublish,
     requestDisconnect,
     localMemberState$,
+    mediaError$: publishError$,
     tracks$,
     participant$,
     reconnecting$,
