@@ -126,6 +126,11 @@ beforeEach(() => {
 function createGroupCallView(
   widget: WidgetHelpers | null,
   joined = true,
+  /**
+   * Set to drop `getCrypto` from the client entirely, the way a partial mock or
+   * an older SDK would. See the regression test at the bottom of this file.
+   */
+  omitGetCrypto = false,
 ): {
   rtcSession: MatrixRTCSession;
   getByText: ReturnType<typeof render>["getByText"];
@@ -135,6 +140,10 @@ function createGroupCallView(
     getUserId: () => localRtcMember.userId,
     getDeviceId: () => localRtcMember.deviceId,
     getRoom: (rId) => (rId === roomId ? room : null),
+    // A real MatrixClient always exposes this, so the mock should too. It was
+    // missing, and the encryption guard's unconditional `client.getCrypto()`
+    // crashed every test in this file with a TypeError.
+    ...(omitGetCrypto ? {} : { getCrypto: () => undefined }),
   } as Partial<MatrixClient> as MatrixClient;
   const room = mockMatrixRoom({
     relations: {
@@ -401,4 +410,13 @@ test("user can reconnect after a membership manager error", async () => {
   );
   // In-call controls should be visible again
   await waitFor(() => screen.getByRole("button", { name: "Leave" }));
+});
+
+test("renders an unencrypted call even when the client cannot report crypto", () => {
+  // Regression: the encryption guard called `client.getCrypto()` before it
+  // looked at whether the room was encrypted at all. A client without that
+  // method — a partial mock, an older SDK — took down the whole call view with
+  // a TypeError, which is a worse failure than the plaintext call the guard
+  // exists to prevent. Probing crypto must stay optional.
+  expect(() => createGroupCallView(null, true, true)).not.toThrow();
 });
