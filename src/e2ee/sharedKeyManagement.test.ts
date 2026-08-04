@@ -24,15 +24,18 @@ const setup = ({
   password = null,
   roomExists = true,
   widgetMode = true,
+  perParticipantE2EE = undefined,
 }: {
   encrypted: boolean;
   password?: string | null;
   roomExists?: boolean;
   widgetMode?: boolean;
+  perParticipantE2EE?: boolean;
 }): void => {
   getUrlParamsMock.mockReturnValue({
     roomId: ROOM_ID,
     password,
+    perParticipantE2EE,
     widgetId: widgetMode ? "oriso-call" : null,
     parentUrl: widgetMode ? "https://app.oriso.example" : null,
   });
@@ -57,8 +60,8 @@ afterEach(() => {
 });
 
 describe("useRoomEncryptionSystem", () => {
-  it("uses per-participant media encryption in an encrypted widget room", () => {
-    setup({ encrypted: true });
+  it("uses per-participant media encryption when the host asks for it", () => {
+    setup({ encrypted: true, perParticipantE2EE: true });
 
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
@@ -66,7 +69,12 @@ describe("useRoomEncryptionSystem", () => {
   });
 
   it("ignores a shared secret from the call link in widget mode", () => {
-    setup({ encrypted: true, password: "secret-from-link", widgetMode: true });
+    setup({
+      encrypted: true,
+      password: "secret-from-link",
+      widgetMode: true,
+      perParticipantE2EE: true,
+    });
 
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
@@ -94,7 +102,7 @@ describe("useRoomEncryptionSystem", () => {
 
   it("ignores a previously stored shared key in widget mode", () => {
     localStorage.setItem(`room-shared-key-${ROOM_ID}`, "legacy-iframe-secret");
-    setup({ encrypted: true, widgetMode: true });
+    setup({ encrypted: true, widgetMode: true, perParticipantE2EE: true });
 
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
@@ -115,5 +123,29 @@ describe("useRoomEncryptionSystem", () => {
     const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
 
     expect(result.current).toEqual({ kind: E2eeType.NONE });
+  });
+
+  it("leaves media unencrypted in a widget room when the host does not ask for it", () => {
+    // The host owns Matrix crypto, so it is the only side that can know whether
+    // its media key distribution works. Turning per-participant E2EE on purely
+    // because the room is encrypted produced calls that connected with no audio
+    // in either direction and no error anywhere (ORISO-ElementCall#35).
+    setup({ encrypted: true, perParticipantE2EE: undefined });
+
+    const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
+
+    expect(result.current).toEqual({ kind: E2eeType.NONE });
+  });
+
+  it("still uses per-participant encryption outside widget mode", () => {
+    setup({
+      encrypted: true,
+      widgetMode: false,
+      perParticipantE2EE: undefined,
+    });
+
+    const { result } = renderHook(() => useRoomEncryptionSystem(ROOM_ID));
+
+    expect(result.current).toEqual({ kind: E2eeType.PER_PARTICIPANT });
   });
 });

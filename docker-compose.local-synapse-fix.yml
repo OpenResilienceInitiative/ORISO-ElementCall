@@ -1,0 +1,11 @@
+# Local-only: Docker Desktop (virtiofs) cannot nest a file bind mount inside a
+# directory bind mount, which is how the upstream compose supplies
+# /data/cfg/homeserver.yaml. Place each config inside its own mounted data
+# directory and replace the volume list with just that directory.
+services:
+  synapse:
+    volumes: !override
+      - ./backend/synapse_tmp:/data
+  synapse-1:
+    volumes: !override
+      - ./backend/synapse_tmp_othersite:/data

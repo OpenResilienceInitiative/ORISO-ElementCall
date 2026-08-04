@@ -27,6 +27,26 @@ Please see LICENSE in the repository root for full details.
   background: none;
 }
 
+.mediaError {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--call-view-header-footer-layer);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cpd-space-4x);
+  padding: var(--cpd-space-3x) var(--cpd-space-4x);
+  color: var(--cpd-color-text-critical-primary);
+  background: var(--cpd-color-bg-critical-subtle);
+  text-align: start;
+}
+
+.mediaError h2,
+.mediaError p {
+  margin: 0;
+}
+
 .footer {
   position: sticky;
   inset-block-end: 0;

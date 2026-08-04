@@ -57,6 +57,52 @@ describe("Publisher", () => {
 
   afterEach(() => scope.end());
 
+  it("enables E2EE when the LiveKit room has E2EE configured", () => {
+    const livekitRoom = mockLivekitRoom({
+      hasE2EESetup: true,
+      localParticipant: mockLocalParticipant({}),
+      setE2EEEnabled: vi.fn().mockResolvedValue(undefined),
+    });
+    connection = {
+      state$: constant(LivekitConenctionState.Connected),
+      livekitRoom,
+    } as unknown as Connection;
+
+    new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    expect(livekitRoom.setE2EEEnabled).toHaveBeenCalledOnce();
+    expect(livekitRoom.setE2EEEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("does not toggle E2EE when the LiveKit room has no E2EE setup", () => {
+    const livekitRoom = mockLivekitRoom({
+      hasE2EESetup: false,
+      localParticipant: mockLocalParticipant({}),
+    });
+    connection = {
+      state$: constant(LivekitConenctionState.Connected),
+      livekitRoom,
+    } as unknown as Connection;
+
+    new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    expect(livekitRoom.setE2EEEnabled).not.toHaveBeenCalled();
+  });
+
   it("throws if livekit room could not publish", async () => {
     const publisher = new Publisher(
       scope,
@@ -117,5 +163,67 @@ describe("Publisher", () => {
     expect(
       connection.livekitRoom.localParticipant.publishTrack,
     ).toHaveBeenCalledTimes(3);
+  });
+
+  it("propagates media permission failures to the caller", async () => {
+    (muteStates.audio.enabled$ as BehaviorSubject<boolean>).next(true);
+    const permissionError = new DOMException(
+      "Permission denied",
+      "NotAllowedError",
+    );
+    (
+      connection.livekitRoom.localParticipant.createTracks as Mock
+    ).mockRejectedValue(permissionError);
+
+    const publisher = new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    await expect(publisher.createAndSetupTracks()).rejects.toBe(
+      permissionError,
+    );
+  });
+
+  it("retries track creation without installing mute handlers twice", async () => {
+    (muteStates.audio.enabled$ as BehaviorSubject<boolean>).next(true);
+    const permissionError = new DOMException(
+      "Permission denied",
+      "NotAllowedError",
+    );
+    (connection.livekitRoom.localParticipant.createTracks as Mock)
+      .mockRejectedValueOnce(permissionError)
+      .mockResolvedValueOnce([{}, {}]);
+
+    const makeHandlerInstaller = (): Mock => {
+      const installer = vi.fn(() => {
+        if (installer.mock.calls.length > 1) {
+          throw new Error("Multiple mute state handlers are not supported");
+        }
+      });
+      return installer;
+    };
+    muteStates.audio.setHandler = makeHandlerInstaller();
+    muteStates.video.setHandler = makeHandlerInstaller();
+
+    const publisher = new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    await expect(publisher.createAndSetupTracks()).rejects.toBe(
+      permissionError,
+    );
+    await expect(publisher.createAndSetupTracks()).resolves.not.toThrow();
+    expect(muteStates.audio.setHandler).toHaveBeenCalledOnce();
+    expect(muteStates.video.setHandler).toHaveBeenCalledOnce();
   });
 });
