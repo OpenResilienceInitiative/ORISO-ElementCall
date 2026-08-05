@@ -11,6 +11,7 @@ import {
   ErrorCategory,
   ErrorCode,
   LiveKitAuthDeniedError,
+  LiveKitJwtServiceUnavailableError,
   UnknownCallError,
   isBrowserMediaPermissionDenied,
 } from "./errors.ts";
@@ -96,5 +97,24 @@ describe("LiveKitAuthDeniedError", () => {
     const error = new LiveKitAuthDeniedError(401);
     expect(error.status).toBe(401);
     expect(error.localisedMessage).toContain("401");
+  });
+});
+
+describe("LiveKitJwtServiceUnavailableError", () => {
+  it("carries the HTTP status and classifies as a network issue", () => {
+    const cause = new Error("Service Unavailable");
+    const error = new LiveKitJwtServiceUnavailableError(503, cause);
+    expect(error.code).toBe(ErrorCode.LIVEKIT_JWT_SERVICE_UNAVAILABLE);
+    expect(error.category).toBe(ErrorCategory.NETWORK_CONNECTIVITY);
+    expect(error.status).toBe(503);
+    expect(error.cause).toBe(cause);
+    expect(error.localisedMessage).toContain("503");
+  });
+
+  it("labels network-error status as such", () => {
+    const cause = new TypeError("Failed to fetch");
+    const error = new LiveKitJwtServiceUnavailableError(undefined, cause);
+    expect(error.status).toBeUndefined();
+    expect(error.localisedMessage).toContain("network error");
   });
 });

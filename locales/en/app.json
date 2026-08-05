@@ -118,6 +118,8 @@
     "insufficient_capacity_description": "The server has reached its maximum capacity and you cannot join the call at this time. Try again later, or contact your server admin if the problem persists.",
     "livekit_auth_denied": "Call access denied",
     "livekit_auth_denied_description": "The call server refused this session (status {{status}}). This usually means your account is not a current member of this room yet. Ask the person who invited you to re-issue the invite, or contact your server admin if the problem persists.",
+    "livekit_jwt_service_unavailable": "Call service unavailable",
+    "livekit_jwt_service_unavailable_description": "The call service is temporarily unavailable ({{status}}). This is a server-side problem, not something you can fix from here. Please retry in a few minutes, or contact your server admin if the problem persists.",
     "matrix_rtc_transport_missing": "The server is not configured to work with {{brand}}. Please contact your server admin (Domain: {{domain}}, Error Code: {{ errorCode }}).",
     "media_permission_denied": "Media access blocked",
     "media_permission_denied_description": "Allow access to your microphone or camera in the browser settings, then try again. You can remain in the call and receive other participants' media.",

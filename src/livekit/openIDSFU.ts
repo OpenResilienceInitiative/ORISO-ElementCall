@@ -8,7 +8,11 @@ Please see LICENSE in the repository root for full details.
 import { type IOpenIDToken, type MatrixClient } from "matrix-js-sdk";
 import { logger } from "matrix-js-sdk/lib/logger";
 
-import { FailToGetOpenIdToken } from "../utils/errors";
+import {
+  FailToGetOpenIdToken,
+  LiveKitAuthDeniedError,
+  LiveKitJwtServiceUnavailableError,
+} from "../utils/errors";
 import { doNetworkOperationWithRetry } from "../utils/matrix";
 
 export interface SFUConfig {
@@ -66,8 +70,9 @@ async function getLiveKitJWT(
   roomName: string,
   openIDToken: IOpenIDToken,
 ): Promise<SFUConfig> {
+  let res: Response;
   try {
-    const res = await fetch(livekitServiceURL + "/sfu/get", {
+    res = await fetch(livekitServiceURL + "/sfu/get", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -78,11 +83,33 @@ async function getLiveKitJWT(
         device_id: client.getDeviceId(),
       }),
     });
-    if (!res.ok) {
-      throw new Error("SFU Config fetch failed with status code " + res.status);
-    }
-    return await res.json();
   } catch (e) {
-    throw new Error("SFU Config fetch failed with exception " + e);
+    // Network layer failure — gateway is unreachable, DNS/TLS/ingress issue.
+    // Treat like a 5xx: the JWT service is effectively unavailable.
+    throw new LiveKitJwtServiceUnavailableError(
+      undefined,
+      e instanceof Error ? e : new Error(`${e}`),
+    );
   }
+  if (!res.ok) {
+    // 401/403 → gateway explicitly refused the OpenID token (or the caller
+    // isn't a member of the room it authorises against).
+    if (res.status === 401 || res.status === 403) {
+      throw new LiveKitAuthDeniedError(
+        res.status,
+        new Error("JWT gateway refused token"),
+      );
+    }
+    // 5xx → gateway itself is degraded/down. Not a widget bug.
+    if (res.status >= 500 && res.status < 600) {
+      throw new LiveKitJwtServiceUnavailableError(
+        res.status,
+        new Error("JWT gateway returned " + res.status),
+      );
+    }
+    // Any other non-OK status stays a generic error; the error boundary will
+    // now surface it via UnknownCallError with cause name+message included.
+    throw new Error("SFU Config fetch failed with status code " + res.status);
+  }
+  return await res.json();
 }
