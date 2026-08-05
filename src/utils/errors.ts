@@ -36,6 +36,15 @@ export enum ErrorCode {
    * chase a generic UNKNOWN_ERROR when the real problem is room membership.
    */
   LIVEKIT_AUTH_DENIED_ERROR = "LIVEKIT_AUTH_DENIED_ERROR",
+  /**
+   * The JWT auth gateway itself is not responding (5xx from
+   * `/livekit/jwt/sfu/get`) — the pod is down, its Matrix/OpenID dependency
+   * is unreachable, or the ingress is broken. Not a code bug in the widget;
+   * an operations issue. Surfaced as its own code so operators see
+   * "call service unavailable" instead of a generic UNKNOWN_ERROR that could
+   * be mistaken for a client bug.
+   */
+  LIVEKIT_JWT_SERVICE_UNAVAILABLE = "LIVEKIT_JWT_SERVICE_UNAVAILABLE",
   UNKNOWN_ERROR = "UNKNOWN_ERROR",
 }
 
@@ -235,6 +244,30 @@ export class LiveKitAuthDeniedError extends ElementCallError {
       ErrorCode.LIVEKIT_AUTH_DENIED_ERROR,
       ErrorCategory.CONFIGURATION_ISSUE,
       t("error.livekit_auth_denied_description", { status }),
+      cause,
+    );
+    this.status = status;
+  }
+}
+
+/**
+ * Raised when the JWT auth gateway (`/livekit/jwt/sfu/get`) returns 5xx or
+ * cannot be reached. The gateway or its dependencies (Matrix federation,
+ * Synapse OpenID validation) are unavailable — operators should look at
+ * the JWT-service pod, its ingress, and the Matrix delegation before
+ * touching call code.
+ */
+export class LiveKitJwtServiceUnavailableError extends ElementCallError {
+  public status?: number;
+
+  public constructor(status: number | undefined, cause?: Error) {
+    super(
+      t("error.livekit_jwt_service_unavailable"),
+      ErrorCode.LIVEKIT_JWT_SERVICE_UNAVAILABLE,
+      ErrorCategory.NETWORK_CONNECTIVITY,
+      t("error.livekit_jwt_service_unavailable_description", {
+        status: status ?? "network error",
+      }),
       cause,
     );
     this.status = status;
