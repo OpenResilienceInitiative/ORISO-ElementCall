@@ -24,13 +24,16 @@ import { ClientEvent, type MatrixClient } from "matrix-js-sdk";
 import type { WidgetApi } from "matrix-widget-api";
 import { ErrorPage } from "./FullScreenView";
 import { widget } from "./widget";
-import { getUrlParams } from "./UrlParams";
 import {
   PosthogAnalytics,
   RegistrationType,
 } from "./analytics/PosthogAnalytics";
 import { useEventTarget } from "./useEvents";
 import { OpenElsewhereError } from "./RichError";
+import {
+  clearStandaloneMatrixSession,
+  MATRIX_AUTH_STORE_KEY,
+} from "./matrixSessionStorage";
 
 declare global {
   interface Window {
@@ -318,17 +321,11 @@ export const ClientProvider: FC<Props> = ({ children }) => {
       const reactSend = initClientState.widgetApi.hasCapability(
         "org.matrix.msc2762.send.event:m.reaction",
       );
-      const redactSend = initClientState.widgetApi.hasCapability(
-        "org.matrix.msc2762.send.event:m.room.redaction",
-      );
       const reactRcv = initClientState.widgetApi.hasCapability(
         "org.matrix.msc2762.receive.event:m.reaction",
       );
-      const redactRcv = initClientState.widgetApi.hasCapability(
-        "org.matrix.msc2762.receive.event:m.room.redaction",
-      );
 
-      if (!reactSend || !reactRcv || !redactSend || !redactRcv) {
+      if (!reactSend || !reactRcv) {
         logger.warn("Widget does not support reactions");
         setSupportsReactions(false);
       } else {
@@ -383,21 +380,11 @@ export interface Session {
   tempPassword?: string;
 }
 
-const clearSession = (): void => localStorage.removeItem("matrix-auth-store");
+const clearSession = clearStandaloneMatrixSession;
 const saveSession = (s: Session): void =>
-  localStorage.setItem("matrix-auth-store", JSON.stringify(s));
+  localStorage.setItem(MATRIX_AUTH_STORE_KEY, JSON.stringify(s));
 const loadSession = (): Session | undefined => {
-  const { accessToken, userId, deviceId } = getUrlParams();
-  if (accessToken && userId && deviceId) {
-    return {
-      user_id: userId,
-      device_id: deviceId,
-      access_token: accessToken,
-      passwordlessUser: false,
-    };
-  }
-
-  const data = localStorage.getItem("matrix-auth-store");
+  const data = localStorage.getItem(MATRIX_AUTH_STORE_KEY);
   if (!data) {
     return undefined;
   }

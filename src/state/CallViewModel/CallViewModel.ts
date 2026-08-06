@@ -247,6 +247,10 @@ export interface CallViewModel {
    * Should render a blocking error screen.
    */
   fatalError$: Behavior<ElementCallError | null>;
+  /** A non-fatal local media capture or publishing error. */
+  mediaError$: Behavior<ElementCallError | null>;
+  /** Retry local microphone and camera capture after a media error. */
+  retryMedia: () => void;
 
   // participants and counts
   /**
@@ -1492,6 +1496,10 @@ export function createCallViewModel$(
       ),
       null,
     ),
+    mediaError$: localMembership.mediaError$,
+    retryMedia: (): void => {
+      localMembership.startTracks();
+    },
 
     participantCount$: participantCount$,
     audioParticipants$: audioParticipants$,

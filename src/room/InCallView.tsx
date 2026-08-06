@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-import { IconButton, Text, Tooltip } from "@vector-im/compound-web";
+import { Button, IconButton, Text, Tooltip } from "@vector-im/compound-web";
 import { type MatrixClient, type Room as MatrixRoom } from "matrix-js-sdk";
 import {
   type FC,
@@ -112,8 +112,10 @@ const logger = rootLogger.getChild("[InCallView]");
 
 const maxTapDurationMs = 400;
 
-export interface ActiveCallProps
-  extends Omit<InCallViewProps, "vm" | "livekitRoom" | "connState"> {
+export interface ActiveCallProps extends Omit<
+  InCallViewProps,
+  "vm" | "livekitRoom" | "connState"
+> {
   e2eeSystem: EncryptionSystem;
   // TODO refactor those reasons into an enum
   onLeft: (
@@ -169,22 +171,6 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
     mediaDevices,
     trackProcessorState$,
   ]);
-
-  useEffect(() => {
-    if (!vm) return;
-    const handleMessage = (event: MessageEvent) => {
-      const data = event.data;
-      if (!data || typeof data !== "object") return;
-      if (data.type !== "oriso-call-action") return;
-      if (data.action === "hangup") {
-        vm.hangup();
-      }
-    };
-    window.addEventListener("message", handleMessage);
-    return (): void => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [vm]);
 
   if (vm === null) return null;
 
@@ -290,6 +276,7 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const ringOverlay = useBehavior(vm.ringOverlay$);
   const fatalCallError = useBehavior(vm.fatalError$);
+  const mediaError = useBehavior(vm.mediaError$);
   const isPopupMode = windowMode === "pip" || windowMode === "flat";
   // Stop the rendering and throw for the error boundary
   if (fatalCallError) {
@@ -721,20 +708,20 @@ export const InCallView: FC<InCallViewProps> = ({
   buttons.push(
     <MicButton
       key="audio"
-      muted={!audioEnabled}
+      muted={!audioEnabled || mediaError !== null}
       disableTooltip={isPopupMode}
       onClick={toggleAudio ?? undefined}
       onTouchEnd={onControlsTouchEnd}
-      disabled={toggleAudio === null}
+      disabled={toggleAudio === null || mediaError !== null}
       data-testid="incall_mute"
     />,
     <VideoButton
       key="video"
-      muted={!videoEnabled}
+      muted={!videoEnabled || mediaError !== null}
       disableTooltip={isPopupMode}
       onClick={toggleVideo ?? undefined}
       onTouchEnd={onControlsTouchEnd}
-      disabled={toggleVideo === null}
+      disabled={toggleVideo === null || mediaError !== null}
       data-testid="incall_videomute"
     />,
   );
@@ -817,6 +804,21 @@ export const InCallView: FC<InCallViewProps> = ({
       onPointerOut={onPointerOut}
     >
       {header}
+      {mediaError !== null && (
+        <div className={styles.mediaError} role="alert">
+          <div>
+            <Text as="h2" size="sm" weight="semibold">
+              {mediaError.localisedTitle}
+            </Text>
+            {mediaError.localisedMessage && (
+              <Text size="sm">{mediaError.localisedMessage}</Text>
+            )}
+          </div>
+          <Button kind="secondary" size="sm" onClick={vm.retryMedia}>
+            {t("action.try_again")}
+          </Button>
+        </div>
+      )}
       {audioParticipants.map(({ livekitRoom, url, participants }) => (
         <LivekitRoomAudioRenderer
           key={url}

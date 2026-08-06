@@ -163,13 +163,26 @@ describe("UrlParams", () => {
   });
 
   describe("accessToken", () => {
-    it("is ignored from the search query", () => {
-      expect(computeUrlParams("?accessToken=token").accessToken).toBe(null);
+    it("is never exposed to Element Call through URL parameters", () => {
+      expect(
+        "accessToken" in
+          computeUrlParams("?accessToken=query-token", "#?accessToken=token"),
+      ).toBe(false);
+    });
+  });
+
+  describe("password", () => {
+    it("is ignored in widget mode", () => {
+      expect(
+        computeUrlParams(
+          "?widgetId=12345&parentUrl=https%3A%2F%2Fapp.oriso.example&password=iframe-secret",
+        ).password,
+      ).toBeNull();
     });
 
-    it("is parsed from the fragment query", () => {
-      expect(computeUrlParams("", "#?accessToken=token").accessToken).toBe(
-        "token",
+    it("remains available to standalone call links", () => {
+      expect(computeUrlParams("?password=standalone-secret").password).toBe(
+        "standalone-secret",
       );
     });
   });

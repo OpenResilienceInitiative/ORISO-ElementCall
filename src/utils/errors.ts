@@ -18,6 +18,12 @@ export enum ErrorCode {
   /** LiveKit indicates that the server has hit its track limits */
   INSUFFICIENT_CAPACITY_ERROR = "INSUFFICIENT_CAPACITY_ERROR",
   E2EE_NOT_SUPPORTED = "E2EE_NOT_SUPPORTED",
+  /**
+   * The browser could support encryption, but this client has no working crypto
+   * stack — so an encrypted room's media keys cannot be exchanged.
+   */
+  E2EE_UNAVAILABLE = "E2EE_UNAVAILABLE",
+  MEDIA_PERMISSION_DENIED = "MEDIA_PERMISSION_DENIED",
   OPEN_ID_ERROR = "OPEN_ID_ERROR",
   SFU_ERROR = "SFU_ERROR",
   UNKNOWN_ERROR = "UNKNOWN_ERROR",
@@ -108,6 +114,77 @@ export class E2EENotSupportedError extends ElementCallError {
     );
   }
 }
+
+/**
+ * Raised when a call in an encrypted room cannot be encrypted, because the
+ * crypto stack failed to initialise.
+ *
+ * This deliberately fails the call instead of quietly downgrading to plaintext
+ * media: in a counselling context an unencrypted call that looks like an
+ * encrypted one is worse than no call at all.
+ */
+export class E2EEUnavailableError extends ElementCallError {
+  public constructor() {
+    super(
+      t("error.e2ee_unavailable"),
+      ErrorCode.E2EE_UNAVAILABLE,
+      ErrorCategory.CLIENT_CONFIGURATION,
+      t("error.e2ee_unavailable_description"),
+    );
+  }
+}
+
+export class MediaPermissionDeniedError extends ElementCallError {
+  public constructor(cause?: Error) {
+    super(
+      t("error.media_permission_denied"),
+      ErrorCode.MEDIA_PERMISSION_DENIED,
+      ErrorCategory.CLIENT_CONFIGURATION,
+      t("error.media_permission_denied_description"),
+      cause,
+    );
+  }
+}
+
+type MediaPermissionName = "microphone" | "camera";
+type PermissionQuery = (name: MediaPermissionName) => Promise<PermissionState>;
+
+const queryBrowserPermission: PermissionQuery = async (name) =>
+  (
+    await navigator.permissions.query({
+      name,
+    } as PermissionDescriptor)
+  ).state;
+
+/**
+ * Chromium can surface a denied getUserMedia request from an embedded call as
+ * NotSupportedError instead of NotAllowedError. Only reinterpret that broad
+ * error when the Permissions API independently confirms a denied media
+ * permission, so genuine unsupported-media failures remain generic.
+ */
+export const isBrowserMediaPermissionDenied = async (
+  error: unknown,
+  queryPermission: PermissionQuery = queryBrowserPermission,
+): Promise<boolean> => {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("name" in error) ||
+    error.name !== "NotSupportedError"
+  ) {
+    return false;
+  }
+
+  try {
+    const states = await Promise.all([
+      queryPermission("microphone"),
+      queryPermission("camera"),
+    ]);
+    return states.includes("denied");
+  } catch {
+    return false;
+  }
+};
 
 export class UnknownCallError extends ElementCallError {
   public constructor(error: Error) {

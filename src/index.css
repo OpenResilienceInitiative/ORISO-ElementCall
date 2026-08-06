@@ -18,6 +18,10 @@ Please see LICENSE in the repository root for full details.
 @import url("@vector-im/compound-design-tokens/assets/web/css/compound-design-tokens.css")
 layer(compound);
 @import url("@vector-im/compound-web/dist/style.css") layer(compound.components);
+/* Compound declares `@layer cpd-semantic, custom, cpd-base` so that its
+semantic roles can be reconfigured from outside. Putting the ORISO palette
+there is what lets it win without !important. */
+@import url("./oriso-theme.css") layer(compound.custom);
 
 :root {
   --font-scale: 1;
@@ -52,11 +56,13 @@ layer(compound);
 
 :root,
 [class*="cpd-theme-"] {
-  --background-gradient: none !important;
-  --cpd-color-bg-canvas-default: #000;
-  --cpd-color-bg-subtle-secondary: #000;
-  --cpd-color-bg-subtle-primary: #000;
-  --cpd-color-alpha-gray-1400: #000;
+  --background-gradient: none;
+  /* True black behind video is a deliberate choice, not a leftover: it
+  keeps the picture from sitting on a lighter surface. It is its own token
+  precisely so it cannot leak into UI surfaces again — the previous version
+  of this block also flattened --cpd-color-alpha-gray-1400 to #000, which
+  Compound derives --cpd-color-icon-primary-alpha from. In the dark theme
+  that role is near-white, so every icon using it rendered black-on-black. */
   --video-tile-background: #000;
 }
 
@@ -67,9 +73,7 @@ layer(compound);
 }
 
 body {
-  background-color: #000 !important;
-  background-image: none !important;
-  background: #000 !important;
+  background: var(--cpd-color-bg-canvas-default);
   color: var(--cpd-color-text-primary);
   color-scheme: dark;
   margin: 0;
@@ -87,9 +91,7 @@ we use this for mobile pip webviews */
 
 /* We use this to not render the page at all until we know the theme.*/
 .no-theme {
-  opacity: 1;
-  background: #000 !important;
-  background-image: none !important;
+  display: none;
 }
 
 html,
@@ -120,24 +122,16 @@ body[data-platform="ios"] {
     -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
 }
 
-/* Hard override: remove any speaking/hand-raise gradient borders */
+/* ORISO shows no gradient ring around speaking or hand-raised tiles; the
+indicator stays flat against the tile background. */
 .tile.speaking::before,
 .tile.handRaised::before {
-  background: #000 !important;
+  background: var(--video-tile-background);
 }
 
 .tile.speaking,
 .tile.handRaised {
-  outline-color: #000 !important;
-}
-
-/* Hard override: kill any remaining gradient background images */
-html,
-body,
-#root,
-[class*="cpd-theme-"] {
-  background: #000 !important;
-  background-image: none !important;
+  outline-color: var(--video-tile-background);
 }
 
 @layer compound-legacy {

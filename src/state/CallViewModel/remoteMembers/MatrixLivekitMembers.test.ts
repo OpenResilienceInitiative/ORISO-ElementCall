@@ -31,6 +31,7 @@ import {
   withTestScheduler,
 } from "../../../utils/test.ts";
 import { type Connection } from "./Connection.ts";
+import { constant } from "../../Behavior.ts";
 
 let testScope: ObservableScope;
 
@@ -199,6 +200,36 @@ test("should signal participant on a connection that is publishing", () => {
       }),
     });
   });
+});
+
+test("matches the LiveKit participant identity generated from Matrix membership", () => {
+  const participantId = getParticipantId(
+    bobMembership.userId,
+    bobMembership.deviceId,
+  );
+  const connection = {
+    transport: bobMembership.getTransport(bobMembership),
+  } as unknown as Connection;
+  const managerData = new ConnectionManagerData();
+  const participant = mockRemoteParticipant({ identity: participantId });
+  managerData.add(connection, [participant]);
+
+  const members$ = createMatrixLivekitMembers$({
+    scope: testScope,
+    membershipsWithTransport$: constant(
+      new Epoch(
+        [{ membership: bobMembership, transport: transportA }],
+        0,
+      ),
+    ),
+    connectionManager: {
+      connectionManagerData$: constant(new Epoch(managerData, 0)),
+    } as unknown as IConnectionManager,
+  });
+
+  const member = members$.getValue().value[0];
+  expect(member.participant.value$.getValue()).toBe(participant);
+  expect(member.participantId).toBe(participantId);
 });
 
 test("should signal participant on a connection that is not publishing", () => {

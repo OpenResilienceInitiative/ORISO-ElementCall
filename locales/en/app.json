@@ -19,6 +19,7 @@
     "sign_in": "Sign in",
     "sign_out": "Sign out",
     "submit": "Submit",
+    "try_again": "Try again",
     "upload_file": "Upload file"
   },
   "analytics_notice": "By participating in this beta, you consent to the collection of anonymous data, which we use to improve the product. You can find more information about which data we track in our <2>Privacy Policy</2> and our <6>Cookie Policy</6>.",
@@ -106,6 +107,8 @@
     "call_not_found_description": "<0>That link doesn't appear to belong to any existing call. Check that you have the right link, or <2>create a new one</2>.</0>",
     "connection_lost": "Connection lost",
     "connection_lost_description": "You were disconnected from the call.",
+    "e2ee_unavailable": "Encrypted call unavailable",
+    "e2ee_unavailable_description": "This call could not be encrypted, so it was not started. Reload the page and try again; if the problem persists, contact support.",
     "e2ee_unsupported": "Incompatible browser",
     "e2ee_unsupported_description": "Your web browser does not support encrypted calls. Supported browsers include Chrome, Safari, and Firefox 117+.",
     "failed_to_start_livekit": "Failed to start Livekit connection",
@@ -114,6 +117,8 @@
     "insufficient_capacity": "Insufficient capacity",
     "insufficient_capacity_description": "The server has reached its maximum capacity and you cannot join the call at this time. Try again later, or contact your server admin if the problem persists.",
     "matrix_rtc_transport_missing": "The server is not configured to work with {{brand}}. Please contact your server admin (Domain: {{domain}}, Error Code: {{ errorCode }}).",
+    "media_permission_denied": "Media access blocked",
+    "media_permission_denied_description": "Allow access to your microphone or camera in the browser settings, then try again. You can remain in the call and receive other participants' media.",
     "membership_manager": "Membership Manager Error",
     "membership_manager_description": "The Membership Manager had to shut down. This is caused by many consequtive failed network requests.",
     "open_elsewhere": "Opened in another tab",
@@ -243,7 +248,6 @@
   "switch_camera": "Switch camera",
   "unauthenticated_view_body": "Not registered yet? <2>Create an account</2>",
   "unauthenticated_view_login_button": "Login to your account",
-  "unauthenticated_view_ssla_caption": "By clicking \"Go\", you agree to our <2>Software and Services License Agreement (SSLA)</2>",
   "unmute_microphone_button_label": "Unmute microphone",
   "version": "{{productName}} version: {{version}}",
   "video_tile": {

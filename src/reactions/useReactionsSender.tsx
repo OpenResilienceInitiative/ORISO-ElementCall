@@ -19,7 +19,12 @@ import { logger } from "matrix-js-sdk/lib/logger";
 
 import { useMatrixRTCSessionMemberships } from "../useMatrixRTCSessionMemberships";
 import { useClientState } from "../ClientContext";
-import { ElementCallReactionEventType, type ReactionOption } from ".";
+import {
+  ElementCallReactionEventType,
+  LoweredHandReactionKey,
+  RaisedHandReactionKey,
+  type ReactionOption,
+} from ".";
 import { type CallViewModel } from "../state/CallViewModel/CallViewModel";
 import { useBehavior } from "../useBehavior";
 
@@ -92,36 +97,31 @@ export const ReactionsSenderProvider = ({
     if (!myMembershipIdentifier) {
       return;
     }
-    const myReactionId = myRaisedHand?.reactionEventId;
-
-    if (!myReactionId) {
-      try {
-        if (!myMembershipEvent) {
-          throw new Error("Cannot find own membership event");
-        }
-        const reaction = await room.client.sendEvent(
-          rtcSession.room.roomId,
-          EventType.Reaction,
-          {
-            "m.relates_to": {
-              rel_type: RelationType.Annotation,
-              event_id: myMembershipEvent,
-              key: "🖐️",
-            },
+    try {
+      if (!myMembershipEvent) {
+        throw new Error("Cannot find own membership event");
+      }
+      const reaction = await room.client.sendEvent(
+        rtcSession.room.roomId,
+        EventType.Reaction,
+        {
+          "m.relates_to": {
+            rel_type: RelationType.Annotation,
+            event_id: myMembershipEvent,
+            key: myRaisedHand ? LoweredHandReactionKey : RaisedHandReactionKey,
           },
-        );
-        logger.debug("Sent raise hand event", reaction.event_id);
-      } catch (ex) {
-        logger.error("Failed to send raised hand", ex);
-      }
-    } else {
-      try {
-        await room.client.redactEvent(rtcSession.room.roomId, myReactionId);
-        logger.debug("Redacted raise hand event");
-      } catch (ex) {
-        logger.error("Failed to redact reaction event", myReactionId, ex);
-        throw ex;
-      }
+        },
+      );
+      logger.debug(
+        myRaisedHand ? "Sent lower hand event" : "Sent raise hand event",
+        reaction.event_id,
+      );
+    } catch (ex) {
+      logger.error(
+        myRaisedHand ? "Failed to lower hand" : "Failed to raise hand",
+        ex,
+      );
+      throw ex;
     }
   }, [
     myMembershipEvent,
