@@ -116,6 +116,10 @@
     "generic_description": "Submitting debug logs will help us track down the problem.",
     "insufficient_capacity": "Insufficient capacity",
     "insufficient_capacity_description": "The server has reached its maximum capacity and you cannot join the call at this time. Try again later, or contact your server admin if the problem persists.",
+    "livekit_auth_denied": "Call access denied",
+    "livekit_auth_denied_description": "The call server refused this session (status {{status}}). This usually means your account is not a current member of this room yet. Ask the person who invited you to re-issue the invite, or contact your server admin if the problem persists.",
+    "livekit_jwt_service_unavailable": "Call service unavailable",
+    "livekit_jwt_service_unavailable_description": "The call service is temporarily unavailable ({{status}}). This is a server-side problem, not something you can fix from here. Please retry in a few minutes, or contact your server admin if the problem persists.",
     "matrix_rtc_transport_missing": "The server is not configured to work with {{brand}}. Please contact your server admin (Domain: {{domain}}, Error Code: {{ errorCode }}).",
     "media_permission_denied": "Media access blocked",
     "media_permission_denied_description": "Allow access to your microphone or camera in the browser settings, then try again. You can remain in the call and receive other participants' media.",
@@ -125,7 +129,8 @@
     "open_elsewhere_description": "{{brand}} has been opened in another tab. If that doesn't sound right, try reloading the page.",
     "room_creation_restricted": "Failed to create call",
     "room_creation_restricted_description": "Call creation might be restricted to authorized users only. Try again later, or contact your server admin if the problem persists.",
-    "unexpected_ec_error": "An unexpected error occurred (<0>Error Code:</0> <1>{{ errorCode }}</1>). Please contact your server admin."
+    "unexpected_ec_error": "An unexpected error occurred (<0>Error Code:</0> <1>{{ errorCode }}</1>). Please contact your server admin.",
+    "unexpected_ec_error_with_details": "An unexpected error occurred (Error Code: {{ errorCode }}). Details: {{ details }}. Please contact your server admin."
   },
   "group_call_loader": {
     "banned_body": "You have been banned from the room.",

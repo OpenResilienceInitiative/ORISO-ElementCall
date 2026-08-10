@@ -29,6 +29,7 @@ import { type ObservableScope } from "../../ObservableScope.ts";
 import {
   ElementCallError,
   InsufficientCapacityError,
+  LiveKitAuthDeniedError,
   SFURoomCreationRestrictedError,
   UnknownCallError,
 } from "../../../utils/errors.ts";
@@ -166,6 +167,14 @@ export class Connection {
             // - Only authorized users can create rooms, so the room must exist before connecting (done by the auth jwt service)
             // In the first case there will not be a 404, so we are in the second case.
             throw new SFURoomCreationRestrictedError();
+          }
+          if (e.status === 401 || e.status === 403) {
+            // The JWT auth gateway (or LiveKit itself) refused the token.
+            // Almost always caused by the caller not being a current member
+            // of the Matrix room the gateway authorises against. Surface as
+            // a specific error so operators aren't left staring at
+            // UNKNOWN_ERROR.
+            throw new LiveKitAuthDeniedError(e.status, e);
           }
         }
         throw e;
