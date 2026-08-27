@@ -17,8 +17,8 @@
     ],
     "frameworks": [],
     "description": "",
-    "analyzedAt": "2026-08-26T07:28:27.369Z",
-    "gitCommitHash": "20365ff2da7642d6363908b642611dbe3b779dfd"
+    "analyzedAt": "2026-08-27T12:31:52.649Z",
+    "gitCommitHash": "710281f7f3ebaae8968b04d54f3a8e7777829682"
   },
   "nodes": [
     {
@@ -9903,6 +9903,129 @@
         "root"
       ],
       "complexity": "simple"
+    },
+    {
+      "id": "concept:matrixrtc-group-calls",
+      "type": "concept",
+      "name": "MatrixRTC Group Calls",
+      "summary": "Element Call fork: decentralized video conferencing over the Matrix protocol (MatrixRTC, MSC4143) with LiveKit as the media backend (MSC4195). GroupCallView/InCallView drive the call lifecycle; the CallViewModel state layer keeps UI and RTC session in sync.",
+      "tags": [
+        "domain",
+        "core",
+        "calls",
+        "enriched"
+      ],
+      "complexity": "moderate",
+      "metadata": {
+        "enrichment": "a-lite-2026-07",
+        "generatedBy": "claude-operator-coarse-pass"
+      }
+    },
+    {
+      "id": "concept:livekit-media-layer",
+      "type": "concept",
+      "name": "LiveKit Media Layer",
+      "summary": "The SFU-facing side: openIDSFU.ts exchanges a Matrix OpenID token for a LiveKit access token, MatrixAudioRenderer plays remote tracks, and TrackProcessorContext/BlurBackgroundTransformer process local media before publishing.",
+      "tags": [
+        "media",
+        "integration",
+        "enriched"
+      ],
+      "complexity": "moderate",
+      "metadata": {
+        "enrichment": "a-lite-2026-07",
+        "generatedBy": "claude-operator-coarse-pass"
+      }
+    },
+    {
+      "id": "concept:media-e2ee",
+      "type": "concept",
+      "name": "End-to-End Encrypted Media",
+      "summary": "Per-sender media encryption on top of the SFU: matrixKeyProvider distributes keys over Matrix, sharedKeyManagement covers password-protected rooms, e2eeAvailability gates the feature by platform support. Embedded widget sessions carry no Matrix crypto of their own.",
+      "tags": [
+        "security",
+        "e2ee",
+        "enriched"
+      ],
+      "complexity": "moderate",
+      "metadata": {
+        "enrichment": "a-lite-2026-07",
+        "generatedBy": "claude-operator-coarse-pass"
+      }
+    },
+    {
+      "id": "concept:widget-vs-standalone",
+      "type": "concept",
+      "name": "Widget vs. Standalone Mode",
+      "summary": "Two runtime modes: embedded as a Matrix-client widget (widget.ts, widget API messaging) or standalone SPA with its own Matrix session (matrixSessionStorage, auth/ login and passwordless registration).",
+      "tags": [
+        "architecture",
+        "enriched"
+      ],
+      "complexity": "moderate",
+      "metadata": {
+        "enrichment": "a-lite-2026-07",
+        "generatedBy": "claude-operator-coarse-pass"
+      }
+    },
+    {
+      "id": "concept:call-observability",
+      "type": "concept",
+      "name": "Call Observability & Rageshake",
+      "summary": "OpenTelemetry spans model the call (OTelCall, OTelGroupCallMembership, per-track media spans); rageshake uploads user bug reports with logs from the settings UI.",
+      "tags": [
+        "observability",
+        "enriched"
+      ],
+      "complexity": "moderate",
+      "metadata": {
+        "enrichment": "a-lite-2026-07",
+        "generatedBy": "claude-operator-coarse-pass"
+      }
+    },
+    {
+      "id": "concept:dev-backend-stack",
+      "type": "concept",
+      "name": "Local Dev Backend Stack",
+      "summary": "backend/ ships a reproducible two-homeserver dev stack: Synapse configs, LiveKit configs, nginx and a local TLS CA — used to develop and test federation and calls locally.",
+      "tags": [
+        "development",
+        "infrastructure",
+        "enriched"
+      ],
+      "complexity": "moderate",
+      "metadata": {
+        "enrichment": "a-lite-2026-07",
+        "generatedBy": "claude-operator-coarse-pass"
+      }
+    },
+    {
+      "id": "flow:join-group-call",
+      "type": "flow",
+      "name": "Joining a Group Call",
+      "summary": "User opens a call link or widget → GroupCallView resolves the Matrix room → openIDSFU exchanges the OpenID token for a LiveKit token → media tracks publish through the track processors → InCallView renders the grid; media E2EE keys arrive via matrixKeyProvider.",
+      "tags": [
+        "enriched"
+      ],
+      "complexity": "moderate",
+      "metadata": {
+        "enrichment": "a-lite-2026-07",
+        "generatedBy": "claude-operator-coarse-pass"
+      }
+    },
+    {
+      "id": "flow:widget-embed",
+      "type": "flow",
+      "name": "Embedding as a Matrix Widget",
+      "summary": "A Matrix client embeds Element Call → widget.ts negotiates capabilities over the widget API → the host client supplies the session; no standalone Matrix login or crypto store is created in this mode.",
+      "tags": [
+        "enriched"
+      ],
+      "complexity": "moderate",
+      "metadata": {
+        "enrichment": "a-lite-2026-07",
+        "generatedBy": "claude-operator-coarse-pass"
+      }
     }
   ],
   "edges": [
@@ -14896,9 +15019,256 @@
       "type": "calls",
       "direction": "forward",
       "weight": 0.8
+    },
+    {
+      "source": "concept:matrixrtc-group-calls",
+      "target": "file:src/room/GroupCallView.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:matrixrtc-group-calls",
+      "target": "file:src/room/InCallView.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:matrixrtc-group-calls",
+      "target": "file:src/state/AppViewModel.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:matrixrtc-group-calls",
+      "target": "file:src/App.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:livekit-media-layer",
+      "target": "file:src/livekit/openIDSFU.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:livekit-media-layer",
+      "target": "file:src/livekit/MatrixAudioRenderer.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:livekit-media-layer",
+      "target": "file:src/livekit/TrackProcessorContext.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:livekit-media-layer",
+      "target": "file:src/livekit/BlurBackgroundTransformer.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:media-e2ee",
+      "target": "file:src/e2ee/matrixKeyProvider.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:media-e2ee",
+      "target": "file:src/e2ee/sharedKeyManagement.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:media-e2ee",
+      "target": "file:src/e2ee/e2eeAvailability.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:media-e2ee",
+      "target": "file:src/e2ee/e2eeType.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:media-e2ee",
+      "target": "file:src/room/EncryptionLock.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:widget-vs-standalone",
+      "target": "file:src/widget.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:widget-vs-standalone",
+      "target": "file:src/matrixSessionStorage.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:widget-vs-standalone",
+      "target": "file:src/auth/LoginPage.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:widget-vs-standalone",
+      "target": "file:src/auth/useRegisterPasswordlessUser.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:call-observability",
+      "target": "file:src/otel/OTelCall.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:call-observability",
+      "target": "file:src/otel/OTelGroupCallMembership.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:call-observability",
+      "target": "file:src/otel/otel.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:call-observability",
+      "target": "file:src/settings/rageshake.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:call-observability",
+      "target": "file:src/settings/RageshakeButton.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:dev-backend-stack",
+      "target": "config:backend/dev_homeserver.yaml",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:dev-backend-stack",
+      "target": "config:backend/dev_livekit.yaml",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "concept:dev-backend-stack",
+      "target": "config:backend/dev_homeserver-othersite.yaml",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "flow:join-group-call",
+      "target": "file:src/room/GroupCallView.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "flow:join-group-call",
+      "target": "file:src/livekit/openIDSFU.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "flow:join-group-call",
+      "target": "file:src/room/InCallView.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "flow:join-group-call",
+      "target": "file:src/e2ee/matrixKeyProvider.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "flow:widget-embed",
+      "target": "file:src/widget.ts",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "flow:widget-embed",
+      "target": "file:src/App.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "flow:widget-embed",
+      "target": "file:src/ClientContext.tsx",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.7
     }
   ],
   "layers": [
+    {
+      "id": "layer:domain-concepts",
+      "name": "Domain Concepts",
+      "description": "High-level domain concepts and flows (coarse enrichment pass).",
+      "nodeIds": [
+        "concept:matrixrtc-group-calls",
+        "concept:livekit-media-layer",
+        "concept:media-e2ee",
+        "concept:widget-vs-standalone",
+        "concept:call-observability",
+        "concept:dev-backend-stack",
+        "flow:join-group-call",
+        "flow:widget-embed"
+      ]
+    },
+    {
+      "id": "layer:ui-layer",
+      "name": "UI Layer",
+      "description": "User interface components and views",
+      "nodeIds": [
+        "file:playwright/widget/simple-create.spec.ts"
+      ]
+    },
     {
       "id": "layer:core",
       "name": "Core",
@@ -15160,36 +15530,6 @@
       ]
     },
     {
-      "id": "layer:ui-layer",
-      "name": "UI Layer",
-      "description": "User interface components and views",
-      "nodeIds": [
-        "file:playwright/widget/simple-create.spec.ts"
-      ]
-    },
-    {
-      "id": "layer:configuration-layer",
-      "name": "Configuration Layer",
-      "description": "Application configuration and environment settings",
-      "nodeIds": [
-        "file:src/config/Config.ts",
-        "file:src/config/ConfigOptions.ts",
-        "file:src/settings/DeveloperSettingsTab.test.tsx",
-        "file:src/settings/DeveloperSettingsTab.tsx",
-        "file:src/settings/DeviceSelection.tsx",
-        "file:src/settings/FeedbackSettingsTab.tsx",
-        "file:src/settings/PreferencesSettingsTab.tsx",
-        "file:src/settings/ProfileSettingsTab.tsx",
-        "file:src/settings/RageshakeButton.tsx",
-        "file:src/settings/SettingsModal.tsx",
-        "file:src/settings/rageshake.ts",
-        "file:src/settings/settings.ts",
-        "file:src/settings/submit-rageshake.test.ts",
-        "file:src/settings/submit-rageshake.ts",
-        "file:src/settings/useSubmitRageshake.test.tsx"
-      ]
-    },
-    {
       "id": "layer:utility-layer",
       "name": "Utility Layer",
       "description": "Shared utilities, helpers, and common libraries",
@@ -15213,6 +15553,28 @@
         "file:src/utils/test-fixtures.ts",
         "file:src/utils/test-viewmodel.ts",
         "file:src/utils/test.ts"
+      ]
+    },
+    {
+      "id": "layer:configuration-layer",
+      "name": "Configuration Layer",
+      "description": "Application configuration and environment settings",
+      "nodeIds": [
+        "file:src/config/Config.ts",
+        "file:src/config/ConfigOptions.ts",
+        "file:src/settings/DeveloperSettingsTab.test.tsx",
+        "file:src/settings/DeveloperSettingsTab.tsx",
+        "file:src/settings/DeviceSelection.tsx",
+        "file:src/settings/FeedbackSettingsTab.tsx",
+        "file:src/settings/PreferencesSettingsTab.tsx",
+        "file:src/settings/ProfileSettingsTab.tsx",
+        "file:src/settings/RageshakeButton.tsx",
+        "file:src/settings/SettingsModal.tsx",
+        "file:src/settings/rageshake.ts",
+        "file:src/settings/settings.ts",
+        "file:src/settings/submit-rageshake.test.ts",
+        "file:src/settings/submit-rageshake.ts",
+        "file:src/settings/useSubmitRageshake.test.tsx"
       ]
     }
   ],
