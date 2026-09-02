@@ -1,6 +1,6 @@
 {
-  "lastAnalyzedAt": "2026-08-26T07:28:28.201Z",
-  "gitCommitHash": "20365ff2da7642d6363908b642611dbe3b779dfd",
+  "lastAnalyzedAt": "2026-08-27T12:31:53.537Z",
+  "gitCommitHash": "710281f7f3ebaae8968b04d54f3a8e7777829682",
   "version": "1.0.0",
   "analyzedFiles": 358,
   "generator": "oriso-ua-generate.mjs v2 (deterministic A-lite base, rebuilt 2026-07)"
