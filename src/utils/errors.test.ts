@@ -7,7 +7,14 @@ Please see LICENSE in the repository root for full details.
 
 import { describe, expect, it, vi } from "vitest";
 
-import { isBrowserMediaPermissionDenied } from "./errors.ts";
+import {
+  ErrorCategory,
+  ErrorCode,
+  LiveKitAuthDeniedError,
+  LiveKitJwtServiceUnavailableError,
+  UnknownCallError,
+  isBrowserMediaPermissionDenied,
+} from "./errors.ts";
 
 describe("isBrowserMediaPermissionDenied", () => {
   it("recognises Chromium's embedded NotSupportedError when media permission is denied", async () => {
@@ -51,5 +58,63 @@ describe("isBrowserMediaPermissionDenied", () => {
       ),
     ).resolves.toBe(false);
     expect(queryPermission).not.toHaveBeenCalled();
+  });
+});
+
+describe("UnknownCallError", () => {
+  it("surfaces the underlying error's name and message in the localised body", () => {
+    const cause = new TypeError("Failed to fetch");
+    const error = new UnknownCallError(cause);
+    expect(error.code).toBe(ErrorCode.UNKNOWN_ERROR);
+    expect(error.category).toBe(ErrorCategory.UNKNOWN);
+    expect(error.cause).toBe(cause);
+    expect(error.localisedMessage).toBeDefined();
+    expect(error.localisedMessage).toContain("TypeError");
+    expect(error.localisedMessage).toContain("Failed to fetch");
+  });
+
+  it("falls back to no localised body when the cause carries no detail", () => {
+    const cause = new Error("");
+    cause.name = "";
+    const error = new UnknownCallError(cause);
+    expect(error.code).toBe(ErrorCode.UNKNOWN_ERROR);
+    expect(error.localisedMessage).toBeUndefined();
+  });
+});
+
+describe("LiveKitAuthDeniedError", () => {
+  it("carries the HTTP status and classifies as a configuration issue", () => {
+    const cause = new Error("Forbidden");
+    const error = new LiveKitAuthDeniedError(403, cause);
+    expect(error.code).toBe(ErrorCode.LIVEKIT_AUTH_DENIED_ERROR);
+    expect(error.category).toBe(ErrorCategory.CONFIGURATION_ISSUE);
+    expect(error.status).toBe(403);
+    expect(error.cause).toBe(cause);
+    expect(error.localisedMessage).toContain("403");
+  });
+
+  it("accepts 401 too", () => {
+    const error = new LiveKitAuthDeniedError(401);
+    expect(error.status).toBe(401);
+    expect(error.localisedMessage).toContain("401");
+  });
+});
+
+describe("LiveKitJwtServiceUnavailableError", () => {
+  it("carries the HTTP status and classifies as a network issue", () => {
+    const cause = new Error("Service Unavailable");
+    const error = new LiveKitJwtServiceUnavailableError(503, cause);
+    expect(error.code).toBe(ErrorCode.LIVEKIT_JWT_SERVICE_UNAVAILABLE);
+    expect(error.category).toBe(ErrorCategory.NETWORK_CONNECTIVITY);
+    expect(error.status).toBe(503);
+    expect(error.cause).toBe(cause);
+    expect(error.localisedMessage).toContain("503");
+  });
+
+  it("labels network-error status as such", () => {
+    const cause = new TypeError("Failed to fetch");
+    const error = new LiveKitJwtServiceUnavailableError(undefined, cause);
+    expect(error.status).toBeUndefined();
+    expect(error.localisedMessage).toContain("network error");
   });
 });

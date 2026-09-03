@@ -26,6 +26,25 @@ export enum ErrorCode {
   MEDIA_PERMISSION_DENIED = "MEDIA_PERMISSION_DENIED",
   OPEN_ID_ERROR = "OPEN_ID_ERROR",
   SFU_ERROR = "SFU_ERROR",
+  /**
+   * LiveKit refused the JWT presented by the widget (401/403 from the SFU or
+   * the JWT auth gateway). In ORISO this most often means the caller is not a
+   * current member of the Matrix room the gateway authorises against — e.g.
+   * a session whose consultant was assigned before ORISO-UserService#966
+   * reordered `AgencyPreAssignmentRoomService` to add counsellors to the
+   * room BEFORE the asker. Surfaced as its own code so operators do not
+   * chase a generic UNKNOWN_ERROR when the real problem is room membership.
+   */
+  LIVEKIT_AUTH_DENIED_ERROR = "LIVEKIT_AUTH_DENIED_ERROR",
+  /**
+   * The JWT auth gateway itself is not responding (5xx from
+   * `/livekit/jwt/sfu/get`) — the pod is down, its Matrix/OpenID dependency
+   * is unreachable, or the ingress is broken. Not a code bug in the widget;
+   * an operations issue. Surfaced as its own code so operators see
+   * "call service unavailable" instead of a generic UNKNOWN_ERROR that could
+   * be mistaken for a client bug.
+   */
+  LIVEKIT_JWT_SERVICE_UNAVAILABLE = "LIVEKIT_JWT_SERVICE_UNAVAILABLE",
   UNKNOWN_ERROR = "UNKNOWN_ERROR",
 }
 
@@ -188,14 +207,70 @@ export const isBrowserMediaPermissionDenied = async (
 
 export class UnknownCallError extends ElementCallError {
   public constructor(error: Error) {
+    // Surface the underlying error's name + message in the UI so operators
+    // testing on PreDev can triage without having to open DevTools. The raw
+    // Error is still passed as `cause` for Sentry.
+    const detail = [error.name, error.message]
+      .map((s) => (s ?? "").trim())
+      .filter((s) => s.length > 0)
+      .join(": ");
     super(
       t("error.generic"),
       ErrorCode.UNKNOWN_ERROR,
       ErrorCategory.UNKNOWN,
-      undefined,
+      detail.length > 0
+        ? t("error.unexpected_ec_error_with_details", {
+            errorCode: ErrorCode.UNKNOWN_ERROR,
+            details: detail,
+          })
+        : undefined,
       // Properly set it as a cause for a better reporting on sentry
       error,
     );
+  }
+}
+
+/**
+ * Raised when LiveKit or the JWT auth gateway rejects the widget's token
+ * with 401/403. In ORISO this almost always means the caller is not a
+ * current member of the Matrix room the gateway authorises against.
+ */
+export class LiveKitAuthDeniedError extends ElementCallError {
+  public status: number;
+
+  public constructor(status: number, cause?: Error) {
+    super(
+      t("error.livekit_auth_denied"),
+      ErrorCode.LIVEKIT_AUTH_DENIED_ERROR,
+      ErrorCategory.CONFIGURATION_ISSUE,
+      t("error.livekit_auth_denied_description", { status }),
+      cause,
+    );
+    this.status = status;
+  }
+}
+
+/**
+ * Raised when the JWT auth gateway (`/livekit/jwt/sfu/get`) returns 5xx or
+ * cannot be reached. The gateway or its dependencies (Matrix federation,
+ * Synapse OpenID validation) are unavailable — operators should look at
+ * the JWT-service pod, its ingress, and the Matrix delegation before
+ * touching call code.
+ */
+export class LiveKitJwtServiceUnavailableError extends ElementCallError {
+  public status?: number;
+
+  public constructor(status: number | undefined, cause?: Error) {
+    super(
+      t("error.livekit_jwt_service_unavailable"),
+      ErrorCode.LIVEKIT_JWT_SERVICE_UNAVAILABLE,
+      ErrorCategory.NETWORK_CONNECTIVITY,
+      t("error.livekit_jwt_service_unavailable_description", {
+        status: status ?? "network error",
+      }),
+      cause,
+    );
+    this.status = status;
   }
 }
 
