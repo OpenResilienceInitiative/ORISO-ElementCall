@@ -257,5 +257,9 @@ describe("MuteStates", () => {
 
     expect(lastAudioEnabled).toBe(true);
     expect(lastVideoEnabled).toBe(false);
+    expect(muteStates.video.setEnabled$.value).toBeDefined();
+    muteStates.video.setEnabled$.value?.(true);
+    await flushPromises();
+    expect(lastVideoEnabled).toBe(true);
   });
 });
