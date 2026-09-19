@@ -32,6 +32,13 @@ export interface MyFixtures {
 
 const PASSWORD = "foobarbaz1!";
 
+/**
+ * Where the host (element-web) is served. The default matches
+ * `dev-backend-docker-compose.yml`, which publishes element-web on port 8081;
+ * override it when element-web is only reachable through the nginx proxy.
+ */
+const EW_BASE_URL = process.env.EW_BASE_URL ?? "http://localhost:8081";
+
 // Minimal config.json for the local element-web instance
 const CONFIG_JSON = {
   default_server_config: {
@@ -94,7 +101,7 @@ const setDevToolElementCallDevUrl = process.env.USE_DOCKER
 /**
  * Registers a new user and returns page, clientHandle and mxId.
  */
-async function registerUser(
+export async function registerUser(
   browser: Browser,
   username: string,
 ): Promise<{ page: Page; clientHandle: JSHandle<MatrixClient>; mxId: string }> {
@@ -102,7 +109,7 @@ async function registerUser(
     reducedMotion: "reduce",
   });
   const page = await userContext.newPage();
-  await page.goto("http://localhost:8081/#/welcome");
+  await page.goto(`${EW_BASE_URL}/#/welcome`);
   await page.getByRole("link", { name: "Create Account" }).click();
   await page.getByRole("textbox", { name: "Username" }).fill(username);
   await page
@@ -112,9 +119,18 @@ async function registerUser(
   await page.getByRole("textbox", { name: "Confirm password" }).fill(PASSWORD);
   await page.getByRole("button", { name: "Register" }).click();
 
-  await expect(
-    page.getByRole("heading", { name: `Welcome ${username}` }),
-  ).toBeVisible();
+  // Don't assert on a post-registration heading: element-web has changed that
+  // screen more than once. What we actually need is a logged-in client, so wait
+  // for the client peg to expose one.
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(
+          () => window.mxMatrixClientPeg?.get()?.getUserId() ?? null,
+        ),
+      { timeout: 60_000 },
+    )
+    .toContain(username);
 
   const browserUnsupportedToast = page
     .getByText("Element does not support this browser")
@@ -147,7 +163,7 @@ async function registerUser(
 
 export const widgetTest = test.extend<MyFixtures>({
   asWidget: async ({ browser, context }, pUse) => {
-    await context.route(`http://localhost:8081/config.json*`, async (route) => {
+    await context.route(`${EW_BASE_URL}/config.json*`, async (route) => {
       await route.fulfill({ json: CONFIG_JSON });
     });
 
