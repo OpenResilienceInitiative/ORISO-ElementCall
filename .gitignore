@@ -34,3 +34,14 @@ yarn-error.log
 # Local Docker Desktop workaround for the backend compose (see docker-compose.local-synapse-fix.yml)
 backend/synapse_tmp/
 backend/synapse_tmp_othersite/
+
+# Understand Anything: generated graphs are published daily as release assets
+# (ORISO-Docs, tag ua-graph-latest) and fetched at runtime - never commit them.
+.understand-anything/knowledge-graph.json
+.understand-anything/meta.json
+.understand-anything/fingerprints.json
+.understand-anything/domain-graph.json
+.understand-anything/diff-overlay.json
+.understand-anything/*.bak*
+.understand-anything/intermediate/
+.understand-anything/tmp/
