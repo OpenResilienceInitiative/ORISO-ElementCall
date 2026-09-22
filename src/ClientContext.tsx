@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { logger } from "matrix-js-sdk/lib/logger";
 import { type ISyncStateData, type SyncState } from "matrix-js-sdk/lib/sync";
 import { ClientEvent, type MatrixClient } from "matrix-js-sdk";
+import { MatrixCapabilities } from "matrix-widget-api";
 
 import type { WidgetApi } from "matrix-widget-api";
 import { ErrorPage } from "./FullScreenView";
@@ -34,6 +35,11 @@ import {
   clearStandaloneMatrixSession,
   MATRIX_AUTH_STORE_KEY,
 } from "./matrixSessionStorage";
+import {
+  createHomeserverMediaFetcher,
+  createWidgetMediaFetcher,
+  type MediaFetcher,
+} from "./utils/matrixMedia";
 
 declare global {
   interface Window {
@@ -52,8 +58,22 @@ export type ValidClientState = {
   disconnected: boolean;
   supportedFeatures: {
     reactions: boolean;
+    /**
+     * Whether the homeserver can be asked for a *server-side scaled*
+     * thumbnail. False in widget mode: the only media route available there is
+     * MSC4039 `download_file`, which takes an `mxc://` URI and nothing else —
+     * no width, height or resize method — so there is no thumbnail to ask for.
+     * Use {@link ValidClientState.fetchMedia} rather than this flag to decide
+     * whether media can be loaded at all.
+     */
     thumbnails: boolean;
   };
+  /**
+   * Fetches the bytes behind an `mxc://` URI, or `null` when no authenticated
+   * media route is available (no access token in SPA mode, no MSC4039
+   * capability granted in widget mode).
+   */
+  fetchMedia: MediaFetcher | null;
   setClient: (client: MatrixClient, session: Session) => void;
 };
 
@@ -254,6 +274,7 @@ export const ClientProvider: FC<Props> = ({ children }) => {
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [supportsReactions, setSupportsReactions] = useState(false);
   const [supportsThumbnails, setSupportsThumbnails] = useState(false);
+  const [fetchMedia, setFetchMedia] = useState<MediaFetcher | null>(null);
 
   const state: ClientState | undefined = useMemo(() => {
     if (alreadyOpenedErr) {
@@ -281,6 +302,7 @@ export const ClientProvider: FC<Props> = ({ children }) => {
         reactions: supportsReactions,
         thumbnails: supportsThumbnails,
       },
+      fetchMedia,
     };
   }, [
     alreadyOpenedErr,
@@ -291,6 +313,7 @@ export const ClientProvider: FC<Props> = ({ children }) => {
     isDisconnected,
     supportsReactions,
     supportsThumbnails,
+    fetchMedia,
   ]);
 
   const onSync = useCallback(
@@ -316,12 +339,30 @@ export const ClientProvider: FC<Props> = ({ children }) => {
     }
 
     if (initClientState.widgetApi) {
-      // There is currently no widget API for authenticated media thumbnails.
+      const { widgetApi } = initClientState;
+
+      // No widget API action can ask for a *thumbnail*: MSC4039's
+      // `download_file` request carries only `content_uri`. So a server-scaled
+      // thumbnail genuinely is not available here, and this stays false.
       setSupportsThumbnails(false);
-      const reactSend = initClientState.widgetApi.hasCapability(
+
+      // Media bytes, however, are reachable: MSC4039 lets the host fetch them
+      // with its own credentials and pass them back over postMessage. We
+      // requested the capability in `widget.ts`; only use it if the host
+      // actually granted it, otherwise every avatar fetch would reject.
+      if (widgetApi.hasCapability(MatrixCapabilities.MSC4039DownloadFile)) {
+        setFetchMedia(() => createWidgetMediaFetcher(widgetApi));
+      } else {
+        logger.warn(
+          "Host did not grant MSC4039 download_file; avatars will fall back to initials",
+        );
+        setFetchMedia(null);
+      }
+
+      const reactSend = widgetApi.hasCapability(
         "org.matrix.msc2762.send.event:m.reaction",
       );
-      const reactRcv = initClientState.widgetApi.hasCapability(
+      const reactRcv = widgetApi.hasCapability(
         "org.matrix.msc2762.receive.event:m.reaction",
       );
 
@@ -334,6 +375,10 @@ export const ClientProvider: FC<Props> = ({ children }) => {
     } else {
       setSupportsReactions(true);
       setSupportsThumbnails(true);
+      // In SPA mode we own a login, so we can call the authenticated
+      // thumbnail endpoint directly with our own token.
+      const fetcher = createHomeserverMediaFetcher(initClientState.client);
+      setFetchMedia(() => fetcher);
     }
 
     return (): void => {
