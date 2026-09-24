@@ -80,6 +80,7 @@ function renderWithMockClient(
           reactions: true,
           thumbnails: true,
         },
+        fetchMedia: null,
         setClient: vi.fn(),
         authenticated: {
           client,
