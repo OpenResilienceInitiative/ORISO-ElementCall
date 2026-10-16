@@ -189,3 +189,83 @@ unconditionally select the container so we can use cqmin units */
 .fg > button:first-of-type {
   grid-area: button;
 }
+
+/* ------------------------------------------------------------------------- *
+ * ORISO
+ *
+ * A tile with an identity is a form, not a rectangle. Everything below is
+ * the difference between the two, kept here rather than in a second
+ * component so that one tile serves both and they cannot drift apart.
+ * ------------------------------------------------------------------------- */
+
+.media.oriso {
+  /* The form supplies its own radius, and the hover margin would hold the
+     shapes apart — the Hain packs them until they abut. */
+  --media-view-border-radius: 0;
+  --hover-space-margin: 0;
+  /* The chrome sits inside the form, which is round: inset by the corner
+     rather than by the rectangle's padding. */
+  --media-view-fg-inset: 8%;
+  border-radius: 0;
+}
+
+/* No plate behind the form. Upstream fills the tile with
+   --video-tile-background, which the design does not have: a form in
+   somebody's own colour standing on the stage is the whole picture, and a
+   black rectangle behind it is what made the first attempt look like
+   Element Call with round corners. */
+.media.oriso > .bg {
+  background-color: transparent;
+  contain: none;
+}
+
+/* The camera is cropped into the form, so it covers rather than letter-boxes
+   and brings no backdrop of its own. */
+.media.oriso video {
+  background-color: transparent;
+  object-fit: cover;
+}
+
+.media.oriso[data-video-fit="contain"] video {
+  object-fit: contain;
+}
+
+/* The name capsule, to the handoff's one specification: "the single answer to
+   how do we label a person. There is exactly one spec, used on every screen
+   and in every state." The numbers are its numbers. */
+.media.oriso .nameTag {
+  block-size: 26px;
+  padding: 0;
+  padding-inline: 10px;
+  border-radius: 13px;
+  max-inline-size: var(--oriso-name-max, 132px);
+  background: color-mix(in srgb, #4c555f 92%, transparent);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  box-shadow: none;
+  gap: 6px;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 26px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+/* Speaking loses the transparency. That is the only difference, so the
+   capsule carries it rather than a second element. */
+.media.oriso[data-oriso-speaking="true"] .nameTag {
+  background: #4c555f;
+}
+
+.media.oriso .nameTag > .name {
+  padding-inline: 0;
+}
+
+.media.oriso .nameTag > svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+.media.oriso .nameTag .muteIcon {
+  color: #fff;
+}

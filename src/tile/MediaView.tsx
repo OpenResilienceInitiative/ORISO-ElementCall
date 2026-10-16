@@ -22,6 +22,9 @@ import { showHandRaisedTimer, useSetting } from "../settings/settings";
 import { type ReactionOption } from "../reactions";
 import { ReactionIndicator } from "../reactions/ReactionIndicator";
 import { RTCConnectionStats } from "../RTCConnectionStats";
+import { OrisoFace } from "../oriso/OrisoFace";
+import { type OrisoIdentity } from "../oriso/identity";
+import { type TileShape } from "../oriso/shape";
 
 interface Props extends ComponentProps<typeof animated.div> {
   className?: string;
@@ -48,6 +51,23 @@ interface Props extends ComponentProps<typeof animated.div> {
   videoStreamStats?: RTCInboundRtpStreamStats | RTCOutboundRtpStreamStats;
   // The focus url, mainly for debugging purposes
   focusUrl?: string;
+  /**
+   * The person's ORISO identity, when the call has one for them.
+   *
+   * Present means the ORISO design: the tile is a form in this person's own
+   * colour carrying their own animal, and the camera, when it is on, is
+   * cropped into that same form. Absent means upstream's rectangle with a
+   * Matrix avatar in the middle — which is what the lobby, the tests and any
+   * standalone use still get, so this file serves both without a fork in the
+   * tree above it.
+   */
+  orisoIdentity?: OrisoIdentity;
+  /** The form the layout put this tile in. Only read with an identity. */
+  orisoShape?: TileShape;
+  /** Whether this person currently holds the floor. */
+  orisoSpeaking?: boolean;
+  /** The host's origin, so the artwork can be inherited rather than drawn. */
+  orisoParentUrl?: string | null;
 }
 
 export const MediaView: FC<Props> = ({
@@ -75,6 +95,10 @@ export const MediaView: FC<Props> = ({
   audioStreamStats,
   videoStreamStats,
   focusUrl,
+  orisoIdentity,
+  orisoShape,
+  orisoSpeaking = false,
+  orisoParentUrl = null,
   ...props
 }) => {
   const { t } = useTranslation();
@@ -82,37 +106,68 @@ export const MediaView: FC<Props> = ({
 
   const avatarSize = Math.round(Math.min(targetWidth, targetHeight) / 2);
 
+  const hasVideo = video?.publication !== undefined;
+
   return (
     <animated.div
       className={classNames(styles.media, className, {
         [styles.mirror]: mirror,
+        [styles.oriso]: orisoIdentity !== undefined,
       })}
       style={style}
       ref={ref}
       data-testid="videoTile"
       data-video-fit={videoFit}
+      data-oriso={orisoIdentity === undefined ? undefined : "true"}
+      data-oriso-speaking={orisoSpeaking ? "true" : undefined}
       {...props}
     >
-      <div className={styles.bg}>
-        <Avatar
-          id={userId}
-          name={displayName}
-          size={avatarSize}
-          src={mxcAvatarUrl}
-          className={styles.avatar}
-          style={{ display: video && videoEnabled ? "none" : "initial" }}
-        />
-        {video?.publication !== undefined && (
-          <VideoTrack
-            trackRef={video}
-            // There's no reason for this to be focusable
-            tabIndex={-1}
-            disablePictureInPicture
-            style={{ display: video && videoEnabled ? "block" : "none" }}
-            data-testid="video"
+      {orisoIdentity === undefined ? (
+        <div className={styles.bg}>
+          <Avatar
+            id={userId}
+            name={displayName}
+            size={avatarSize}
+            src={mxcAvatarUrl}
+            className={styles.avatar}
+            style={{ display: video && videoEnabled ? "none" : "initial" }}
           />
-        )}
-      </div>
+          {hasVideo && (
+            <VideoTrack
+              trackRef={video!}
+              // There's no reason for this to be focusable
+              tabIndex={-1}
+              disablePictureInPicture
+              style={{ display: video && videoEnabled ? "block" : "none" }}
+              data-testid="video"
+            />
+          )}
+        </div>
+      ) : (
+        <OrisoFace
+          className={styles.bg}
+          identity={orisoIdentity}
+          size={Math.min(targetWidth, targetHeight)}
+          shape={orisoShape}
+          speaking={orisoSpeaking}
+          parentUrl={orisoParentUrl}
+          // The camera takes the artwork's place and leaves the form alone.
+          // With it off, the form carries the animal — there is no black
+          // rectangle in between, which is the whole reason this branch
+          // exists rather than a style override on the one above.
+          video={
+            hasVideo && videoEnabled ? (
+              <VideoTrack
+                trackRef={video!}
+                tabIndex={-1}
+                disablePictureInPicture
+                data-testid="video"
+              />
+            ) : undefined
+          }
+          videoFit={videoFit}
+        />
+      )}
       <div className={styles.fg}>
         <div className={styles.reactions}>
           <RaisedHandIndicator

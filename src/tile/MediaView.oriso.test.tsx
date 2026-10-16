@@ -1,0 +1,155 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
+import {
+  type TrackReference,
+  type TrackReferencePlaceholder,
+} from "@livekit/components-core";
+import { LocalTrackPublication, Track } from "livekit-client";
+import { TrackInfo } from "@livekit/protocol";
+import { type ComponentProps } from "react";
+
+import { MediaView } from "./MediaView";
+import { EncryptionStatus } from "../state/MediaViewModel";
+import { mockLocalParticipant } from "../utils/test";
+import { type OrisoIdentity } from "../oriso/identity";
+import { resetArtworkCache } from "../oriso/artwork";
+import { liftFor } from "../oriso/lift";
+
+const participant = mockLocalParticipant({});
+const placeholder: TrackReferencePlaceholder = {
+  participant,
+  source: Track.Source.Camera,
+};
+const track: TrackReference = {
+  ...placeholder,
+  publication: new LocalTrackPublication(
+    Track.Kind.Video,
+    new TrackInfo({ sid: "id", name: "name" }),
+  ),
+};
+
+const base: ComponentProps<typeof MediaView> = {
+  displayName: "ruhiger Fuchs 432",
+  videoEnabled: true,
+  videoFit: "cover",
+  targetWidth: 300,
+  targetHeight: 200,
+  encryptionStatus: EncryptionStatus.Connecting,
+  mirror: false,
+  unencryptedWarning: false,
+  video: track,
+  userId: "@alice:example.com",
+  mxcAvatarUrl: undefined,
+  focusable: true,
+};
+
+const FOX: OrisoIdentity = {
+  kind: "animal",
+  file: "fox.svg",
+  bg: "#165e83",
+  ink: "#ffffff",
+};
+
+afterEach(() => {
+  resetArtworkCache();
+  vi.restoreAllMocks();
+});
+
+describe("without an identity, the tile is upstream's", () => {
+  it("keeps the Matrix avatar and the plate behind it", () => {
+    render(<MediaView {...base} />);
+    expect(screen.getByTestId("videoTile").dataset.oriso).toBeUndefined();
+    expect(screen.queryByTestId("oriso-face")).toBeNull();
+  });
+
+  it("still shows the video element the old way", () => {
+    render(<MediaView {...base} />);
+    // Upstream keeps the track mounted and toggles display, which is what
+    // lets it switch without renegotiating. That must not change.
+    expect(screen.getByTestId("video").style.display).toBe("block");
+  });
+});
+
+describe("with an identity, the tile is a form", () => {
+  it("is accessible", async () => {
+    const { container } = render(
+      <MediaView {...base} orisoIdentity={FOX} orisoParentUrl={null} />,
+    );
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("replaces the plate with the person's own colour", () => {
+    render(<MediaView {...base} orisoIdentity={FOX} />);
+    expect(screen.getByTestId("videoTile").dataset.oriso).toBe("true");
+    expect(screen.getByTestId("oriso-face").style.background).toBe(
+      "rgb(22, 94, 131)",
+    );
+  });
+
+  it("takes the form the layout gave it", () => {
+    render(
+      <MediaView
+        {...base}
+        orisoIdentity={FOX}
+        orisoShape={{ radius: "48% 52% 61% 39%", tilt: 4.2 }}
+      />,
+    );
+    const face = screen.getByTestId("oriso-face");
+    expect(face.style.borderRadius).toBe("48% 52% 61% 39%");
+    expect(face.style.transform).toBe("rotate(4.2deg)");
+  });
+
+  it("sizes the form by the tile's smaller side", () => {
+    // 300x200: a form sized off the width would overflow the tile
+    // vertically, and its lift would be judged against the wrong number.
+    render(<MediaView {...base} orisoIdentity={FOX} videoEnabled={false} />);
+    expect(screen.getByTestId("oriso-face").style.boxShadow).toBe(liftFor(200));
+    expect(liftFor(200)).not.toBe(liftFor(300));
+  });
+
+  it("puts the camera inside the form rather than beside it", () => {
+    render(<MediaView {...base} orisoIdentity={FOX} />);
+    const face = screen.getByTestId("oriso-face");
+    expect(face.contains(screen.getByTestId("video"))).toBe(true);
+  });
+
+  it("drops the camera entirely when it is off, instead of hiding it", () => {
+    // Upstream hides the element with display:none and leaves a black plate.
+    // In the form there is nothing behind it to be black, so the artwork has
+    // to take its place.
+    render(<MediaView {...base} orisoIdentity={FOX} videoEnabled={false} />);
+    expect(screen.queryByTestId("video")).toBeNull();
+  });
+
+  it("marks speaking on the tile, for the capsule to follow", () => {
+    render(<MediaView {...base} orisoIdentity={FOX} orisoSpeaking />);
+    expect(screen.getByTestId("videoTile").dataset.orisoSpeaking).toBe("true");
+    expect(screen.getByTestId("oriso-face").dataset.speaking).toBe("true");
+  });
+
+  it("still carries the name, the mute glyph and the menu", () => {
+    // The form replaces the picture, not the chrome. The name tag, the
+    // microphone state, the raised hand and the options menu are real
+    // function and are restyled rather than rebuilt.
+    render(
+      <MediaView
+        {...base}
+        orisoIdentity={FOX}
+        nameTagLeadingIcon={<svg data-testid="mic" />}
+        primaryButton={<button>options</button>}
+      />,
+    );
+    expect(screen.getByTestId("name_tag").textContent).toBe(
+      "ruhiger Fuchs 432",
+    );
+    expect(screen.getByTestId("mic")).toBeTruthy();
+  });
+});

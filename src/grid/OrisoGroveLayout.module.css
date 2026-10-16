@@ -1,0 +1,61 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.fixed,
+.scrolling {
+  block-size: 100%;
+}
+
+/* The grove and the subdivided fields both place their slots absolutely from
+   numbers the engine returns, so the layer is a plain positioning context. */
+.stage {
+  position: relative;
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+/* Beyond eight people the fields stop subdividing and start scrolling, at a
+   fixed tile size, which the handoff asks for by name. */
+.sheet {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  gap: var(--oriso-field-gutter);
+  block-size: 100%;
+  inline-size: 100%;
+  overflow-y: auto;
+  padding-block: var(--oriso-field-gutter);
+}
+
+.fixed {
+  position: relative;
+}
+
+.fixed > .slot {
+  position: absolute;
+  inline-size: 404px;
+  block-size: 233px;
+  inset-block: 0;
+  inset-inline: var(--cpd-space-3x);
+}
+
+.fixed > .slot[data-block-alignment="start"] {
+  inset-block-end: unset;
+}
+
+.fixed > .slot[data-block-alignment="end"] {
+  inset-block-start: unset;
+}
+
+.fixed > .slot[data-inline-alignment="start"] {
+  inset-inline-end: unset;
+}
+
+.fixed > .slot[data-inline-alignment="end"] {
+  inset-inline-start: unset;
+}

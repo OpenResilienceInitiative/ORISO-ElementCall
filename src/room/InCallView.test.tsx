@@ -38,6 +38,7 @@ import {
   mockRemoteParticipant,
   mockRtcMembership,
   type MockRTCSession,
+  mockEmitter,
 } from "../utils/test";
 import { E2eeType } from "../e2ee/e2eeType";
 import { getBasicCallViewModelEnvironment } from "../utils/test-viewmodel";
@@ -135,7 +136,14 @@ function createInCallView(
     hasEncryptionStateEvent: vi.fn().mockReturnValue(true),
     getCanonicalAlias: () => null,
     currentState: {
+      // RoomState is an event emitter and the ORISO stage subscribes to it,
+      // exactly as GroupCallView's own mock already does.
+      ...mockEmitter(),
       getJoinRule: () => JoinRule.Invite,
+      // A real RoomState always has this and returns [] for a type nobody
+      // has written. The ORISO stage reads identities out of room state, so
+      // the mock has to answer rather than be absent.
+      getStateEvents: () => [],
     } as Partial<RoomState> as RoomState,
   });
 

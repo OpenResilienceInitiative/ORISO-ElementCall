@@ -51,6 +51,8 @@ import { type GridTileViewModel } from "../state/TileViewModel";
 import { useMergedRefs } from "../useMergedRefs";
 import { useReactionsSender } from "../reactions/useReactionsSender";
 import { useBehavior } from "../useBehavior";
+import { useOrisoIdentity, useOrisoStage } from "../oriso/useOrisoIdentities";
+import { useOrisoShape } from "../oriso/useOrisoShape";
 
 interface TileProps {
   ref?: Ref<HTMLDivElement>;
@@ -147,6 +149,13 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
 
   const showSpeaking = showSpeakingIndicators && speaking;
 
+  // The ORISO form, when the call has an identity for this person. Undefined
+  // means upstream's rectangle, which is still what the lobby and the
+  // standalone build get.
+  const { parentUrl } = useOrisoStage();
+  const orisoIdentity = useOrisoIdentity(vm.userId, displayName);
+  const orisoShape = useOrisoShape(vm.userId);
+
   const tile = (
     <MediaView
       ref={ref}
@@ -157,8 +166,14 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
       videoEnabled={videoEnabled}
       videoFit={cropVideo ? "cover" : "contain"}
       className={classNames(className, styles.tile, {
-        [styles.speaking]: showSpeaking,
-        [styles.handRaised]: !showSpeaking && handRaised,
+        // Upstream draws speaking and a raised hand as a black gradient ring
+        // around the tile. ORISO draws speaking as the person's own colour
+        // brightening, which `OrisoFace` does, so the ring must not also
+        // appear — two indicators for one state, one of them the exact
+        // treatment the handoff rejects.
+        [styles.speaking]: orisoIdentity === undefined && showSpeaking,
+        [styles.handRaised]:
+          orisoIdentity === undefined && !showSpeaking && handRaised,
       })}
       nameTagLeadingIcon={
         <AudioIcon
@@ -200,6 +215,10 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
       focusUrl={focusUrl}
       audioStreamStats={audioStreamStats}
       videoStreamStats={videoStreamStats}
+      orisoIdentity={orisoIdentity}
+      orisoShape={orisoShape}
+      orisoSpeaking={showSpeaking}
+      orisoParentUrl={parentUrl}
       {...props}
     />
   );
