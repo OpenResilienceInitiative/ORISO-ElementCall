@@ -9,6 +9,12 @@ geschossen (Chromium, 960x640, 1x). Was sie zeigen:
 | `01-after-kreis-zu-zweit.png`         | Nachher: `pairShapes` teilt dasselbe Rechteck wie die Felder und setzt in jede Hälfte die eigene Form der Person. Nichts überdeckt sich.                   |
 | `02-after-kreis-zu-zweit-spricht.png` | Nachher, mit Sprecherin: 1,6× größer — das Sprech-Gewicht des Hains, nicht die 2,6 der Felder, mit denen die Zuhörerin auf ein Viertel geschrumpft wäre.   |
 
+Die beiden Nachher-Platten sind nach der Neigungs-Korrektur neu geschossen:
+`OrisoFace` dreht jede Form um bis zu ±11°, und ein Quadrat bei 11° ist 17 %
+breiter als seine Box. Die Formen sind deshalb etwas kleiner als in der ersten
+Fassung — gemessen über alle Paare aus 120 Namen, vorher bis zu 23px
+Überlappung trotz nicht überlappender Boxen.
+
 Der Anlass: eine Bildschirmfreigabe nimmt einem Zweiergespräch das
 Einzelgespräch-Layout weg, und der Kreis ist dann das, was die Leiste
 anbietet. Der Fall ist also nicht zu umgehen.
