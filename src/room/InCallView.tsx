@@ -426,16 +426,33 @@ export const InCallView: FC<InCallViewProps> = ({
     [setSettingsTab, setSettingsModalOpen],
   );
 
+  /*
+   * Read before the bounds below, because they depend on it: see the ORISO
+   * section further down for what the gate means.
+   */
+  const { parentUrl, orisoAtmosphere, orisoDesign } = useUrlParams();
+  const orisoEnabled = orisoDesign;
+
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
 
   const gridBounds = useMemo(
     () => ({
       width: bounds.width,
+      /*
+       * The footer's height comes off the stage — for ORISO even in `flat`.
+       *
+       * Upstream gives a flat window the whole height and floats the footer
+       * over it, which suits a spotlight whose subject sits in the middle.
+       * An ORISO arrangement puts people at the edges: a landscape phone,
+       * where the footer takes two rows below 660px, had the controls and
+       * the view rail sitting on top of the bottom of the circle, the outer
+       * participants, or a bottom-aligned screen share.
+       */
       height:
         bounds.height -
         headerBounds.height -
-        (windowMode === "flat" ? 0 : footerBounds.height),
+        (windowMode === "flat" && !orisoEnabled ? 0 : footerBounds.height),
     }),
     [
       bounds.width,
@@ -443,6 +460,7 @@ export const InCallView: FC<InCallViewProps> = ({
       headerBounds.height,
       footerBounds.height,
       windowMode,
+      orisoEnabled,
     ],
   );
   const gridBoundsObservable$ = useObservable(
@@ -475,8 +493,6 @@ export const InCallView: FC<InCallViewProps> = ({
    * `parentUrl` is still where the artwork is inherited FROM, which is a
    * different question and only asked once the design is on.
    * ---------------------------------------------------------------------- */
-  const { parentUrl, orisoAtmosphere, orisoDesign } = useUrlParams();
-  const orisoEnabled = orisoDesign;
   const orisoIdentities = useOrisoIdentities(matrixRoom);
   const orisoStage = useMemo(
     () => ({

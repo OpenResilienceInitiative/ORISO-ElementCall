@@ -257,8 +257,29 @@ export function pairShapes(
   // Short of the cell, so the two forms keep a visible gap at the seam and a
   // speaking halo has somewhere to go.
   const fill = 0.92;
+  /*
+   * A LEANING form is wider than its box.
+   *
+   * `OrisoFace` rotates by the shape's own tilt — up to ±11° — around the
+   * centre, after placement and without anything clipping it to the cell. A
+   * square of side s at angle t spans s * (cos t + sin t), which at 11° is
+   * 17% more than the box it was given. Two forms sized to 0.92 of their
+   * cells leave about 23px between their upright boxes on a square stage,
+   * and the lean can add twice that — so the forms could still touch, the
+   * one thing this function exists to prevent, while a test that compared
+   * the placement boxes saw nothing wrong.
+   *
+   * The square is the worst case: the blobs are rounded well inside it. The
+   * worst case is what has to fit.
+   */
+  const leanFactor = (tilt: string): number => {
+    const radians = (Math.abs(Number(tilt)) * Math.PI) / 180;
+    return Math.cos(radians) + Math.sin(radians);
+  };
   return cells.map((cell, i) => {
-    const size = Math.round(Math.min(cell.w, cell.h) * fill);
+    const size = Math.round(
+      (Math.min(cell.w, cell.h) * fill) / leanFactor(shapes[i].tilt),
+    );
     return {
       size,
       x: Math.round(cell.x + (cell.w - size) / 2),
@@ -274,7 +295,16 @@ export function pairShapes(
 export function splitCells(
   list: readonly number[],
   rect: Rect,
-  speaker: number,
+  /**
+   * Who is speaking: one index, or several.
+   *
+   * Several, because people talk over each other — MatrixRTC reports
+   * `isSpeaking` per participant and the grove weights every one of them. A
+   * single index made the subdivided fields pick whoever happened to come
+   * first in the grid and leave the others at a listener's size, which is
+   * not a decision anybody made.
+   */
+  speaker: number | ReadonlySet<number>,
 ): Cell[] {
   if (list.length === 1) return [{ i: list[0], ...rect }];
   const half = Math.ceil(list.length / 2);
@@ -282,8 +312,10 @@ export function splitCells(
     b = list.slice(half);
   // Weight-proportional, not a fixed 62/38: with a fixed ratio the speaker's
   // advantage was diluted away again by the even cuts inside their own branch.
+  const speaking = (i: number): boolean =>
+    typeof speaker === "number" ? i === speaker : speaker.has(i);
   const wt = (arr: readonly number[]) =>
-    arr.reduce((t, i) => t + (i === speaker ? 2.6 : 1), 0);
+    arr.reduce((t, i) => t + (speaking(i) ? 2.6 : 1), 0);
   const ratio = wt(a) / (wt(a) + wt(b));
   const horiz = rect.w >= rect.h;
   const cut = Math.round((horiz ? rect.w : rect.h) * ratio);

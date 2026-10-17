@@ -279,7 +279,17 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         }));
       }
 
-      const speaker = seats.findIndex((s) => s.speaking);
+      /*
+       * Everybody who is speaking, not whoever is first in the grid.
+       *
+       * `speaking$` is per participant and two people talk over each other
+       * all the time; the grove already weights all of them. `findIndex`
+       * gave the emphasis to whichever speaker `model.grid` happened to list
+       * first and left the others at a listener's size.
+       */
+      const speakers = new Set(
+        seats.flatMap((seat, index) => (seat.speaking ? [index] : [])),
+      );
       /*
        * The fields divide an INSET rectangle, for the grove's reason.
        *
@@ -299,7 +309,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
           w: Math.max(0, width - 2 * room),
           h: Math.max(0, height - 2 * room),
         },
-        speaker,
+        speakers,
       ).map((cell) => ({
         id: seats[cell.i].model.id,
         mediaId: seats[cell.i].mediaId,

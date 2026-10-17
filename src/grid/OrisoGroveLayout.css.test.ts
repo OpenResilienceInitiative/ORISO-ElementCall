@@ -65,6 +65,17 @@ describe("the scrolling fields sheet", () => {
     expect(body).toMatch(/box-sizing:\s*border-box/);
   });
 
+  it("does not scroll on its own, because the tiles are not inside it", () => {
+    /*
+     * `Grid` puts the layout's slots and the visible `TileWrapper`s side by
+     * side and positions the tiles from `offsetTop`, which a box scrolling
+     * inside does not change. A scroll container here moved the measurement
+     * slots and left the faces behind. Upstream's `.scrolling` has no
+     * overflow either; the ancestor `.inRoom` is the one that scrolls.
+     */
+    expect(bodyOf(".sheet")).not.toMatch(/overflow/);
+  });
+
   it("reserves that room on the edge it scrolls to, as well", () => {
     /*
      * The block-end is the edge where this stops being cosmetic.

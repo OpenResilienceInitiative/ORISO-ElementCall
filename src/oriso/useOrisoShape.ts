@@ -5,7 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-import { createContext, use, useEffect, useSyncExternalStore } from "react";
+import {
+  createContext,
+  use,
+  useLayoutEffect,
+  useSyncExternalStore,
+} from "react";
 
 import { type TileShape } from "./shape";
 
@@ -96,12 +101,27 @@ export function useOrisoShape(mediaId: string): TileShape | undefined {
   );
 }
 
-/** Called by an ORISO layout with the forms it just laid out. */
+/**
+ * Called by an ORISO layout with the forms it just laid out.
+ *
+ * Published from a LAYOUT effect, which runs after the commit and before the
+ * browser paints. A passive effect runs after the paint, so the frame that
+ * first carried a new arrangement was painted with the previous one's forms:
+ * fields drawn as leaning blobs for a frame when switching from the grove,
+ * rail tiles wearing grove tilts, or a one-on-one pair still clipped by a
+ * seam whose SVG definition had already gone with the layout that owned it.
+ *
+ * This cannot be witnessed by a test here: `act` flushes passive and layout
+ * effects together before anything can observe the gap between them, and
+ * jsdom never paints. It is the same reason the artwork is cleared during
+ * render rather than in an effect — what a frame carries is decided before
+ * the browser is allowed to show it.
+ */
 export function usePublishOrisoShapes(
   shapes: ReadonlyMap<string, TileShape>,
 ): void {
   const store = use(OrisoShapesContext);
-  useEffect(() => store.publish(shapes), [store, shapes]);
+  useLayoutEffect(() => store.publish(shapes), [store, shapes]);
   /*
    * A layout that is gone must not leave its forms behind.
    *
@@ -113,5 +133,5 @@ export function usePublishOrisoShapes(
    * an empty map between every two arrangements, blanking every form for a
    * frame. This cleanup runs only on unmount.
    */
-  useEffect(() => (): void => store.publish(new Map()), [store]);
+  useLayoutEffect(() => (): void => store.publish(new Map()), [store]);
 }

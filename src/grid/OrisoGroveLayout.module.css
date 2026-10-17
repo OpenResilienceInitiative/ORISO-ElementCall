@@ -39,7 +39,21 @@ Please see LICENSE in the repository root for full details.
    * declared width, not be added to it.
    */
   box-sizing: border-box;
-  overflow-y: auto;
+  /*
+   * NOT a scroll container, however much it looks like one should be.
+   *
+   * `Grid` renders the layout — these slots — and the visible `TileWrapper`s
+   * as SIBLINGS, and it positions the tiles from `offsetTop`/`offsetLeft`,
+   * which do not move when a box scrolls inside. An `overflow-y: auto` here
+   * therefore scrolled the invisible measurement slots out from under the
+   * tiles, which stayed exactly where they were: the scrollbar moved and the
+   * picture did not. It was here for one commit and it is written down so
+   * nobody adds it back.
+   *
+   * Upstream's own scrolling grid does not do it either: `GridLayout`'s
+   * `.scrolling` has no overflow of its own, and `.inRoom` — the ancestor
+   * that holds BOTH the slots and the tiles — is what scrolls.
+   */
   /*
    * Padded by the halo's room rather than by the gutter — on all four sides.
    *

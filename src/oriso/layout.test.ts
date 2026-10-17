@@ -292,6 +292,30 @@ describe("splitCells", () => {
     ).toBeGreaterThan(mean);
   });
 
+  it("gives every speaker a bigger cell, not just the first one", () => {
+    /*
+     * Two people talk over each other all the time, and `speaking$` is per
+     * participant. Passing a single index let whichever speaker came first
+     * in the grid take the emphasis and left the other at a listener's size.
+     */
+    const rect: Rect = { x: 0, y: 0, w: 1200, h: 800 };
+    const quiet = splitCells([0, 1, 2, 3], rect, -1);
+    const both = splitCells([0, 1, 2, 3], rect, new Set([1, 3]));
+    const area = (cells: ReturnType<typeof splitCells>, i: number) => {
+      const cell = cells.find((c) => c.i === i)!;
+      return cell.w * cell.h;
+    };
+    expect(area(both, 1)).toBeGreaterThan(area(quiet, 1));
+    expect(area(both, 3)).toBeGreaterThan(area(quiet, 3));
+    // And the listeners give up the room, rather than nobody doing so.
+    expect(area(both, 0)).toBeLessThan(area(quiet, 0));
+    expect(area(both, 2)).toBeLessThan(area(quiet, 2));
+    // A single index still behaves exactly as it did.
+    expect(splitCells([0, 1, 2, 3], rect, 2)).toEqual(
+      splitCells([0, 1, 2, 3], rect, new Set([2])),
+    );
+  });
+
   it("is deterministic", () => {
     expect(splitCells([0, 1, 2, 3], rect, 2)).toEqual(
       splitCells([0, 1, 2, 3], rect, 2),
@@ -373,8 +397,25 @@ describe("the Kreis at two people", () => {
   const STAGE: Rect = { x: 36, y: 36, w: 888, h: 568 };
   const PAIR = ["ruhiger Fuchs 432", "naher Otter 303"];
 
+  /**
+   * The clearance between the two forms AS THEY ARE PAINTED — leaning.
+   *
+   * `OrisoFace` rotates by the shape's tilt around the centre, after
+   * placement and with nothing clipping it to its cell, so a square of side
+   * s at 11° spans 17% more than its box. Comparing the upright boxes let
+   * two forms that visibly touch pass; this grows each box by its own lean
+   * first. The square is the worst case and the blobs are rounded well
+   * inside it, which is the direction an assertion may err in.
+   */
+  const leaning = (spot: Placement): { x: number; y: number; size: number } => {
+    const radians = (Math.abs(Number(spot.tilt)) * Math.PI) / 180;
+    const size = spot.size * (Math.cos(radians) + Math.sin(radians));
+    const grown = (size - spot.size) / 2;
+    return { x: spot.x - grown, y: spot.y - grown, size };
+  };
+
   const overlap = (placed: Placement[]): number => {
-    const [a, b] = placed;
+    const [a, b] = placed.map(leaning);
     const dx = Math.max(a.x, b.x) - Math.min(a.x + a.size, b.x + b.size);
     const dy = Math.max(a.y, b.y) - Math.min(a.y + a.size, b.y + b.size);
     // Negative on BOTH axes is a genuine overlap of the boxes.
@@ -387,6 +428,32 @@ describe("the Kreis at two people", () => {
     ["the other speaking", [1, 1.6]],
   ] as const)("never buries one behind the other (%s)", (_name, weights) => {
     expect(overlap(pairShapes(PAIR, STAGE, weights))).toBeGreaterThan(0);
+  });
+
+  it("keeps the leaning forms apart for ANY two names", () => {
+    /*
+     * The names in the fixture above lean gently, and that hid this: with a
+     * pair whose tilts run to opposite ends of the allowed ±11°, sizing the
+     * forms at 0.92 of their cells left them overlapping by 33px on a wide
+     * stage and 23px on a square one — measured over every pair of 120
+     * generated names, worst case -23.2px. The forms are rotated after
+     * placement and nothing clips them to their cell, so the box comparison
+     * saw none of it.
+     */
+    const pool = Array.from(
+      { length: 60 },
+      (_, i) => `person ${i} vom ${i * 13}`,
+    );
+    const stage: Rect = { x: 0, y: 0, w: 600, h: 568 };
+    let worst = Infinity;
+    for (let i = 0; i < pool.length; i++)
+      for (let j = i + 1; j < pool.length; j++)
+        worst = Math.min(
+          worst,
+          overlap(pairShapes([pool[i], pool[j]], stage, [1, 1])),
+          overlap(pairShapes([pool[i], pool[j]], stage, [1.6, 1])),
+        );
+    expect(worst).toBeGreaterThan(0);
   });
 
   it("keeps both forms inside the rectangle it was given", () => {
