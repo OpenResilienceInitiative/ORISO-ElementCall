@@ -11,7 +11,18 @@ export default {
   vite: {
     config: ["vite.config.ts", "vite-embedded.config.ts"],
   },
-  entry: ["src/main.tsx", "i18next-parser.config.ts"],
+  entry: [
+    "src/main.tsx",
+    "i18next-parser.config.ts",
+    // The visual-proof harness and the two scripts that drive it. They are
+    // reached by a developer running them, not by the bundle, so Knip is
+    // right that nothing imports them and wrong that they are unused.
+    "harness/orisoStage.tsx",
+    "harness/videoSpike.ts",
+    "harness/vite.harness.config.ts",
+    "scripts/shootOrisoStage.mjs",
+    "scripts/measureVideoInShape.mjs",
+  ],
   ignoreBinaries: [
     // This is deprecated, so Knip doesn't actually recognize it as a globally
     // installed binary. TODO We should switch to Compose v2:

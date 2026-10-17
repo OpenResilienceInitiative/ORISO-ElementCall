@@ -111,6 +111,12 @@ export const ViewSwitcher: FC<Props> = ({
   );
 
   return (
+    // A radio group is a COMPOSITE widget: the group is not focusable,
+    // its children are, and exactly one of them is in the tab order at a
+    // time. That is the roving tabindex below, and it is what the ARIA
+    // pattern asks for — the lint rule is reading the group as if it were
+    // a single interactive element.
+    // eslint-disable-next-line jsx-a11y/interactive-supports-focus
     <div
       className={classNames(styles.rail, className)}
       data-testid="view-switcher"

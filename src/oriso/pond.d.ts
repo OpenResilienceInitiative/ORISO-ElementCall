@@ -1,3 +1,10 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
 /**
  * `pond.js` is a verbatim port from the design handoff and has no exports: it
  * registers the <oriso-pond> custom element as a side effect and that is all.

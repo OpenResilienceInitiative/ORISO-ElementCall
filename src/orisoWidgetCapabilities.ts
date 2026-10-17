@@ -7,10 +7,9 @@ Please see LICENSE in the repository root for full details.
 
 import { EventType } from "matrix-js-sdk";
 
-import { ORISO_IDENTITY_EVENT_TYPE } from "./oriso/identity";
-
 import type { ICapabilities } from "matrix-js-sdk";
 import { ElementCallReactionEventType } from "./reactions";
+import { ORISO_IDENTITY_EVENT_TYPE } from "./oriso/identity";
 
 /**
  * The first-party ORISO widget contract. Keep this deliberately smaller than

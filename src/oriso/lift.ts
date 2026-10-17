@@ -59,7 +59,8 @@ const spell = ({ offset, blur, alpha }: Lift): string =>
 /** The judged value, and what every avatar at or below 104px still gets. */
 export const AVATAR_LIFT = spell(SMALL);
 
-const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
+const lerp = (from: number, to: number, t: number): number =>
+  from + (to - from) * t;
 
 /**
  * The lift for a shape of this size, in CSS.

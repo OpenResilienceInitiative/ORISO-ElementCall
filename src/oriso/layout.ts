@@ -33,6 +33,16 @@ Please see LICENSE in the repository root for full details.
  * client and the tests can pin it down.
  */
 
+/*
+ * The bodies below are the prototype's, unchanged, and two of this
+ * repository's rules disagree with how they are written: `one-var` objects
+ * to `const a = pts[i], b = pts[j]`, and the explicit-return-type rule to the
+ * short helpers. Reformatting a verbatim port to satisfy a linter is how a
+ * port stops being verbatim, so the rules are turned off for this file and
+ * the file says why. The header above says what happens when they are not.
+ */
+/* eslint-disable one-var, @typescript-eslint/explicit-function-return-type */
+
 export interface Shape {
   /** CSS `border-radius`, eight values. */
   blob: string;

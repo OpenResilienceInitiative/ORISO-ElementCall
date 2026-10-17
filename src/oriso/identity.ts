@@ -92,7 +92,7 @@ export const AVATAR_COLORS = [
 /** WCAG relative luminance (0–1) of a #rrggbb colour (gamma-correct sRGB). */
 export function luminance(hex: string): number {
   const n = parseInt(hex.slice(1), 16);
-  const channel = (c: number) => {
+  const channel = (c: number): number => {
     const s = c / 255;
     return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
   };

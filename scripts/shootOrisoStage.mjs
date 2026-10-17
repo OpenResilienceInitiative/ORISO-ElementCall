@@ -13,7 +13,7 @@ Please see LICENSE in the repository root for full details.
  * handoff's numbers, and it fails loudly rather than producing a pretty
  * screenshot of something wrong.
  */
-import { chromium } from "playwright";
+import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 

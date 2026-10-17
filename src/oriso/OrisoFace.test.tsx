@@ -206,7 +206,7 @@ describe("the artwork, which is inherited", () => {
 });
 
 describe("the camera", () => {
-  it("takes the artwork's place and leaves the form alone", async () => {
+  it("takes the artwork's place and leaves the form alone", () => {
     serveArtwork();
     render(
       <OrisoFace

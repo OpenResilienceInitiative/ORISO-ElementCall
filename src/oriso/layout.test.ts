@@ -25,6 +25,7 @@ Please see LICENSE in the repository root for full details.
  * to make a test pass without saying so out loud.
  */
 
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { describe, expect, it } from "vitest";
 
 import {

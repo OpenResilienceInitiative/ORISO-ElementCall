@@ -12,7 +12,7 @@ Please see LICENSE in the repository root for full details.
  *   ORISO_ARTWORK_DIR=<oriso-frontend>/public/static/anon-animals \
  *     npx vite --config harness/vite.harness.config.ts
  */
-import { chromium } from "playwright";
+import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 
 const BASE = process.env.HARNESS_URL ?? "http://127.0.0.1:6007";
