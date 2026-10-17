@@ -139,7 +139,11 @@ describe("the artwork, which is inherited", () => {
     serveArtwork();
     render(<OrisoFace identity={FOX} size={200} />);
     const artwork = await screen.findByTestId("oriso-artwork");
-    expect(artwork.innerHTML).toContain('fill="#ffffff"');
+    // A `data:` URL on an `<img>`, so the drawing cannot run; see
+    // `artwork.ts`. Decoded here rather than matched against the encoding.
+    expect(decodeURIComponent(artwork.getAttribute("src") ?? "")).toContain(
+      'fill="#ffffff"',
+    );
   });
 
   it("sizes it by the per-motif padding, not by one number for all", () => {
@@ -189,7 +193,10 @@ describe("the artwork, which is inherited", () => {
     serveArtwork();
     render(<OrisoFace identity={FOX} size={200} />);
     const artwork = await screen.findByTestId("oriso-artwork");
-    expect(artwork.innerHTML).toContain("<svg");
+    expect(artwork.getAttribute("src")).toMatch(/^data:image\/svg\+xml;/);
+    expect(decodeURIComponent(artwork.getAttribute("src") ?? "")).toContain(
+      "<svg",
+    );
   });
 
   it("refuses a body that is not an SVG", async () => {

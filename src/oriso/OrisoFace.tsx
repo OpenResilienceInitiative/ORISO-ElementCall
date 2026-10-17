@@ -168,12 +168,27 @@ export const OrisoFace: FC<Props> = ({
             {identity.initials ?? ""}
           </span>
         ) : (
-          <div
+          /*
+           * An `<img>`, not inlined markup.
+           *
+           * The drawing is fetched from whatever host `parentUrl` names, and
+           * `parentUrl` is a URL parameter — anybody can open this call
+           * pointed at a host of their own and have it fetch a drawing of
+           * their own. Inlined through `dangerouslySetInnerHTML` that ran in
+           * the call's origin. Referenced by an `<img>` it is loaded in image
+           * context, where scripts do not execute, handlers do not fire and
+           * external references are not followed, so the whole class of
+           * attack is gone by construction rather than by a list of tags to
+           * strip. (`artwork.ts` strips them anyway.)
+           */
+          <img
             className={styles.content}
             style={{ ...upright, width: inner, height: inner }}
             data-testid="oriso-artwork"
+            src={artwork}
+            alt=""
             aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: artwork }}
+            draggable={false}
           />
         )
       ) : (

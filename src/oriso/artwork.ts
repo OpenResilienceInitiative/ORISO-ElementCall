@@ -78,16 +78,17 @@ const FORBIDDEN_TAGS = new Set([
 /**
  * Anything in the drawing that could run, removed.
  *
- * The artwork is first-party — it comes off the host's own `/static`, behind
- * a content-type check, under a file name validated to a bare `*.svg` — and
- * ORISO-Frontend's own `AnimalAvatar` injects the same files with no more
- * than that. But this one goes through `dangerouslySetInnerHTML` in a call
- * that is holding a camera and a microphone, and the file NAME arrives in a
- * room state event published by another client. One pass over the parsed
- * document costs nothing and makes the whole chain safe by construction
- * rather than by argument. It is deliberately not a dependency: this runs on
- * a document the DOM already parsed, and a sanitiser in the fork that the
- * host does not have would be two different answers to one question.
+ * Belt and braces rather than the barrier. The barrier is the `<img>` the
+ * face renders this with — see `artworkDataUrl` below — because an SVG loaded
+ * in image context cannot run whatever is in it, and that is a property of
+ * the context rather than of a list of tags one has to keep complete.
+ *
+ * This pass still runs, for two reasons. The cached text is what anybody who
+ * later has a reason to put the drawing IN the document would reach for, and
+ * it should be safe when they do. And the host it comes from is named by
+ * `parentUrl`, a URL parameter: anybody can open this call pointed at a host
+ * of their own choosing, so nothing about the body is first-party by
+ * assumption.
  */
 function stripActiveContent(root: Element): void {
   for (const element of [...root.querySelectorAll("*")]) {
@@ -172,11 +173,31 @@ export function resetArtworkCache(): void {
 }
 
 /**
+ * The drawing as something the browser renders but cannot run.
+ *
+ * An SVG referenced by an `<img>` is loaded in IMAGE context: scripts do not
+ * execute, event handlers do not fire and external references are not
+ * fetched. That is the barrier here, and it is a property of the context
+ * rather than of a list of things to strip — which matters because `parentUrl`
+ * is a URL parameter, so anybody can open this call pointed at a host of
+ * their choosing and have it fetch a drawing of their choosing. Inlining that
+ * through `dangerouslySetInnerHTML` put it in the call's own origin.
+ *
+ * `stripActiveContent` above still runs. It is belt and braces now rather
+ * than the barrier, and it keeps the cached text safe for anybody who later
+ * has a reason to put it in the document.
+ */
+export function artworkDataUrl(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+/**
  * The inherited artwork for an identity, painted in its ink.
  *
- * `null` while it is on its way and `null` if it never arrives, which the
- * face reads as "show initials". An identity with no file — the fallback for
- * somebody who published nothing — never fetches anything.
+ * A `data:` URL for an `<img>`, `null` while it is on its way and `null` if it
+ * never arrives — which the face reads as "show initials". An identity with no
+ * file — the fallback for somebody who published nothing — never fetches
+ * anything.
  */
 export function useArtwork(
   identity: OrisoIdentity,
@@ -194,7 +215,7 @@ export function useArtwork(
     setSvg(null);
     loadArtwork(file, parentUrl)
       .then((text) => {
-        if (!cancelled) setSvg(recolorSvg(text, ink));
+        if (!cancelled) setSvg(artworkDataUrl(recolorSvg(text, ink)));
       })
       .catch((error) => {
         if (!cancelled) {

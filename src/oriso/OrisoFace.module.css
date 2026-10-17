@@ -21,17 +21,13 @@ Please see LICENSE in the repository root for full details.
    leans and its contents do not. */
 .content {
   position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.content > svg {
   display: block;
-  max-inline-size: 100%;
-  max-block-size: 100%;
-  overflow: visible;
+  /* The drawing is an `<img>`, whose default `object-fit: fill` would stretch
+     a non-square animal to a square box. `contain` is what the inlined SVG's
+     own `preserveAspectRatio="xMidYMid meet"` did, so the shape is unchanged
+     for the square set we have and correct for one that is not. */
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .initials {
