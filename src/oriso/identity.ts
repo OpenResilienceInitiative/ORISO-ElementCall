@@ -320,13 +320,17 @@ export function initialsOf(displayName: string): string {
     .filter((w) => w.length > 0);
   if (words.length === 0) return "";
   const picked = words.length === 1 ? [words[0]] : words.slice(-2);
-  // Sliced by code POINT, as `readIdentity` already does. `slice(0, 2)` counts
-  // UTF-16 units, so two letters outside the BMP collapsed to one and a BMP
-  // letter followed by one outside it left half a surrogate pair — which the
-  // font draws as a replacement glyph.
-  return [...picked.map((w) => [...w][0].toUpperCase()).join("")]
-    .slice(0, 2)
-    .join("");
+  /*
+   * One letter per word, capped where it is taken rather than at the end.
+   *
+   * Both steps count code POINTS, never UTF-16 units: `slice(0, 2)` on a
+   * string left half a surrogate pair, which the font draws as a replacement
+   * glyph. And upper-casing can GROW a letter — `ß` becomes `SS`, `ﬃ`
+   * becomes `FFI` — so capping the joined pair let the first word spend both
+   * slots: "ßeta Katze" came back as "SS", losing the K that tells two
+   * Katzen apart, which is the whole purpose of the second letter.
+   */
+  return picked.map((w) => [...[...w][0].toUpperCase()][0]).join("");
 }
 
 function hashOf(value: string): number {

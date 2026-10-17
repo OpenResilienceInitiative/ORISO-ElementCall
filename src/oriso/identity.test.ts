@@ -168,6 +168,18 @@ describe("initials", () => {
     expect(initialsOf("Über Ärztin")).toBe("ÜÄ");
   });
 
+  it("keeps one letter for each word, even when upper-casing grows it", () => {
+    /*
+     * `ß` upper-cases to `SS` and `ﬃ` to `FFI`. Capping the pair after
+     * joining let the first word spend both slots, so the second word — the
+     * one that tells two Katzen apart — was dropped entirely.
+     */
+    expect(initialsOf("\u00DFeta Katze")).toBe("SK");
+    expect(initialsOf("\uFB03rst Katze")).toBe("FK");
+    // A single word still gives a single letter, not its expansion.
+    expect(initialsOf("\u00DFeta")).toBe("S");
+  });
+
   it("is empty for a name that is only punctuation", () => {
     expect(initialsOf("--- ...")).toBe("");
   });
