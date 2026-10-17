@@ -152,9 +152,13 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
   // The ORISO form, when the call has an identity for this person. Undefined
   // means upstream's rectangle, which is still what the lobby and the
   // standalone build get.
+  //
+  // The identity is per PERSON and looked up by user id; the form is per TILE
+  // and looked up by this media's own id. They differ when somebody is in the
+  // call from two devices: one identity, two forms.
   const { parentUrl } = useOrisoStage();
   const orisoIdentity = useOrisoIdentity(vm.userId, displayName);
-  const orisoShape = useOrisoShape(vm.userId);
+  const orisoShape = useOrisoShape(vm.id);
 
   const tile = (
     <MediaView
@@ -217,7 +221,18 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
       videoStreamStats={videoStreamStats}
       orisoIdentity={orisoIdentity}
       orisoShape={orisoShape}
-      orisoSpeaking={showSpeaking}
+      /*
+       * The raw speaking state, not the filtered `showSpeaking`.
+       *
+       * Upstream turns its indicator off in the one-on-one layout because
+       * "there's no question as to who is speaking" — but ORISO's
+       * Einzelgespräch answers exactly that question with the seam and the
+       * rim light, and feeding it the filtered flag meant the rim never
+       * appeared at all. Whether and how speaking is drawn is the shape's
+       * `speakingAs`, which the layout sets; it is not upstream's indicator
+       * policy. The ring that policy governs is still gated above.
+       */
+      orisoSpeaking={speaking}
       orisoParentUrl={parentUrl}
       {...props}
     />

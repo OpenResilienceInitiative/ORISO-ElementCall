@@ -236,7 +236,14 @@ export interface OrisoIdentity {
   bg: string;
   /** The colour the artwork is painted in. */
   ink: string;
-  /** One or two letters, for the initials kind. */
+  /**
+   * One or two letters.
+   *
+   * The whole of the `initials` kind, and the stand-in for the other two
+   * while their artwork is in flight or if it never arrives. A published
+   * animal record carries no letters — it does not need to — so the tile
+   * fills them in from the display name it has; see `useOrisoIdentity`.
+   */
   initials?: string;
 }
 
@@ -276,6 +283,11 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
       .slice(0, 2)
       .join("")
       .toUpperCase();
+    // A record that says "initials" and carries none is not an identity: it
+    // would draw an empty coloured circle. `null` means "we were not told",
+    // which is the truth, and the tile then takes the letters from the
+    // display name it already has.
+    if (letters.length === 0) return null;
     return { kind, bg, ink, initials: letters };
   }
   if (kind !== "animal" && kind !== "motif") return null;
@@ -335,6 +347,16 @@ export function fallbackIdentity(
     kind: "initials",
     bg,
     ink: pickIconColor(bg),
-    initials: initialsOf(displayName) || initialsOf(userId.replace(/^@/, "")),
+    initials: initialsFor(userId, displayName),
   };
+}
+
+/**
+ * The letters to show for somebody, from whatever we know about them.
+ *
+ * The display name if there is one, the localpart otherwise — a member whose
+ * profile has not arrived yet still gets a mark rather than a blank circle.
+ */
+export function initialsFor(userId: string, displayName: string): string {
+  return initialsOf(displayName) || initialsOf(userId.replace(/^@/, ""));
 }

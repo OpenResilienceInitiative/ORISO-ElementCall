@@ -21,6 +21,7 @@ import {
 import { liftFor } from "../oriso/lift";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { type TileShape } from "../oriso/shape";
+import { useBehavior } from "../useBehavior";
 
 /**
  * How big the animal is inside its half.
@@ -78,8 +79,19 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
     // starts talking.
     const first = model.remote;
     const second = model.local;
-    const firstSpeaking = first.media$.value.speaking$.value;
-    const secondSpeaking = second.media$.value.speaking$.value;
+    /*
+     * Subscribed, not sampled.
+     *
+     * The first version read `media$.value.speaking$.value`. Nothing
+     * re-renders this layer when somebody starts speaking — the change
+     * happens inside a MediaViewModel and the tile model is untouched — so
+     * the seam never bowed and the whole arrangement was a fixed half-and-
+     * half. It is two tiles and always two, so a hook each is fine here.
+     */
+    const firstMedia = useBehavior(first.media$);
+    const secondMedia = useBehavior(second.media$);
+    const firstSpeaking = useBehavior(firstMedia.speaking$);
+    const secondSpeaking = useBehavior(secondMedia.speaking$);
 
     const speaking: Speaking =
       firstSpeaking && secondSpeaking
@@ -113,19 +125,22 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
         lifted: false,
         contentShare: FACE_SHARE_OF_CIRCLE,
       };
+      // Keyed by the media's own id, not the user's: one Matrix user in the
+      // call from two devices shares a user id, and keying by user gave both
+      // halves whichever clip path was written last.
       const map = new Map<string, TileShape>();
-      map.set(first.media$.value.userId, {
+      map.set(firstMedia.id, {
         ...common,
         clipPath: `url(#${seamId})`,
         focusX: share / 2,
       });
-      map.set(second.media$.value.userId, {
+      map.set(secondMedia.id, {
         ...common,
         clipPath: `url(#${seamId}-rest)`,
         focusX: share + (1 - share) / 2,
       });
       return map;
-    }, [first, second, seamId, share]);
+    }, [firstMedia, secondMedia, seamId, share]);
     usePublishOrisoShapes(shapes);
 
     return (

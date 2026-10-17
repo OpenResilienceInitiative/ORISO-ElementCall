@@ -41,8 +41,8 @@ export class OrisoShapeStore {
     for (const listener of this.listeners) listener();
   }
 
-  public get(userId: string): TileShape | undefined {
-    return this.shapes.get(userId);
+  public get(mediaId: string): TileShape | undefined {
+    return this.shapes.get(mediaId);
   }
 
   public subscribe = (listener: () => void): (() => void) => {
@@ -80,12 +80,18 @@ export const OrisoShapesContext = createContext<OrisoShapeStore>(
   new OrisoShapeStore(),
 );
 
-/** The form this tile is standing in, if a layout said. */
-export function useOrisoShape(userId: string): TileShape | undefined {
+/**
+ * The form this tile is standing in, if a layout said.
+ *
+ * Keyed by the MEDIA's id rather than the user's. A Matrix user can be in one
+ * call from two devices, which is two tiles under one user id; keying by user
+ * gave both of them whichever form was published last.
+ */
+export function useOrisoShape(mediaId: string): TileShape | undefined {
   const store = use(OrisoShapesContext);
   return useSyncExternalStore(
     store.subscribe,
-    () => store.get(userId),
+    () => store.get(mediaId),
     () => undefined,
   );
 }
@@ -96,4 +102,16 @@ export function usePublishOrisoShapes(
 ): void {
   const store = use(OrisoShapesContext);
   useEffect(() => store.publish(shapes), [store, shapes]);
+  /*
+   * A layout that is gone must not leave its forms behind.
+   *
+   * Switching to the spotlight unmounts the publisher but used to leave the
+   * map standing, so upstream's spotlight tiles kept a grove tilt or a
+   * one-on-one clip path — a seam cut into a tile with no seam in it. This is
+   * a second effect rather than a cleanup on the one above on purpose: that
+   * one re-runs whenever the shapes change, and clearing there would publish
+   * an empty map between every two arrangements, blanking every form for a
+   * frame. This cleanup runs only on unmount.
+   */
+  useEffect(() => (): void => store.publish(new Map()), [store]);
 }

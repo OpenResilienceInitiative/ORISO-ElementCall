@@ -12,6 +12,7 @@ import {
   ORISO_IDENTITY_EVENT_TYPE,
   type OrisoIdentity,
   fallbackIdentity,
+  initialsFor,
   readIdentity,
 } from "./identity";
 
@@ -120,6 +121,13 @@ export function useOrisoStage(): OrisoStage {
  * The stand-in is initials. An animal derived from the user id would look
  * like success and be the one thing the handoff forbids — see
  * `fallbackIdentity`.
+ *
+ * A published animal or motif gets letters too, which is not a second
+ * identity but the same stand-in for a narrower gap: the artwork is fetched
+ * from the host, so between mounting and arriving — and for good if the host
+ * is unreachable — the form has a colour and nothing in it. Those records
+ * carry no `initials` of their own and should not have to; the tile knows the
+ * display name, so it supplies them here.
  */
 export function useOrisoIdentity(
   userId: string,
@@ -129,6 +137,9 @@ export function useOrisoIdentity(
   const published = identities.get(userId);
   return useMemo(() => {
     if (!enabled) return undefined;
-    return published ?? fallbackIdentity(userId, displayName);
+    if (published === undefined) return fallbackIdentity(userId, displayName);
+    return published.initials === undefined
+      ? { ...published, initials: initialsFor(userId, displayName) }
+      : published;
   }, [enabled, published, userId, displayName]);
 }

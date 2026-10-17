@@ -104,7 +104,20 @@ export const ViewSwitcher: FC<Props> = ({
       // The arrows own these keys inside a radio group; letting them also
       // scroll the stage would move two things at once.
       event.preventDefault();
-      if (next !== index) onChange(views[next].key);
+      if (next === index) return;
+      onChange(views[next].key);
+      /*
+       * Focus follows the selection, because with a roving tabindex it has
+       * to. `onChange` only changes which button carries `tabIndex={0}`; the
+       * browser keeps focus where it was, and after the re-render that button
+       * is `tabIndex={-1}`. A keyboard user pressing an arrow then lost their
+       * place in the rail and a screen reader never announced the new view.
+       * All three buttons exist already, so the one to move to can be taken
+       * straight off the group.
+       */
+      event.currentTarget
+        .querySelector<HTMLElement>(`[data-view="${views[next].key}"]`)
+        ?.focus();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [active, onChange],

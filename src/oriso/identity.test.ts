@@ -103,6 +103,24 @@ describe("reading an identity off the wire", () => {
     ).toBe("SP");
   });
 
+  it("refuses a record that says initials and carries none", () => {
+    /*
+     * An identity with no letters in it draws an empty coloured circle, which
+     * looks like a person whose name failed to load rather than like a person
+     * nobody published anything for. `null` means "we were not told", and the
+     * tile then takes the letters from the display name it already has.
+     */
+    for (const initials of ["", "   ", "...", undefined])
+      expect(
+        readIdentity({
+          kind: "initials",
+          bg: "#FCE7E6",
+          ink: "#1a1a1a",
+          initials,
+        }),
+      ).toBeNull();
+  });
+
   it.each([
     ["nothing at all", null],
     ["a string", "fox"],

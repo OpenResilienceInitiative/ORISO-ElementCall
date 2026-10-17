@@ -18,12 +18,18 @@ Please see LICENSE in the repository root for full details.
  * repository's component tests can see.
  */
 import { EventEmitter } from "node:events";
+import { type FC, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { type Room, RoomEvent } from "matrix-js-sdk";
 
-import { readIdentities, useOrisoIdentities } from "./useOrisoIdentities";
-import { ORISO_IDENTITY_EVENT_TYPE } from "./identity";
+import {
+  OrisoStageContext,
+  readIdentities,
+  useOrisoIdentities,
+  useOrisoIdentity,
+} from "./useOrisoIdentities";
+import { ORISO_IDENTITY_EVENT_TYPE, type OrisoIdentity } from "./identity";
 
 /** Exactly what ORISO-Frontend's `ownCallIdentity` puts on the wire. */
 const FROM_THE_HOST = {
@@ -109,5 +115,96 @@ describe("finding out who everybody is", () => {
       (room as unknown as EventEmitter).emit(RoomEvent.CurrentStateUpdated);
     });
     expect(result.current).toBe(first);
+  });
+});
+
+describe("what one tile is told", () => {
+  const withStage = (
+    identities: Map<string, OrisoIdentity>,
+  ): FC<{ children: ReactNode }> =>
+    function Stage({ children }: { children: ReactNode }) {
+      return (
+        <OrisoStageContext
+          value={{ identities, parentUrl: null, enabled: true }}
+        >
+          {children}
+        </OrisoStageContext>
+      );
+    };
+
+  it("gives a published animal letters to stand in while it loads", () => {
+    /*
+     * A published animal record carries `file`, `bg` and `ink` and no
+     * letters — it does not need any. But the artwork is FETCHED from the
+     * host, so between mounting and arriving, and for good if the host is
+     * unreachable, the form has a colour and nothing in it. The promised
+     * fallback was initials; the first version rendered an empty string and
+     * only its test looked right, because the test added letters to the
+     * animal by hand.
+     */
+    const { result } = renderHook(
+      () => useOrisoIdentity("@anon:oriso.test", "ruhiger Fuchs 432"),
+      {
+        wrapper: withStage(
+          new Map([
+            [
+              "@anon:oriso.test",
+              {
+                kind: "animal",
+                file: "fox.svg",
+                bg: "#165E83",
+                ink: "#ffffff",
+              } satisfies OrisoIdentity,
+            ],
+          ]),
+        ),
+      },
+    );
+    expect(result.current?.kind).toBe("animal");
+    expect(result.current?.file).toBe("fox.svg");
+    // The last two words of "ruhiger Fuchs 432", which is the rule
+    // `initialsOf` documents: the number is what tells two foxes apart.
+    expect(result.current?.initials).toBe("F4");
+  });
+
+  it("leaves published letters alone", () => {
+    const { result } = renderHook(
+      () => useOrisoIdentity("@berater:oriso.test", "Sabine P."),
+      {
+        wrapper: withStage(
+          new Map([
+            [
+              "@berater:oriso.test",
+              {
+                kind: "initials",
+                bg: "#a5000a",
+                ink: "#ffffff",
+                initials: "SP",
+              } satisfies OrisoIdentity,
+            ],
+          ]),
+        ),
+      },
+    );
+    // "SP" is one word, so re-deriving would give "S".
+    expect(result.current?.initials).toBe("SP");
+  });
+
+  it("is upstream's rectangle when the design is off", () => {
+    const { result } = renderHook(
+      () => useOrisoIdentity("@anon:oriso.test", "ruhiger Fuchs 432"),
+      {
+        wrapper: function Off({ children }: { children: ReactNode }) {
+          return (
+            <OrisoStageContext
+              value={{ identities: new Map(), parentUrl: null, enabled: false }}
+            >
+              {children}
+            </OrisoStageContext>
+          );
+        },
+      },
+    );
+    expect(result.current).toBeUndefined();
   });
 });

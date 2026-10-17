@@ -7,7 +7,7 @@ Please see LICENSE in the repository root for full details.
 
 import { type ReactNode, useCallback, useMemo } from "react";
 import { useObservableEagerState } from "observable-hooks";
-import { distinctUntilChanged } from "rxjs";
+import { combineLatest, distinctUntilChanged, map, of, switchMap } from "rxjs";
 
 import { type GridLayout as GridLayoutModel } from "../state/layout-types.ts";
 import { type GridTileViewModel } from "../state/TileViewModel.ts";
@@ -42,7 +42,7 @@ export const FIELD_ASPECT = 4 / 3;
 
 interface Placed {
   id: string;
-  userId: string;
+  mediaId: string;
   model: GridTileViewModel;
   x: number;
   y: number;
@@ -54,7 +54,17 @@ interface Placed {
 /** What the engine needs to know about one person, and nothing more. */
 interface Seat {
   model: GridTileViewModel;
-  userId: string;
+  /**
+   * The media's own id, which is what a shape is published under.
+   *
+   * Not the user id: a Matrix user can be in the same call from two devices,
+   * and then two tiles share a user id. Keying the shape channel by user
+   * handed both of them whichever form was written last — duplicate geometry
+   * in the grove, and in the Einzelgespräch both halves taking the second
+   * half's clip path. The inherited IDENTITY is still looked up by user id,
+   * because that is per person; the FORM is per tile.
+   */
+  mediaId: string;
   /**
    * What the silhouette is seeded from.
    *
@@ -133,19 +143,48 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     const { width, height } = useObservableEagerState(minBounds$);
     const view = useOrisoView();
 
-    // One subscription per tile would need a hook per element, which React
-    // does not allow in a loop of changing length. The grid re-renders this
-    // layer whenever a tile model changes, and `media$` is a Behavior, so
-    // reading its current value here is both legal and live.
-    const seats: Seat[] = model.grid.map((tile) => {
-      const media = tile.media$.value;
-      return {
-        model: tile,
-        userId: media.userId,
-        seed: media.displayName$.value || media.userId,
-        speaking: media.speaking$.value,
-      };
-    });
+    /*
+     * Subscribed, not sampled.
+     *
+     * The first version read `media$.value` and `speaking$.value` straight
+     * off the behaviors. That compiles and it reads correctly ONCE: nothing
+     * re-renders this layer when somebody starts speaking, because speaking
+     * changes inside a MediaViewModel and leaves the tile model alone. So the
+     * grove never re-packed and the speaker never grew — the one piece of
+     * motion this arrangement has. The same went for a display name arriving
+     * late, which is what the silhouette is seeded from.
+     *
+     * A hook per tile is not available in a loop of changing length, so the
+     * whole seat list is one observable instead, rebuilt only when the set of
+     * tiles changes. `combineLatest` over behaviors emits synchronously on
+     * subscribe, so the eager read still has a value on the first render.
+     */
+    const tiles = model.grid;
+    const seats$ = useMemo(
+      () =>
+        tiles.length === 0
+          ? of<Seat[]>([])
+          : combineLatest(
+              tiles.map((tile) =>
+                tile.media$.pipe(
+                  switchMap((media) =>
+                    combineLatest([media.displayName$, media.speaking$]).pipe(
+                      map(
+                        ([displayName, speaking]): Seat => ({
+                          model: tile,
+                          mediaId: media.id,
+                          seed: displayName || media.userId,
+                          speaking,
+                        }),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+      [tiles],
+    );
+    const seats = useObservableEagerState(seats$);
 
     const scrolls = view === "felder" && !splitsInto(seats.length);
 
@@ -153,7 +192,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     // rebuilt on every render, so it cannot be a dependency itself; this is
     // the alternative to re-running a 240-pass relaxation every frame.
     const signature = `${view}:${width}x${height}:${seats
-      .map((s) => `${s.userId}|${s.seed}|${s.speaking ? 1 : 0}`)
+      .map((s) => `${s.mediaId}|${s.seed}|${s.speaking ? 1 : 0}`)
       .join(",")}`;
 
     const placed: Placed[] = useMemo(() => {
@@ -173,7 +212,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
           seats.map((s) => (s.speaking ? SPEAKING_WEIGHT : 1)),
         ).map((spot, i) => ({
           id: seats[i].model.id,
-          userId: seats[i].userId,
+          mediaId: seats[i].mediaId,
           model: seats[i].model,
           x: spot.x + offsetX,
           y: spot.y + offsetY,
@@ -190,7 +229,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         speaker,
       ).map((cell) => ({
         id: seats[cell.i].model.id,
-        userId: seats[cell.i].userId,
+        mediaId: seats[cell.i].mediaId,
         model: seats[cell.i].model,
         x: cell.x + FIELD_GUTTER / 2,
         y: cell.y + FIELD_GUTTER / 2,
@@ -226,13 +265,13 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
       const map = new Map<string, TileShape>();
       if (scrolls)
         for (const seat of sheet)
-          map.set(seat.userId, {
+          map.set(seat.mediaId, {
             radius: FIELD_RADIUS,
             tilt: 0,
             body: false,
             contentShare: FIELD_FACE_SHARE,
           });
-      else for (const p of placed) map.set(p.userId, p.shape);
+      else for (const p of placed) map.set(p.mediaId, p.shape);
       return map;
     }, [scrolls, sheet, placed]);
     usePublishOrisoShapes(shapes);

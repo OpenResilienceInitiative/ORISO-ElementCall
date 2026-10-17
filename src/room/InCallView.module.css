@@ -197,18 +197,22 @@ Please see LICENSE in the repository root for full details.
 .orisoBackdrop {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  /* Behind the call's own content, and WITHOUT reaching into it.
+     The first version lifted every sibling instead, with
+     `.inRoom[data-oriso] > *:not(.orisoBackdrop) { position: relative }` —
+     which also overrode `position: absolute` on the fixed grid layer and
+     `position: sticky` on the header and the footer, so the controls scrolled
+     away with the stage. A negative z-index on the backdrop asks nothing of
+     anything else. */
+  z-index: -1;
   pointer-events: none;
   overflow: hidden;
 }
 
 .inRoom[data-oriso="true"] {
   position: relative;
-}
-
-/* Everything else goes above it. The backdrop is the only thing in the call
-   with no z-index of its own, so one rule here is enough. */
-.inRoom[data-oriso="true"] > *:not(.orisoBackdrop) {
-  position: relative;
-  z-index: 1;
+  /* So that -1 means "behind the call" and not "behind the page". Without a
+     stacking context here the backdrop would slide under the host document
+     and vanish. */
+  isolation: isolate;
 }

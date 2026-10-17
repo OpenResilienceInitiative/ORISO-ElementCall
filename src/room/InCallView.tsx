@@ -459,12 +459,18 @@ export const InCallView: FC<InCallViewProps> = ({
   /* ---------------------------------------------------------------------- *
    * ORISO
    *
-   * The design is on whenever the call is embedded in ORISO, which is what
-   * `parentUrl` says. Standalone keeps upstream's rectangles — one tile
-   * implementation serving both, rather than a fork in the component tree.
+   * The design is on when the embedding host ASKED for it, which is what
+   * `orisoDesign` says. Not `parentUrl`: that is the generic widget parameter
+   * every embedded Element Call carries, so gating on it would have handed the
+   * grove, the backdrop and the animals to any Element Web embedding of this
+   * build. Standalone and every other host keep upstream's rectangles — one
+   * tile implementation serving both, rather than a fork in the tree.
+   *
+   * `parentUrl` is still where the artwork is inherited FROM, which is a
+   * different question and only asked once the design is on.
    * ---------------------------------------------------------------------- */
-  const { parentUrl, orisoAtmosphere } = useUrlParams();
-  const orisoEnabled = parentUrl !== null;
+  const { parentUrl, orisoAtmosphere, orisoDesign } = useUrlParams();
+  const orisoEnabled = orisoDesign;
   const orisoIdentities = useOrisoIdentities(matrixRoom);
   const orisoStage = useMemo(
     () => ({

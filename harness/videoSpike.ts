@@ -39,19 +39,38 @@ const SECONDS = 6;
 const BOX = 640;
 
 /** A moving picture, cheap to produce and never the bottleneck. */
+/**
+ * The canvas loops feeding the fake cameras, so a new mount can stop them.
+ *
+ * Without this the measurement measures the wrong thing. Emptying the stage
+ * removes the `<video>` elements but not the `requestAnimationFrame` loops
+ * painting their source canvases, so the second arrangement ran with six
+ * orphaned painters competing for frames and the third with twelve — and
+ * since the three are measured in order, that penalty lands entirely on the
+ * clip path, which is the arrangement the spike exists to acquit.
+ */
+const loops: { handle: number }[] = [];
+
+function stopStreams(): void {
+  for (const loop of loops) cancelAnimationFrame(loop.handle);
+  loops.length = 0;
+}
+
 function stream(hue: number): MediaStream {
   const canvas = document.createElement("canvas");
   canvas.width = 480;
   canvas.height = 360;
   const context = canvas.getContext("2d")!;
   let frame = 0;
+  const loop = { handle: 0 };
+  loops.push(loop);
   const draw = (): void => {
     frame += 1;
     context.fillStyle = `hsl(${(hue + frame) % 360} 60% 45%)`;
     context.fillRect(0, 0, 480, 360);
     context.fillStyle = "#fff";
     context.fillRect((frame * 7) % 480, 0, 60, 360);
-    requestAnimationFrame(draw);
+    loop.handle = requestAnimationFrame(draw);
   };
   draw();
   return canvas.captureStream(30);
@@ -59,6 +78,7 @@ function stream(hue: number): MediaStream {
 
 function mount(kind: "plain" | "blob" | "clip"): void {
   const stage = document.getElementById("stage")!;
+  stopStreams();
   stage.innerHTML = "";
   const spots = packShapes(
     NAMES,

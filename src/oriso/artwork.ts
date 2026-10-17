@@ -40,11 +40,78 @@ const ARTWORK_PATH = "/static/anon-animals";
  */
 export const ARTWORK_REVISION = 2;
 
+/**
+ * The host's origin, out of whatever the widget contract handed us.
+ *
+ * `parentUrl` is only promised to be the host's URL, not a bare origin: the
+ * contract permits a path and a query string, and ORISO-Frontend passing
+ * `window.location.origin` today is a choice it could change. Concatenating
+ * `/static` onto the whole value turned a host embedded at `/client/room`
+ * into a request for `/client/room/static/anon-animals/fox.svg`, and a query
+ * string into something worse. The empty string means "this origin", which is
+ * the production case: the widget is served from the host.
+ */
+function originOf(parentUrl: string | null): string {
+  if (parentUrl === null || parentUrl.trim() === "") return "";
+  try {
+    return new URL(parentUrl).origin;
+  } catch {
+    return "";
+  }
+}
+
 export function artworkUrl(file: string, parentUrl: string | null): string {
-  const base = parentUrl
-    ? `${parentUrl.replace(/\/+$/, "")}${ARTWORK_PATH}`
-    : ARTWORK_PATH;
-  return `${base}/${file}?v=${ARTWORK_REVISION}`;
+  return `${originOf(parentUrl)}${ARTWORK_PATH}/${file}?v=${ARTWORK_REVISION}`;
+}
+
+/** Tags that carry behaviour rather than drawing. */
+const FORBIDDEN_TAGS = new Set([
+  "script",
+  "foreignobject",
+  "iframe",
+  "object",
+  "embed",
+  "handler",
+  "set",
+]);
+
+/**
+ * Anything in the drawing that could run, removed.
+ *
+ * The artwork is first-party — it comes off the host's own `/static`, behind
+ * a content-type check, under a file name validated to a bare `*.svg` — and
+ * ORISO-Frontend's own `AnimalAvatar` injects the same files with no more
+ * than that. But this one goes through `dangerouslySetInnerHTML` in a call
+ * that is holding a camera and a microphone, and the file NAME arrives in a
+ * room state event published by another client. One pass over the parsed
+ * document costs nothing and makes the whole chain safe by construction
+ * rather than by argument. It is deliberately not a dependency: this runs on
+ * a document the DOM already parsed, and a sanitiser in the fork that the
+ * host does not have would be two different answers to one question.
+ */
+function stripActiveContent(root: Element): void {
+  for (const element of [...root.querySelectorAll("*")]) {
+    if (FORBIDDEN_TAGS.has(element.nodeName.toLowerCase())) {
+      element.remove();
+      continue;
+    }
+    for (const attribute of [...element.attributes]) {
+      const name = attribute.name.toLowerCase();
+      // Whitespace and control characters are ignored inside a URL scheme as
+      // written in markup, so `java\nscript:` is a live link. Compare with
+      // everything unprintable taken out.
+      const value = attribute.value.replace(/[^\x21-\x7e]/g, "").toLowerCase();
+      const isLink = name === "href" || name.endsWith(":href");
+      if (
+        name.startsWith("on") ||
+        value.startsWith("javascript:") ||
+        value.startsWith("data:text/html") ||
+        // Only a reference into this same drawing, never out of it.
+        (isLink && !attribute.value.trimStart().startsWith("#"))
+      )
+        element.removeAttribute(attribute.name);
+    }
+  }
 }
 
 /** One fetch per file per session, shared by every tile that wants it. */
@@ -88,7 +155,8 @@ export async function loadArtwork(
         document.querySelector("parsererror") !== null
       )
         throw new Error(`Invalid avatar SVG: ${file}`);
-      return text;
+      stripActiveContent(document.documentElement);
+      return new XMLSerializer().serializeToString(document.documentElement);
     })();
     // A failed fetch must not be remembered as a failure forever: a tile that
     // mounts after the host comes back should get another go.

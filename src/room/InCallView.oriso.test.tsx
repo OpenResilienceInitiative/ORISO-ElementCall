@@ -29,7 +29,12 @@ import {
   type MockedFunction,
   vi,
 } from "vitest";
-import { render, screen, type RenderResult } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  type RenderResult,
+} from "@testing-library/react";
 import { type MatrixClient, JoinRule, type RoomState } from "matrix-js-sdk";
 import { type RelationsContainer } from "matrix-js-sdk/lib/models/relations-container";
 import { type LocalParticipant } from "livekit-client";
@@ -205,11 +210,15 @@ function createInCallView({
   mediaError = null,
   published = PUBLISHED,
   embedded = true,
+  orisoDesign = true,
   crowd = false,
 }: {
   mediaError?: ElementCallError | null;
   published?: Record<string, Record<string, string>>;
   embedded?: boolean;
+  /** Whether the host asked for the design. A widget embed on its own does
+   *  not: `parentUrl` is generic and every Element Web embedding has one. */
+  orisoDesign?: boolean;
   /** Three or more puts the grove on; two gives the Einzelgespräch. */
   crowd?: boolean;
 } = {}): RenderResult & {
@@ -282,7 +291,8 @@ function createInCallView({
     <MemoryRouter
       initialEntries={[
         embedded
-          ? `/room/#?widgetId=w&parentUrl=${encodeURIComponent(HOST)}`
+          ? `/room/#?widgetId=w${orisoDesign ? "&orisoDesign=true" : ""}` +
+            `&parentUrl=${encodeURIComponent(HOST)}`
           : "/room/",
       ]}
     >
@@ -405,6 +415,24 @@ describe("the call, in the ORISO design", () => {
     ).toBeTruthy();
   });
 
+  it("takes focus along the rail when the arrows move the selection", async () => {
+    /*
+     * With a roving tabindex it has to. The first version only reported the
+     * new view: the browser left focus on the old button, which the
+     * re-render then set to `tabIndex={-1}`, so an arrow press lost the
+     * user's place in the rail and announced nothing.
+     */
+    createInCallView();
+    const rail = await screen.findByTestId("view-switcher");
+    const buttons = [...rail.querySelectorAll<HTMLElement>('[role="radio"]')];
+    buttons[0].focus();
+
+    fireEvent.keyDown(rail, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(buttons[1]);
+    fireEvent.keyDown(rail, { key: "End" });
+    expect(document.activeElement).toBe(buttons[2]);
+  });
+
   it("shows initials for somebody nobody published anything for", async () => {
     createInCallView({ published: {} });
 
@@ -414,11 +442,28 @@ describe("the call, in the ORISO design", () => {
     expect(screen.queryByTestId("oriso-artwork")).toBeNull();
   });
 
-  it("leaves upstream's tile alone when the call is not embedded in ORISO", async () => {
+  it("leaves upstream's tile alone when the call is standalone", async () => {
     const { container } = createInCallView({ embedded: false });
 
     await screen.findAllByTestId("videoTile");
     expect(container.querySelector('[data-testid="oriso-face"]')).toBeNull();
     expect(container.querySelector('[data-oriso="true"]')).toBeNull();
+  });
+
+  it("leaves upstream's tile alone for a widget host that did not ask", async () => {
+    /*
+     * `parentUrl` is not an ORISO discriminator.
+     *
+     * It is the generic widget parameter every embedded Element Call carries,
+     * so the first version of the gate handed the grove, the backdrop and the
+     * animals to any Element Web embedding of this build. The design is on
+     * only when the host says `orisoDesign`.
+     */
+    const { container } = createInCallView({ orisoDesign: false });
+
+    await screen.findAllByTestId("videoTile");
+    expect(container.querySelector('[data-testid="oriso-face"]')).toBeNull();
+    expect(container.querySelector('[data-oriso="true"]')).toBeNull();
+    expect(container.querySelector('[data-testid="view-switcher"]')).toBeNull();
   });
 });
