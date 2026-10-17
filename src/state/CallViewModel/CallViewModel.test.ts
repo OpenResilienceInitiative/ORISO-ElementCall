@@ -551,6 +551,78 @@ describe.each([
     });
   });
 
+  test("ORISO's design keeps its arrangements on a phone", () => {
+    /*
+     * Upstream's responsive policy is to fall back to a spotlight on anything
+     * small, which is right for rectangles and wrong for this design: the
+     * handoff draws all three of its arrangements at phone width
+     * (`Einzel-handy`, `Hain-Handy`, `Felder-Handy`). Before this, a phone in
+     * PORTRAIT at two people got `spotlight-expanded`, which the fork does not
+     * substitute — so one advice seeker and one counsellor on a phone, the
+     * most common call this platform has, saw upstream's rectangular tiles
+     * with no seam and no backdrop, under a view rail that claimed otherwise.
+     *
+     * Landscape is a different story and stays upstream's: `LayoutSwitch`
+     * turns a flat window into spotlight mode on purpose — "flipping your
+     * phone into landscape is a quick way of maximising the spotlight tile" —
+     * and the spotlight is one of the three views ORISO's own rail offers. So
+     * the expectation there is a spotlight, and what makes it ORISO's is that
+     * `SpotlightTile` now carries the identity too, not that the arrangement
+     * changes.
+     *
+     * Every window shape the change touches, in one marble: portrait phone,
+     * landscape phone, desktop, picture-in-picture. `flat` wins over `narrow`
+     * when both apply, which is why the sizes are far from the 600px
+     * boundaries rather than on them.
+     */
+    withTestScheduler(({ behavior, expectObservable }) => {
+      const windowSizeInputMarbles = "abcd";
+      const expectedLayoutMarbles = " abcd";
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior(windowSizeInputMarbles, {
+            a: { width: 360, height: 780 }, // phone, portrait -> narrow
+            b: { width: 780, height: 360 }, // phone, landscape -> flat
+            c: { width: 1000, height: 800 }, // desktop -> normal
+            d: { width: 200, height: 180 }, // picture-in-picture
+          }),
+        },
+        (vm) => {
+          const einzelgespraech = {
+            type: "one-on-one",
+            local: `${localId}:0`,
+            remote: `${aliceId}:0`,
+          };
+          expectObservable(summarizeLayout$(vm.layout$)).toBe(
+            expectedLayoutMarbles,
+            {
+              // A phone in portrait now gets the Einzelgespräch. This is the
+              // line that was a spotlight before.
+              a: einzelgespraech,
+              // Landscape is spotlight mode by upstream's own design, and
+              // ORISO's rail offers the spotlight too.
+              b: {
+                type: "spotlight-landscape",
+                spotlight: [`${aliceId}:0`],
+                grid: [`${localId}:0`],
+              },
+              c: einzelgespraech,
+              // Picture-in-picture still belongs to upstream: it is a
+              // thumbnail of a call happening elsewhere, and the handoff
+              // draws nothing for it.
+              d: { type: "pip", spotlight: [`${aliceId}:0`] },
+            },
+          );
+        },
+        // The host asking for the design is the only difference between this
+        // test and "layout reacts to window size" above.
+        { orisoDesign: true },
+      );
+    });
+  });
+
   test("spotlight speakers swap places", () => {
     withTestScheduler(({ behavior, schedule, expectObservable }) => {
       // Go immediately into spotlight mode for the test

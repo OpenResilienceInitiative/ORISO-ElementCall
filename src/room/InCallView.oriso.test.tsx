@@ -408,7 +408,7 @@ describe("the call, in the ORISO design", () => {
   });
 
   it("offers the three views, with one of them spelled out", async () => {
-    createInCallView();
+    createInCallView({ crowd: true });
     const rail = await screen.findByTestId("view-switcher");
     expect(
       rail.querySelectorAll('[role="radio"][aria-checked="false"]'),
@@ -418,6 +418,27 @@ describe("the call, in the ORISO design", () => {
     ).toBeTruthy();
   });
 
+  it("offers only what the stage can honour when there are two people", async () => {
+    /*
+     * `layoutMedia$` reaches for the one-on-one layout first and it matches at
+     * exactly two media items, so the stage is the Einzelgespräch whichever
+     * arrangement is selected. Kreis and Kacheln were BOTH no-ops there: the
+     * radio moved and nothing else did. The rail names the arrangement that is
+     * on and offers the one real alternative.
+     */
+    createInCallView();
+    const rail = await screen.findByTestId("view-switcher");
+    const views = [...rail.querySelectorAll('[role="radio"]')].map((radio) =>
+      radio.getAttribute("data-view"),
+    );
+    expect(views).toEqual(["einzelgespraech", "spotlight"]);
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("einzelgespraech");
+  });
+
   it("takes focus along the rail when the arrows move the selection", async () => {
     /*
      * With a roving tabindex it has to. The first version only reported the
@@ -425,7 +446,7 @@ describe("the call, in the ORISO design", () => {
      * re-render then set to `tabIndex={-1}`, so an arrow press lost the
      * user's place in the rail and announced nothing.
      */
-    createInCallView();
+    createInCallView({ crowd: true });
     const rail = await screen.findByTestId("view-switcher");
     const buttons = [...rail.querySelectorAll<HTMLElement>('[role="radio"]')];
     buttons[0].focus();

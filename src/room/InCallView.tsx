@@ -152,8 +152,12 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
     logger.info("START CALL VIEW SCOPE");
     const scope = new ObservableScope();
     const reactionsReader = new ReactionsReader(scope, props.rtcSession);
-    const { autoLeaveWhenOthersLeft, waitForCallPickup, sendNotificationType } =
-      urlParams;
+    const {
+      autoLeaveWhenOthersLeft,
+      waitForCallPickup,
+      sendNotificationType,
+      orisoDesign,
+    } = urlParams;
     const vm = createCallViewModel$(
       scope,
       props.rtcSession,
@@ -164,6 +168,8 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
         encryptionSystem: props.e2eeSystem,
         autoLeaveWhenOthersLeft,
         waitForCallPickup: waitForCallPickup && sendNotificationType === "ring",
+        // Which arrangement each window size gets; see `CallViewModelOptions`.
+        orisoDesign,
         matrixRTCMode$: matrixRTCModeSetting.value$,
       },
       reactionsReader.raisedHands$,
@@ -495,19 +501,41 @@ export const InCallView: FC<InCallViewProps> = ({
   const [storedView, setStoredView] = useLocalStorage(ORISO_VIEW_STORAGE_KEY);
   const orisoView: OrisoView = storedView === "felder" ? "felder" : "hain";
 
-  // The rail offers three; the machinery underneath holds two orthogonal
-  // settings. Kreis and Kacheln are both grid mode with a different
-  // arrangement; Spotlight is the other mode. See `useOrisoView.ts` for why
-  // they are not one enum.
+  /*
+   * What the rail offers, and what it says is on.
+   *
+   * The machinery underneath holds two orthogonal settings: Kreis and Kacheln
+   * are both grid mode with a different arrangement, Spotlight is the other
+   * mode. See `useOrisoView.ts` for why they are not one enum.
+   *
+   * But at exactly two people `layoutMedia$` reaches for the one-on-one
+   * layout first and it matches, so the stage is the Einzelgespräch whichever
+   * arrangement is selected — and Kreis and Kacheln were BOTH no-ops there:
+   * the radio moved and nothing else did. The rail now names the arrangement
+   * that is actually on and offers the one real alternative, which is the
+   * spotlight. Choosing the Einzelgespräch means grid mode, exactly as Kreis
+   * does; the stored arrangement is left alone so that it comes back when a
+   * third person arrives.
+   */
+  const alone = layout.type === "one-on-one";
+  const orisoOffer: readonly StageView[] = alone
+    ? ["einzelgespraech", "spotlight"]
+    : ["hain", "felder", "spotlight"];
   const stageView: StageView =
-    gridMode === "spotlight" ? "spotlight" : orisoView;
+    gridMode === "spotlight"
+      ? "spotlight"
+      : alone
+        ? "einzelgespraech"
+        : orisoView;
   const setStageView = useCallback(
     (view: StageView) => {
       if (view === "spotlight") {
         setGridMode("spotlight");
         return;
       }
-      setStoredView(view);
+      // The Einzelgespräch is not a stored arrangement — it is what two
+      // people get — so picking it only says "not the spotlight".
+      if (view !== "einzelgespraech") setStoredView(view);
       setGridMode("grid");
     },
     [setGridMode, setStoredView],
@@ -870,6 +898,7 @@ export const InCallView: FC<InCallViewProps> = ({
           <ViewSwitcher
             className={styles.layout}
             active={stageView}
+            offer={orisoOffer}
             onChange={setStageView}
             onTouchEnd={onControlsTouchEnd}
           />

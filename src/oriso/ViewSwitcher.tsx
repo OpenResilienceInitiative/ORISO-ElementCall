@@ -18,12 +18,19 @@ import {
   GroupIcon,
   GridIcon,
   SpotlightIcon,
+  UserProfileIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import styles from "./ViewSwitcher.module.css";
 
-/** What the rail offers. Two arrangements plus the spotlight. */
-export type StageView = "hain" | "felder" | "spotlight";
+/**
+ * What the rail can offer.
+ *
+ * Two arrangements and the spotlight — plus the Einzelgespräch, which is not
+ * a fourth arrangement but the name of the one the stage is already in when
+ * there are exactly two people. See `offer` below.
+ */
+export type StageView = "hain" | "felder" | "einzelgespraech" | "spotlight";
 
 interface Entry {
   key: StageView;
@@ -34,6 +41,16 @@ interface Entry {
 interface Props {
   active: StageView;
   onChange: (view: StageView) => void;
+  /**
+   * Which views to put on the rail.
+   *
+   * Not always all of them. At exactly two people `layoutMedia$` gives the
+   * stage the Einzelgespräch whichever arrangement is selected, so Kreis and
+   * Kacheln were BOTH no-ops there: the radio moved and the stage did not.
+   * A control that reports a choice it cannot carry out is worse than one
+   * that offers less, so the caller says what is real.
+   */
+  offer?: readonly StageView[];
   className?: string;
   onTouchEnd?: (e: TouchEvent) => void;
 }
@@ -51,31 +68,47 @@ interface Props {
  * draw its own three, and one of them (a house, for the fields) is an open
  * question with the owner. Written down rather than quietly settled.
  */
+/**
+ * The rail as the handoff draws it: two arrangements and the spotlight.
+ *
+ * The Einzelgespräch is not in here because it is not a choice — it is the
+ * name of the arrangement two people are already in, and `InCallView` asks
+ * for it by name in that one case.
+ */
+const DEFAULT_VIEWS: readonly StageView[] = ["hain", "felder", "spotlight"];
+
 export const ViewSwitcher: FC<Props> = ({
   active,
   onChange,
+  offer = DEFAULT_VIEWS,
   className,
   onTouchEnd,
 }) => {
   const { t } = useTranslation();
 
-  const views: Entry[] = [
-    {
+  const entries: Record<StageView, Entry> = {
+    hain: {
       key: "hain",
       label: t("oriso.view_grove"),
       icon: <GroupIcon aria-hidden width={20} height={20} />,
     },
-    {
+    felder: {
       key: "felder",
       label: t("oriso.view_fields"),
       icon: <GridIcon aria-hidden width={20} height={20} />,
     },
-    {
+    einzelgespraech: {
+      key: "einzelgespraech",
+      label: t("oriso.view_one_on_one"),
+      icon: <UserProfileIcon aria-hidden width={20} height={20} />,
+    },
+    spotlight: {
       key: "spotlight",
       label: t("layout_spotlight_label"),
       icon: <SpotlightIcon aria-hidden width={20} height={20} />,
     },
-  ];
+  };
+  const views: Entry[] = offer.map((key) => entries[key]);
 
   const move = useCallback(
     (event: KeyboardEvent) => {

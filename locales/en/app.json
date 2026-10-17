@@ -179,6 +179,7 @@
   "oriso": {
     "view_grove": "Circle",
     "view_fields": "Tiles",
+    "view_one_on_one": "Conversation",
     "view_switcher_label": "Stage view",
     "notes_title": "Call notes"
   },

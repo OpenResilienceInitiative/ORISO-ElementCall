@@ -155,6 +155,20 @@ export interface CallViewModelOptions {
   connectionState$?: Behavior<ConnectionState>;
   /** Optional behavior overriding the computed window size, mainly for testing purposes. */
   windowSize$?: Behavior<{ width: number; height: number }>;
+  /**
+   * Whether the embedding host asked for ORISO's design.
+   *
+   * It changes exactly one thing in here: which arrangement each window size
+   * gets. Upstream's responsive policy falls back to a spotlight on anything
+   * small, which is right for rectangles; ORISO's handoff draws all three of
+   * its arrangements at phone width, so the arrangement follows the grid mode
+   * and the number of people at every size instead.
+   *
+   * Passed in rather than read from the URL in here, because a view model that
+   * reaches for `window.location` cannot be reasoned about from its arguments
+   * — and `InCallView`, which constructs this, already has the parameters.
+   */
+  orisoDesign?: boolean;
   /** The version & compatibility mode of MatrixRTC that we should use. */
   matrixRTCMode$: Behavior<MatrixRTCMode>;
 }
@@ -1068,31 +1082,59 @@ export function createCallViewModel$(
   /**
    * The media to be used to produce a layout.
    */
+  /*
+   * The arrangement by window, when ORISO's design is in use.
+   *
+   * Upstream's responsive policy is to fall back to a spotlight on anything
+   * small: a phone in portrait gets `spotlight-expanded` at two people and
+   * `spotlight-portrait` past a handful, and a phone in landscape gets a
+   * spotlight either way. That is a sound policy for rectangles, and it is
+   * the wrong one here — ORISO's handoff draws all three of its arrangements
+   * at phone width (`Einzel-handy`, `Hain-Handy`, `Felder-Handy`), and the
+   * fork only substitutes the `grid` and `one-on-one` entries. So the most
+   * common call this platform has — one advice seeker, one counsellor, on a
+   * phone — rendered upstream's rectangular tiles with no seam and no
+   * backdrop, and the view rail reported an arrangement that was not on
+   * screen.
+   *
+   * The design is the same at every width, so the choice is made the same way
+   * at every width: the arrangement follows the grid mode and the number of
+   * people, not the size of the window. Screen sharing is unaffected —
+   * `gridLayoutMedia$` puts a share in the spotlight slot and the ORISO grove
+   * renders that slot in its fixed layer, exactly as upstream's grid does.
+   *
+   * `pip` keeps upstream's: it is a thumbnail of a call happening elsewhere,
+   * and the handoff draws nothing for it.
+   */
+  const orisoArrangement$ = gridMode$.pipe(
+    switchMap((gridMode) => {
+      switch (gridMode) {
+        case "grid":
+          return oneOnOneLayoutMedia$.pipe(
+            switchMap((oneOnOne) =>
+              oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
+            ),
+          );
+        case "spotlight":
+          return spotlightExpanded$.pipe(
+            switchMap((expanded) =>
+              expanded
+                ? spotlightExpandedLayoutMedia$
+                : spotlightLandscapeLayoutMedia$,
+            ),
+          );
+      }
+    }),
+  );
+
   const layoutMedia$ = scope.behavior<LayoutMedia>(
     windowMode$.pipe(
       switchMap((windowMode) => {
+        if (options.orisoDesign === true && windowMode !== "pip")
+          return orisoArrangement$;
         switch (windowMode) {
           case "normal":
-            return gridMode$.pipe(
-              switchMap((gridMode) => {
-                switch (gridMode) {
-                  case "grid":
-                    return oneOnOneLayoutMedia$.pipe(
-                      switchMap((oneOnOne) =>
-                        oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
-                      ),
-                    );
-                  case "spotlight":
-                    return spotlightExpanded$.pipe(
-                      switchMap((expanded) =>
-                        expanded
-                          ? spotlightExpandedLayoutMedia$
-                          : spotlightLandscapeLayoutMedia$,
-                      ),
-                    );
-                }
-              }),
-            );
+            return orisoArrangement$;
           case "narrow":
             return oneOnOneLayoutMedia$.pipe(
               switchMap((oneOnOne) =>

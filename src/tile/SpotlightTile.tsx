@@ -42,6 +42,8 @@ import {
 } from "../state/MediaViewModel";
 import { useInitial } from "../useInitial";
 import { useMergedRefs } from "../useMergedRefs";
+import { useOrisoIdentity, useOrisoStage } from "../oriso/useOrisoIdentities";
+import { type OrisoIdentity } from "../oriso/identity";
 import { useReactiveState } from "../useReactiveState";
 import { useLatest } from "../useLatest";
 import { type SpotlightTileViewModel } from "../state/TileViewModel";
@@ -68,10 +70,13 @@ interface SpotlightItemBaseProps {
 
 interface SpotlightUserMediaItemBaseProps extends SpotlightItemBaseProps {
   videoFit: "contain" | "cover";
+  /** The ORISO form, when the call has an identity for this person. */
+  orisoIdentity?: OrisoIdentity;
+  orisoSpeaking?: boolean;
+  orisoParentUrl?: string | null;
 }
 
-interface SpotlightLocalUserMediaItemProps
-  extends SpotlightUserMediaItemBaseProps {
+interface SpotlightLocalUserMediaItemProps extends SpotlightUserMediaItemBaseProps {
   vm: LocalUserMediaViewModel;
 }
 
@@ -85,8 +90,7 @@ const SpotlightLocalUserMediaItem: FC<SpotlightLocalUserMediaItemProps> = ({
 
 SpotlightLocalUserMediaItem.displayName = "SpotlightLocalUserMediaItem";
 
-interface SpotlightRemoteUserMediaItemProps
-  extends SpotlightUserMediaItemBaseProps {
+interface SpotlightRemoteUserMediaItemProps extends SpotlightUserMediaItemBaseProps {
   vm: RemoteUserMediaViewModel;
 }
 
@@ -110,9 +114,30 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
 }) => {
   const cropVideo = useBehavior(vm.cropVideo$);
 
+  /*
+   * A PERSON in the spotlight is still a person.
+   *
+   * The spotlight layouts were the last place the design did not reach: they
+   * are what upstream falls back to on a flat window and what ORISO's own
+   * rail offers as its third view, and until now the big tile was a black
+   * rectangle while the rail beside it showed everybody as a form. One
+   * identity reaches further than any layout substitution could — the
+   * spotlight has no `TileShape`, and should not: the whole point of it is
+   * one form filling the stage, which is the default circle.
+   *
+   * A screen SHARE is left alone, in `SpotlightItem` below. A shared screen
+   * is a rectangle and the design does not pretend otherwise.
+   */
+  const { parentUrl } = useOrisoStage();
+  const orisoIdentity = useOrisoIdentity(vm.userId, props.displayName);
+  const speaking = useBehavior(vm.speaking$);
+
   const baseProps: SpotlightUserMediaItemBaseProps &
     RefAttributes<HTMLDivElement> = {
     videoFit: cropVideo ? "cover" : "contain",
+    orisoIdentity,
+    orisoSpeaking: speaking,
+    orisoParentUrl: parentUrl,
     ...props,
   };
 
