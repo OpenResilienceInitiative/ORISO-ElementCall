@@ -223,30 +223,55 @@ export function useArtwork(
   identity: OrisoIdentity,
   parentUrl: string | null,
 ): string | null {
-  const [svg, setSvg] = useState<string | null>(null);
   const { file, ink } = identity;
+  /*
+   * What the held drawing is OF. The null byte cannot occur in any of the
+   * three, so the join cannot be ambiguous.
+   */
+  const wanted =
+    file === undefined ? null : `${file}\u0000${ink}\u0000${parentUrl ?? ""}`;
+  const [held, setHeld] = useState<{ of: string | null; svg: string | null }>({
+    of: wanted,
+    svg: null,
+  });
+
+  /*
+   * Cleared HERE rather than in the effect below, because an effect runs
+   * after the commit it belongs to.
+   *
+   * The render that first carries the new identity would otherwise still be
+   * handed the previous drawing, and the face paints what it is handed: for
+   * one frame, somebody who changed their animal — or withdrew it, which is
+   * the case that matters, since a withdrawal has nothing to replace it with
+   * — went on showing the old one, in the old ink, under the new identity.
+   * Writing state during render is the documented way out of exactly this:
+   * React re-runs the render with the new state before anything is painted.
+   */
+  if (held.of !== wanted) setHeld({ of: wanted, svg: null });
+  // Not `held.svg`: in the render that spots the change, `held` is the one
+  // being discarded.
+  const svg = held.of === wanted ? held.svg : null;
 
   useEffect(() => {
-    if (file === undefined) {
-      setSvg(null);
-      return;
-    }
+    // Nothing to fetch for an identity without a file, and nothing to clear
+    // either — the render above has done it.
+    if (file === undefined) return;
     let cancelled = false;
-    setSvg(null);
     loadArtwork(file, parentUrl)
       .then((text) => {
-        if (!cancelled) setSvg(artworkDataUrl(recolorSvg(text, ink)));
+        if (!cancelled)
+          setHeld({ of: wanted, svg: artworkDataUrl(recolorSvg(text, ink)) });
       })
       .catch((error) => {
         if (!cancelled) {
-          setSvg(null);
+          setHeld({ of: wanted, svg: null });
           logger.warn(`[ORISO] could not inherit the artwork ${file}`, error);
         }
       });
     return (): void => {
       cancelled = true;
     };
-  }, [file, ink, parentUrl]);
+  }, [file, ink, parentUrl, wanted]);
 
   return svg;
 }
