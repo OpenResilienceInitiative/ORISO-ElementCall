@@ -141,8 +141,8 @@ function createInCallView(
       ...mockEmitter(),
       getJoinRule: () => JoinRule.Invite,
       // A real RoomState always has this and returns [] for a type nobody
-      // has written. The ORISO stage reads identities out of room state, so
-      // the mock has to answer rather than be absent.
+      // has written, and parts of the view read it, so the mock has to
+      // answer rather than be absent.
       getStateEvents: () => [],
     } as unknown as RoomState,
   });

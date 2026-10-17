@@ -12,7 +12,8 @@ Please see LICENSE in the repository root for full details.
  * homeserver and an SFU. Everything from `InCallView` down is the production
  * tree: the layout registry picks the ORISO grove, the grove places slots,
  * `Grid` measures them and springs the real tiles in, `GridTile` resolves the
- * identity out of room state, and `MediaView` renders the form.
+ * identity out of the room's encrypted timeline, and `MediaView` renders the
+ * form.
  *
  * `InCallView.test.tsx` mocks `GridTile` away, which is right for what that
  * file tests and useless for this — so this file does not, and that is the
