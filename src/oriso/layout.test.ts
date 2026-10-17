@@ -174,6 +174,19 @@ describe("packShapes", () => {
    * Kreis does not pack a pair any more — design chose the fields' division
    * for that count on 2026-10-17, see `pairShapes` below — and three, five
    * and six are still awaiting a decision of their own.
+   *
+   * And it cannot be worked around from the call site, which was worth
+   * measuring before anybody tries: the engine normalises the weights away.
+   * `k = sqrt(0.7 * box^2 / (pi * sum(w^2)))` makes the shapes fill 70% of
+   * the box whatever the weights are, so scaling every weight — by 0.9, by
+   * 0.6 — leaves the overlap at exactly -14.3% for three, -15.9% for five,
+   * -9.0% for six. Passing a smaller box is the same: the whole arrangement
+   * is scale-invariant. Seventy per cent of a square cannot hold three
+   * circles without them touching, which is the entire defect.
+   *
+   * So there are two ways out and no third: a different PLACEMENT for those
+   * counts, as `pairShapes` is for two, or a changed engine — and the engine
+   * is ported verbatim by its ticket. Both are decisions, not fixes.
    */
   it.fails.each([2, 3, 5, 6])(
     "TICKET 01 UNMET — %i shapes bury one another",
