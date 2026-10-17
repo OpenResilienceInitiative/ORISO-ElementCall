@@ -47,10 +47,13 @@ export class MatrixKeyProvider extends BaseKeyProvider {
     crypto.subtle
       // A Uint8Array is now typed over ArrayBufferLike, which includes
       // SharedArrayBuffer; importKey only takes a view onto a plain one.
-      .importKey("raw", encryptionKey as Uint8Array<ArrayBuffer>, "HKDF", false, [
-        "deriveBits",
-        "deriveKey",
-      ])
+      .importKey(
+        "raw",
+        encryptionKey as Uint8Array<ArrayBuffer>,
+        "HKDF",
+        false,
+        ["deriveBits", "deriveKey"],
+      )
       .then(
         (keyMaterial) => {
           this.onSetEncryptionKey(
