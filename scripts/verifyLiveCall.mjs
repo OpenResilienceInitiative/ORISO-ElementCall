@@ -791,13 +791,22 @@ const halo = await grove.evaluate(() => {
  * the form has merely moved inside it.
  */
 const room = halo?.room;
+/*
+ * Only ONE axis is the reserved one.
+ *
+ * `shapelessFaceSide` insets the form from the SHORTER side of its tile, so
+ * in a landscape spotlight the vertical room is the halo's and the
+ * horizontal room is simply the leftover width — 252px either side of a
+ * square form in a wide box. Asking for `2 * HALO_ROOM_PX` on both axes
+ * failed on 504, which is not a halo measurement at all.
+ */
+const axes = room && [room.top + room.bottom, room.left + room.right];
 say(
   !!room &&
     Math.min(...Object.values(room)) >= HALO_REACH_PX &&
-    room.top + room.bottom === 2 * HALO_ROOM_PX &&
-    room.left + room.right === 2 * HALO_ROOM_PX,
+    Math.min(...axes) === 2 * HALO_ROOM_PX,
   `7. nothing clips the halo: at least ${HALO_REACH_PX}px on every side, ` +
-    `${2 * HALO_ROOM_PX}px reserved on each axis`,
+    `${2 * HALO_ROOM_PX}px reserved on the axis it is inset from`,
   JSON.stringify(halo),
 );
 
