@@ -280,10 +280,15 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
      * left alone.
      */
     const given = typeof raw.initials === "string" ? raw.initials : "";
-    const letters = [...given.replace(/[^\p{L}\p{N}]/gu, "")]
+    /*
+     * Upper-cased BEFORE the cut, because some letters grow in the mapping.
+     * `ﬃ` upper-cases to `FFI` and `ß` to `SS`, so slicing first and
+     * upper-casing after returned three characters from a field this file
+     * documents as one or two — enough to overflow the letters on the form.
+     */
+    const letters = [...given.replace(/[^\p{L}\p{N}]/gu, "").toUpperCase()]
       .slice(0, 2)
-      .join("")
-      .toUpperCase();
+      .join("");
     // A record that says "initials" and carries none is not an identity: it
     // would draw an empty coloured circle. `null` means "we were not told",
     // which is the truth, and the tile then takes the letters from the

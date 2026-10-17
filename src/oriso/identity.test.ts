@@ -231,3 +231,16 @@ describe("recolouring the inherited artwork", () => {
     expect(out).toContain('preserveAspectRatio="xMidYMid meet"');
   });
 });
+
+it("keeps the letters to two even when upper-casing grows them", () => {
+  /*
+   * `ﬃ` upper-cases to `FFI` and `ß` to `SS`, so cutting the string before
+   * upper-casing it returned three characters from a field that promises one
+   * or two — enough to overflow the letters drawn on the form.
+   */
+  const base = { kind: "initials", bg: "#165E83", ink: "#ffffff" } as const;
+  expect(readIdentity({ ...base, initials: "\uFB03" })?.initials).toBe("FF");
+  expect(readIdentity({ ...base, initials: "\u00DFa" })?.initials).toBe("SS");
+  // And the ordinary case is untouched.
+  expect(readIdentity({ ...base, initials: "sp" })?.initials).toBe("SP");
+});
