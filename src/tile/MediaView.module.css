@@ -348,3 +348,13 @@ unconditionally select the container so we can use cqmin units */
   inset-inline: var(--oriso-half-inset-start, 8%)
     var(--oriso-half-inset-end, 8%);
 }
+
+/* And the same for a form with no shape of its own: `OrisoFace` centres a
+   square of the tile's smaller side, so the chrome has to be inset to that
+   square rather than to the rectangle around it. In an 800x450 spotlight the
+   circle begins at x=175 and the capsule used to begin near x=64 — the label
+   floating off the form it names. */
+.media.oriso[data-oriso-circle="true"] > .fg {
+  inset-inline: var(--oriso-circle-inset-inline, 8%);
+  inset-block: var(--oriso-circle-inset-block, 8%);
+}

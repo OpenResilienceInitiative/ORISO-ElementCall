@@ -155,6 +155,27 @@ export const MediaView: FC<Props> = ({
     return { start: percent(start + inset), end: percent(1 - end + inset) };
   })();
 
+  /*
+   * The chrome follows the circle, when the form is a circle.
+   *
+   * `OrisoFace` centres a `size x size` square for a form with no shape of its
+   * own — the spotlight's single form. The chrome layer beside it was still
+   * inset by 8% of the whole RECTANGLE, so in an 800x450 spotlight the circle
+   * began at x=175 while the name capsule began near x=64: the label floated
+   * off the form it belongs to. The same square, then, inset by 8% of its own
+   * side.
+   */
+  const orisoCircle = ((): { inline: string; block: string } | undefined => {
+    if (orisoIdentity === undefined || orisoShape !== undefined)
+      return undefined;
+    const side = Math.min(targetWidth, targetHeight);
+    const pad = 0.08 * side;
+    return {
+      inline: `${Math.round((targetWidth - side) / 2 + pad)}px`,
+      block: `${Math.round((targetHeight - side) / 2 + pad)}px`,
+    };
+  })();
+
   return (
     <animated.div
       className={classNames(styles.media, className, {
@@ -162,7 +183,9 @@ export const MediaView: FC<Props> = ({
         [styles.oriso]: orisoIdentity !== undefined,
       })}
       style={
-        orisoShape?.clipPath === undefined && orisoFocusShift === undefined
+        orisoShape?.clipPath === undefined &&
+        orisoFocusShift === undefined &&
+        orisoCircle === undefined
           ? style
           : {
               ...style,
@@ -176,6 +199,12 @@ export const MediaView: FC<Props> = ({
                     "--oriso-half-inset-start": orisoHalf.start,
                     "--oriso-half-inset-end": orisoHalf.end,
                   }),
+              ...(orisoCircle === undefined
+                ? {}
+                : {
+                    "--oriso-circle-inset-inline": orisoCircle.inline,
+                    "--oriso-circle-inset-block": orisoCircle.block,
+                  }),
             }
       }
       ref={ref}
@@ -184,6 +213,7 @@ export const MediaView: FC<Props> = ({
       data-oriso={orisoIdentity === undefined ? undefined : "true"}
       data-oriso-speaking={orisoSpeaking ? "true" : undefined}
       data-oriso-half={orisoFocusShift === undefined ? undefined : "true"}
+      data-oriso-circle={orisoCircle === undefined ? undefined : "true"}
       {...props}
     >
       {orisoIdentity === undefined ? (

@@ -134,6 +134,28 @@ describe("with an identity, the tile is a form", () => {
     expect(face.style.margin).toBe("auto");
   });
 
+  it("insets its chrome to the circle, not to the rectangle around it", () => {
+    /*
+     * The other half of the circle. `OrisoFace` centres a square of the
+     * tile's smaller side, and the chrome layer beside it was still inset by
+     * 8% of the whole rectangle — so in a 300x200 tile the circle begins at
+     * x=50 while the capsule began at x=24, floating off the form it names.
+     *
+     * 300x200: the square is 200 wide, centred, so 50px either side, plus 8%
+     * of 200 = 16px. Vertically the square fills the height, so only the 16px.
+     */
+    const { container } = render(<MediaView {...base} orisoIdentity={FOX} />);
+    const root = container.querySelector<HTMLElement>(
+      '[data-oriso-circle="true"]',
+    )!;
+    expect(root.style.getPropertyValue("--oriso-circle-inset-inline")).toBe(
+      "66px",
+    );
+    expect(root.style.getPropertyValue("--oriso-circle-inset-block")).toBe(
+      "16px",
+    );
+  });
+
   it("still fills the tile when the layout DID give it a shape", () => {
     // The blob is meant to fill its slot; squaring it off would shrink
     // every grove form to its smaller side and undo the packing.
