@@ -33,6 +33,21 @@ const bodyOf = (selector: string): string => {
   return match?.[1] ?? "";
 };
 
+/**
+ * The four sides of a `padding` shorthand, in CSS order.
+ *
+ * `var(--x)` holds no whitespace of its own, so splitting on it is enough
+ * here — and the shorthand's fill-in rules are the whole point: a third
+ * value is the BLOCK-END, which is the edge this sheet scrolls to.
+ */
+const paddingSides = (body: string): string[] => {
+  const value = /padding:\s*([^;]+)/.exec(body)?.[1] ?? "";
+  const [top, right = top, bottom = top, left = right] = value
+    .split(/\s+/)
+    .filter(Boolean);
+  return [top, right, bottom, left];
+};
+
 describe("the scrolling fields sheet", () => {
   /*
    * The halo padding has to come OUT of the sheet's width.
@@ -48,6 +63,21 @@ describe("the scrolling fields sheet", () => {
     expect(body).toMatch(/inline-size:\s*100%/);
     expect(body).toMatch(/padding:/);
     expect(body).toMatch(/box-sizing:\s*border-box/);
+  });
+
+  it("reserves that room on the edge it scrolls to, as well", () => {
+    /*
+     * The block-end is the edge where this stops being cosmetic.
+     *
+     * The first version wrote the field gutter as the shorthand's third
+     * value, so above eight people — the only case this sheet exists for —
+     * a form speaking in the last row had its shadow clipped at maximum
+     * scroll, with nowhere further to scroll to. The other three sides were
+     * the halo's room already, which is why it looked right.
+     */
+    const sides = paddingSides(bodyOf(".sheet"));
+    expect(sides).toHaveLength(4);
+    for (const side of sides) expect(side).toBe("var(--oriso-halo-room)");
   });
 });
 

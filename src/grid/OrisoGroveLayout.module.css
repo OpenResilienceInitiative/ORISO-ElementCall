@@ -41,7 +41,7 @@ Please see LICENSE in the repository root for full details.
   box-sizing: border-box;
   overflow-y: auto;
   /*
-   * Padded by the halo's room rather than by the gutter.
+   * Padded by the halo's room rather than by the gutter — on all four sides.
    *
    * A form on the outer edge of the sheet is otherwise one gutter from the
    * container, while a speaking one paints `HALO_ROOM_PX` past its own tile
@@ -49,9 +49,14 @@ Please see LICENSE in the repository root for full details.
    * rather than merely untidy. The subdivided fields reserve the same room
    * by insetting the rectangle they divide; this variant has no rectangle to
    * inset, so it pads.
+   *
+   * The first version of this left the gutter at the block-end, as the third
+   * value of a shorthand. That is the one edge where the difference is not
+   * cosmetic: the sheet IS the scroll container, so a form speaking in the
+   * last row had its shadow cut off at maximum scroll with nowhere further
+   * to scroll to. One value, every side.
    */
-  padding: var(--oriso-halo-room) var(--oriso-halo-room)
-    var(--oriso-field-gutter);
+  padding: var(--oriso-halo-room);
 }
 
 .fixed {
