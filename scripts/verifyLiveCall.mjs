@@ -49,6 +49,18 @@ Please see LICENSE in the repository root for full details.
  *   yarn dev            # this fork, at http://localhost:3000
  *   node scripts/verifyLiveCall.mjs
  *
+ * Against a BUILT bundle rather than `yarn dev`, the animal drawings have to
+ * be reachable at the call's own origin — `public/static/anon-animals` is
+ * ORISO-Frontend's directory, not this repository's, so a build does not
+ * produce it:
+ *
+ *   cp -r ../oriso-frontend/public/static/anon-animals dist/static/
+ *
+ * Without them the call asks for `fox.svg` and a single-page server answers
+ * `index.html` with a 200, so the form has its colour and no drawing. Check 1
+ * reports that as its own line rather than as a missing identity, which is
+ * the distinction that cost an hour of looking in the wrong place.
+ *
  * Any other Synapse + LiveKit + lk-jwt-service will do; point `HOMESERVER`,
  * `SERVER_NAME` and `EC_URL` at it. The dev stack serves a self-signed
  * certificate, so it needs `LIVE_CALL_INSECURE_TLS=1` (and
@@ -199,6 +211,8 @@ async function account(localpart) {
  * encryption is client-side, so the publisher has to be a client.
  */
 const publishers = new Map();
+/** Whose call surface is open, so whose device keys are worth waiting for. */
+const onStage = new Set();
 
 async function publisherFor(person) {
   const existing = publishers.get(person.user_id);
@@ -257,11 +271,61 @@ async function announce(roomId, person) {
    * went out to nobody but its own sender — the stage showed initials until
    * the next re-announce happened to carry a fresher device list.
    */
-  await client.getCrypto()?.getUserDeviceInfo(
-    CAST.map((member) => member.user_id),
-    true,
-  );
+  await waitForDevices(client);
   await client.sendEvent(roomId, "org.oriso.call.identity", person.identity);
+}
+
+/**
+ * Wait until this publisher can SEE every open browser's device.
+ *
+ * A forced device query is not enough on its own: it returns whatever the
+ * homeserver has, and a browser that is still bringing up its rust crypto
+ * store has not uploaded its device keys yet. Publish into that gap and the
+ * Megolm session goes out to a recipient list the browser is not on — the
+ * event arrives, `Can't find the room key to decrypt the event` is logged,
+ * and the stage shows stand-in letters for a record that was sent perfectly
+ * well.
+ *
+ * Which made checks 1 and 2 pass or fail with the machine's load rather than
+ * with the code: on a quiet run the upload won the race, and under a
+ * concurrent test suite it lost. Waiting for the device to appear removes the
+ * race instead of widening the sleep that was papering over it.
+ */
+async function waitForDevices(client, timeoutMs = 30_000) {
+  /*
+   * Only the browsers that are OPEN.
+   *
+   * Every cast member has a `device_id` from the moment the script logged
+   * them in, but the device keys are uploaded by the browser's own crypto —
+   * so waiting for somebody whose surface has not been opened yet would
+   * block for the whole timeout and then warn about a device that is not
+   * supposed to exist.
+   */
+  const wanted = CAST.filter(
+    (member) => member.device_id && onStage.has(member.user_id),
+  );
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const seen = await client.getCrypto()?.getUserDeviceInfo(
+      wanted.map((member) => member.user_id),
+      true,
+    );
+    const missing = wanted.filter(
+      (member) => !seen?.get(member.user_id)?.has(member.device_id),
+    );
+    if (missing.length === 0) return;
+    if (Date.now() > deadline) {
+      // Said rather than thrown: the checks below report what the stage
+      // actually showed, and a timeout here is a fact about that run.
+      console.warn(
+        `identity may not reach: no device keys yet for ${missing
+          .map((member) => `${member.user_id}/${member.device_id}`)
+          .join(", ")}`,
+      );
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
 }
 
 /**
@@ -423,6 +487,7 @@ async function openCall(person, viewport = { width: 1280, height: 800 }) {
   await page.goto(callUrl, { waitUntil: "domcontentloaded" });
   await page.waitForSelector('[data-testid="videoTile"]', { timeout: 90_000 });
   await page.waitForTimeout(9_000);
+  onStage.add(person.user_id);
   return page;
 }
 
