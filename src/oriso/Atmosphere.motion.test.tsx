@@ -47,6 +47,7 @@ afterEach(() => {
  */
 const spyOnPond = (
   container: HTMLElement,
+  still = false,
 ): {
   stop: ReturnType<typeof vi.fn>;
   loop: ReturnType<typeof vi.fn>;
@@ -56,10 +57,13 @@ const spyOnPond = (
     stop?: unknown;
     loop?: unknown;
     frame?: unknown;
+    palette?: unknown;
   };
   expect(pond).toBeTruthy();
   const spies = { stop: vi.fn(), loop: vi.fn(), frame: vi.fn() };
-  Object.assign(pond, spies);
+  // The element's own `palette` getter is what the wrapper asks; a real
+  // upgrade supplies it from `PALETTES`.
+  Object.assign(pond, spies, { palette: { still } });
   return spies;
 };
 
@@ -75,6 +79,27 @@ describe("the backdrop and the motion preference", () => {
     rerender(<Atmosphere palette="teich" />);
     expect(pond.loop).toHaveBeenCalled();
     expect(pond.stop).not.toHaveBeenCalled();
+  });
+
+  it("never starts a preset the design wants motionless", () => {
+    /*
+     * `ruhe` and `duene` are still by design, and the element does NOT
+     * protect itself from the outside: `loop()` guards only on `running` —
+     * the `palette.still` check lives at its own call sites. Calling
+     * `loop()` from here therefore starts a permanent rAF chain on a
+     * motionless palette, visibly so on `ruhe`, whose masses depend on the
+     * advancing clock.
+     *
+     * I asserted the opposite while writing this wrapper. The palette is
+     * asked now, through the element's own getter.
+     */
+    reduced = false;
+    stubMatchMedia();
+    const { container, rerender } = render(<Atmosphere palette="ruhe" />);
+    const pond = spyOnPond(container, true);
+
+    rerender(<Atmosphere palette="duene" />);
+    expect(pond.loop).not.toHaveBeenCalled();
   });
 
   it("holds still, on one frame, for somebody who has", () => {

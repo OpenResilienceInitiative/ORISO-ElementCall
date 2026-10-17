@@ -113,9 +113,18 @@ export const Atmosphere: React.FC<AtmosphereProps> = ({
    * the drift resumed when it goes off. The drawing stays the prototype's
    * and the policy stays ours.
    *
-   * A deliberately still preset is left alone in both directions: `loop()`
-   * is guarded by the element's own `running` flag and `palette.still`, so
-   * asking it to resume cannot start a loop the design does not want.
+   * A deliberately still preset — `ruhe`, `duene` — must not be resumed, and
+   * the element will NOT protect itself here. I asserted in an earlier
+   * version of this comment that `loop()` guards on `palette.still`; it does
+   * not. It guards only on `running`, and the still check lives at the
+   * element's own call sites (`connectedCallback`,
+   * `attributeChangedCallback`). Calling `loop()` from outside those
+   * therefore starts a permanent rAF chain on a palette the design wants
+   * motionless: `ruhe` visibly drifts, because its masses depend on the
+   * advancing clock, and `duene` burns frames for nothing.
+   *
+   * So the palette is asked, through the element's own getter rather than a
+   * list copied into this file — one fact, one place.
    */
   const prefersReducedMotion = usePrefersReducedMotion();
   React.useEffect(() => {
@@ -124,15 +133,21 @@ export const Atmosphere: React.FC<AtmosphereProps> = ({
           stop?: () => void;
           loop?: () => void;
           frame?: () => void;
+          palette?: { still?: boolean };
         })
       | null;
     if (!pond) return;
     if (prefersReducedMotion) {
       pond.stop?.();
-      // One frame, so the backdrop is a picture rather than a blank.
+      // One frame, so the backdrop is a picture rather than a blank. Correct
+      // for a still palette too: that is what the element itself draws.
       pond.frame?.();
       return;
     }
+    // Before the custom element upgrades there is no getter to ask, and
+    // nothing to resume either — its own `connectedCallback` decides, and it
+    // does check `palette.still`.
+    if (pond.palette?.still === true) return;
     pond.loop?.();
   }, [prefersReducedMotion, palette]);
 
