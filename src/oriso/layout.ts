@@ -254,11 +254,31 @@ export function groveBox(
   const stage = Math.min(width, height);
   if (!Number.isFinite(stage) || stage <= 0)
     return { box: 1, offsetX: 0, offsetY: 0 };
-  const room = Math.min(HALO_ROOM_PX, stage * HALO_ROOM_MAX_SHARE);
-  const box = Math.max(1, Math.round(stage - 2 * room));
+  const box = Math.max(1, Math.round(stage - 2 * haloRoomFor(width, height)));
   return {
     box,
     offsetX: Math.round((width - box) / 2),
     offsetY: Math.round((height - box) / 2),
   };
+}
+
+/**
+ * How much of a stage to keep clear so a speaking form at its edge is not
+ * cut in half by it.
+ *
+ * One function for every arrangement, because the reason is the same in all
+ * of them and two copies of a margin drift apart: the grove packs to its box,
+ * the fields divide theirs, and in both the outermost form is flush against
+ * the stage while its halo paints `HALO_ROOM_PX` past its own edge and the
+ * rise carries it further. `.inRoom` clips horizontally and clips or scrolls
+ * vertically, so that overflow is lost rather than merely untidy.
+ *
+ * Capped at the chrome's own share, the same cap `shapelessFaceSide` uses, so
+ * a small stage gives away at most a sixth of itself: past that the margin
+ * eats the arrangement it protects, and a clipped halo is the lesser loss.
+ */
+export function haloRoomFor(width: number, height: number): number {
+  const stage = Math.min(width, height);
+  if (!Number.isFinite(stage) || stage <= 0) return 0;
+  return Math.min(HALO_ROOM_PX, stage * HALO_ROOM_MAX_SHARE);
 }

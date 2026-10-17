@@ -29,7 +29,18 @@ Please see LICENSE in the repository root for full details.
   block-size: 100%;
   inline-size: 100%;
   overflow-y: auto;
-  padding-block: var(--oriso-field-gutter);
+  /*
+   * Padded by the halo's room rather than by the gutter.
+   *
+   * A form on the outer edge of the sheet is otherwise one gutter from the
+   * container, while a speaking one paints `HALO_ROOM_PX` past its own tile
+   * and rises further — and this box scrolls, so that overflow is clipped
+   * rather than merely untidy. The subdivided fields reserve the same room
+   * by insetting the rectangle they divide; this variant has no rectangle to
+   * inset, so it pads.
+   */
+  padding: var(--oriso-halo-room) var(--oriso-halo-room)
+    var(--oriso-field-gutter);
 }
 
 .fixed {

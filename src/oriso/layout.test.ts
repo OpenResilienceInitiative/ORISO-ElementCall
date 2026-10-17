@@ -29,7 +29,6 @@ Please see LICENSE in the repository root for full details.
 import { describe, expect, it } from "vitest";
 
 import { HALO_ROOM_MAX_SHARE, HALO_ROOM_PX } from "./halo";
-
 import {
   type Placement,
   organicSpots,
@@ -38,6 +37,7 @@ import {
   seeded,
   splitCells,
   groveBox,
+  haloRoomFor,
 } from "./layout";
 
 /** ORISO names, in the shape the engine is seeded with. */
@@ -264,6 +264,29 @@ describe("the room the grove leaves for a halo", () => {
     expect(offsetY).toBe(Math.round((600 - box) / 2));
     expect(offsetY).toBeGreaterThanOrEqual(HALO_ROOM_PX);
     expect(offsetX).toBe(Math.round((1000 - box) / 2));
+  });
+
+  it("is the same margin the fields divide inside", () => {
+    /*
+     * One function for both arrangements, because the reason is the same and
+     * two copies of a margin drift apart. An edge cell in the fields is
+     * otherwise half a gutter — three pixels — from the stage edge, while a
+     * speaking form paints `HALO_ROOM_PX` past its tile and rises further.
+     */
+    const room = haloRoomFor(1000, 600);
+    expect(room).toBe(HALO_ROOM_PX);
+    // And the grove's box is that margin taken off both sides.
+    expect(groveBox(1000, 600).box).toBe(600 - 2 * room);
+  });
+
+  it("asks a small stage for the chrome's share and no more", () => {
+    expect(haloRoomFor(200, 200)).toBe(200 * HALO_ROOM_MAX_SHARE);
+    expect(haloRoomFor(200, 200)).toBeLessThan(HALO_ROOM_PX);
+  });
+
+  it("asks nothing of a stage that has not measured itself", () => {
+    expect(haloRoomFor(0, 0)).toBe(0);
+    expect(haloRoomFor(Number.NaN, 400)).toBe(0);
   });
 
   it("stays square on a wide stage, so no form becomes an ellipse", () => {

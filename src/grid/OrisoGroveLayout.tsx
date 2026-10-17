@@ -20,7 +20,7 @@ import {
   useUpdateLayout,
   useVisibleTiles,
 } from "./Grid";
-import { groveBox, packShapes, splitCells } from "../oriso/layout";
+import { groveBox, haloRoomFor, packShapes, splitCells } from "../oriso/layout";
 import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { useOrisoView } from "../oriso/useOrisoView";
@@ -237,9 +237,25 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
       }
 
       const speaker = seats.findIndex((s) => s.speaking);
+      /*
+       * The fields divide an INSET rectangle, for the grove's reason.
+       *
+       * An edge cell is only half a gutter from the stage edge — three
+       * pixels — while a speaking form's halo paints `HALO_ROOM_PX` past its
+       * tile and the rise moves it further. `.inRoom` clips horizontally, so
+       * anybody along an outer edge lost most of their speaking signal. The
+       * inset goes into the rectangle `splitCells` divides, so every cell
+       * comes back already inside it.
+       */
+      const room = Math.round(haloRoomFor(width, height));
       return splitCells(
         seats.map((_, i) => i),
-        { x: 0, y: 0, w: Math.max(0, width), h: Math.max(0, height) },
+        {
+          x: room,
+          y: room,
+          w: Math.max(0, width - 2 * room),
+          h: Math.max(0, height - 2 * room),
+        },
         speaker,
       ).map((cell) => ({
         id: seats[cell.i].model.id,
@@ -299,7 +315,13 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
           data-testid="oriso-grove"
           data-view="felder"
           data-mode="scroll"
-          style={{ "--oriso-field-gutter": `${FIELD_GUTTER}px` } as never}
+          style={
+            {
+              "--oriso-field-gutter": `${FIELD_GUTTER}px`,
+              // The sheet pads rather than insets; see the stylesheet.
+              "--oriso-halo-room": `${Math.round(haloRoomFor(width, height))}px`,
+            } as never
+          }
         >
           {sheet.map((seat) => (
             <Slot

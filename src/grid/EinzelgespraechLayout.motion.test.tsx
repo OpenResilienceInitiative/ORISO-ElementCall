@@ -58,7 +58,18 @@ const wantsLessMotion = (reduced: boolean): (() => void) => {
   };
 };
 
-const seat = (id: string) => {
+interface Seat {
+  speaking$: BehaviorSubject<boolean>;
+  tile: {
+    id: string;
+    media$: BehaviorSubject<{
+      id: string;
+      speaking$: BehaviorSubject<boolean>;
+    }>;
+  };
+}
+
+const seat = (id: string): Seat => {
   const speaking$ = new BehaviorSubject(false);
   const media$ = new BehaviorSubject({ id, speaking$ });
   return { speaking$, tile: { id, media$ } };
