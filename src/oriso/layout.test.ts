@@ -139,11 +139,29 @@ describe("packShapes", () => {
    * measurement is the same whether you run the port or the original file —
    * so this is the handoff disagreeing with itself, not a porting error.
    *
-   * Worst overlap as a share of the mean shape size, measured:
+   * Worst overlap as a share of the mean shape size, measured — and
+   * measured TWICE, because the first table only asked the quiet case and
+   * that hid the shape of the problem:
    *
-   *    n= 2  -31.2%      n= 5  -14.2%      n=12   -3.6%
-   *    n= 3  -12.4%      n= 6  -18.0%      n=14   -3.6%
-   *    n= 4   -2.1%      n= 9   -4.9%      n=18   -5.3%
+   *          nobody speaks   one speaks            nobody speaks   one speaks
+   *    n= 2     -31.7%         -26.0%       n= 8      -2.9%          -2.7%
+   *    n= 3     -14.3%         -17.1%       n= 9      -2.6%          -2.6%
+   *    n= 4      -1.7%         -14.5%       n=10      -8.5%          -3.8%
+   *    n= 5     -15.9%          -2.1%       n=11      -6.4%          -6.3%
+   *    n= 6      -9.0%          -4.9%       n=12      -3.7%          -4.2%
+   *    n= 7      -2.5%          -5.8%       n=14      -5.0%          -4.6%
+   *
+   * Read the two columns against each other. Four is fine while everyone
+   * listens and buries 14.5% the moment somebody speaks; five is the other
+   * way round. So "which counts are broken" is not a property of the count,
+   * and a layout that switched placement for the broken ones would have to
+   * switch WHILE somebody is talking — the stage re-arranging itself
+   * mid-sentence, which is worse than the overlap it would be fixing.
+   *
+   * That rules out the obvious remedy and leaves two coherent ones, both
+   * design decisions: one placement for the whole Kreis up to some count
+   * (the ring, as `pairShapes` is for two), or the packing everywhere with
+   * the overlap accepted as the "abutting" the comment below describes.
    *
    * There are plainly two different things in that table. A few per cent is
    * the `pad = 0.99` negative padding doing exactly what its comment says —
@@ -192,6 +210,18 @@ describe("packShapes", () => {
     "TICKET 01 UNMET — %i shapes bury one another",
     (n) => {
       expect(worstRelative(n)).toBeGreaterThan(-ABUT_TOLERANCE);
+    },
+  );
+
+  // The same defect from the other side: a count that is fine while
+  // everyone listens, and is not once somebody speaks. Pinned so that the
+  // table above cannot drift back to a single column.
+  it.fails(
+    "TICKET 01 UNMET — four shapes bury one another when one speaks",
+    () => {
+      const placed = packShapes(names(4), BOX, [1, 1.6, 1, 1]);
+      const mean = placed.reduce((t, p) => t + p.size, 0) / placed.length;
+      expect(worstClearance(placed) / mean).toBeGreaterThan(-ABUT_TOLERANCE);
     },
   );
 
