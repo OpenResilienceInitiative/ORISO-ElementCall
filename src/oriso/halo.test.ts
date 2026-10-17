@@ -7,7 +7,14 @@ Please see LICENSE in the repository root for full details.
 
 import { describe, expect, it } from "vitest";
 
-import { HALO_LIFT_PX, haloFor, QUIET_SHADOW, tint } from "./halo";
+import {
+  HALO_LIFT_PX,
+  HALO_ROOM_PX,
+  haloFor,
+  QUIET_SHADOW,
+  shapelessFaceSide,
+  tint,
+} from "./halo";
 
 /*
  * SPECIFICATION — how speaking looks in the Hain
@@ -67,5 +74,85 @@ describe("haloFor", () => {
 
   it("lifts the speaking shape by the handoff four pixels", () => {
     expect(HALO_LIFT_PX).toBe(4);
+  });
+});
+
+/*
+ * The room the halo needs, and why anything depends on it.
+ *
+ * A halo is an OUTER shadow, and every box the design puts a form in clips:
+ * `SpotlightTile`'s `.contents` carries `contain: strict` together with
+ * `overflow-y: hidden`, and `Grid` carries `contain: strict`. A form sized to
+ * the full shorter side of its tile touches those edges, so the halo was cut
+ * along them — on both short edges of a landscape spotlight and on all four
+ * of a square one, which is most of what speaking looks like.
+ *
+ * These tests do not re-measure the shadow; they pin the relationship, which
+ * is the thing that can rot. The room is computed from the same numbers the
+ * halo string is built from, so a change to the glow has to show up here.
+ */
+describe("the room a halo needs outside the form", () => {
+  /**
+   * How far each layer of a shadow string paints past its box.
+   *
+   * `max(|x|, |y|) + blur / 2 + spread`, per layer. A blur transition is
+   * centred on the shadow's edge, so half of it falls outside; the offset
+   * carries the whole shadow that way on one side.
+   *
+   * The lengths are read as CSS writes them, which includes unitless zeros —
+   * the first version matched only `\d+px` and so read `0 0 40px 12px` as
+   * x=40, y=12, reporting a reach of 40 for a layer that reaches 32.
+   */
+  const reachOf = (shadow: string): number => {
+    const layers = shadow.split(/,(?![^(]*\))/).map((layer) => layer.trim());
+    expect(layers.length).toBeGreaterThan(0);
+    return Math.max(
+      ...layers.map((layer) => {
+        const lengths = layer
+          // Drop `rgba(...)` and friends; what is left is the geometry.
+          .replace(/[a-z-]+\([^)]*\)/gi, "")
+          .trim()
+          .split(/\s+/)
+          .filter((token) => /^-?\d+(?:\.\d+)?(?:px)?$/.test(token))
+          .map((token) => Number(token.replace("px", "")));
+        expect(lengths.length).toBeGreaterThanOrEqual(2);
+        const [x = 0, y = 0, blur = 0, spread = 0] = lengths;
+        return Math.max(Math.abs(x), Math.abs(y)) + blur / 2 + spread;
+      }),
+    );
+  };
+
+  it("covers how far the speaking stack actually reaches", () => {
+    // Read off the string the component uses, so the constant cannot fall
+    // behind the halo it is reserving room for.
+    expect(HALO_ROOM_PX).toBeGreaterThanOrEqual(
+      reachOf(haloFor("#FCE7E6", true)),
+    );
+  });
+
+  it("covers the quiet shape too", () => {
+    expect(HALO_ROOM_PX).toBeGreaterThanOrEqual(reachOf(QUIET_SHADOW));
+  });
+
+  it("takes the room off both sides of a shapeless form", () => {
+    // 800x450: the shorter side is 450, the 8% cap does not bind, so the full
+    // room comes off the top and the bottom.
+    expect(shapelessFaceSide(800, 450)).toBe(450 - 2 * HALO_ROOM_PX);
+    expect(shapelessFaceSide(450, 800)).toBe(450 - 2 * HALO_ROOM_PX);
+  });
+
+  it("never gives away more than the chrome's own inset", () => {
+    // On a small tile the halo would be eating the thing it is meant to light
+    // up. A clipped halo is the lesser loss, so the room is capped at 8% a
+    // side — the same inset the name capsule uses.
+    expect(shapelessFaceSide(300, 200)).toBe(168);
+    expect(shapelessFaceSide(120, 120)).toBe(Math.round(120 * 0.84));
+  });
+
+  it("answers a tile that has not measured itself yet", () => {
+    // A stage mid-animation can report zero, and a NaN side would take the
+    // whole face with it.
+    expect(shapelessFaceSide(0, 0)).toBe(0);
+    expect(shapelessFaceSide(Number.NaN, 100)).toBe(0);
   });
 });

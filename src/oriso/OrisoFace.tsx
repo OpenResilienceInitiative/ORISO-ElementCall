@@ -141,8 +141,10 @@ export const OrisoFace: FC<Props> = ({
        * there the engine supplies an eight-value radius meant for that exact
        * box. With no shape the radius falls back to `50%`, and 50% of a
        * 300x200 spotlight is a 300x200 oval with the camera stretched into
-       * it. The handoff's default is a circle, so take the smaller side —
-       * `size` is already `min(width, height)` — and centre it.
+       * it. The handoff's default is a circle, so take `size` as the side of
+       * a square and centre it. For a shapeless form `MediaView` passes
+       * `shapelessFaceSide`, which is the shorter side less the room the
+       * halo needs to paint outside it.
        *
        * `inset: 0` with `margin: auto` centres on both axes against the tile
        * root, which is a containing block for it: `container-type: size`

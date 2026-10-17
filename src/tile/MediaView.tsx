@@ -25,6 +25,7 @@ import { RTCConnectionStats } from "../RTCConnectionStats";
 import { OrisoFace } from "../oriso/OrisoFace";
 import { type OrisoIdentity } from "../oriso/identity";
 import { splitName, type TileShape } from "../oriso/shape";
+import { HALO_ROOM_MAX_SHARE, shapelessFaceSide } from "../oriso/halo";
 
 interface Props extends ComponentProps<typeof animated.div> {
   className?: string;
@@ -156,23 +157,36 @@ export const MediaView: FC<Props> = ({
   })();
 
   /*
-   * The chrome follows the circle, when the form is a circle.
+   * How big the form is, and where its chrome goes.
    *
-   * `OrisoFace` centres a `size x size` square for a form with no shape of its
-   * own — the spotlight's single form. The chrome layer beside it was still
-   * inset by 8% of the whole RECTANGLE, so in an 800x450 spotlight the circle
-   * began at x=175 while the name capsule began near x=64: the label floated
-   * off the form it belongs to. The same square, then, inset by 8% of its own
-   * side.
+   * A shape from a layout is meant to fill the slot it was computed for, so
+   * there the reference size is the tile's shorter side and `.face` fills the
+   * tile. With no shape — the spotlight's single form — the face is a centred
+   * square instead, because a 50% radius on a 300x200 box is a 300x200 oval
+   * with the camera stretched into it.
+   *
+   * That square is `shapelessFaceSide`, which also keeps room for the halo:
+   * the speaking stack is an outer shadow and both `SpotlightTile` and `Grid`
+   * clip, so a form touching its tile's edge had its halo cut along that edge.
+   *
+   * Two things follow from the same number, which is why it comes from one
+   * function. The face is sized to it, and the chrome layer is inset to it —
+   * by 8% of the square's own side rather than of the rectangle around it,
+   * because in an 800x450 spotlight the circle begins at x=175 while the name
+   * capsule began near x=64, floating off the form it names.
    */
+  const orisoSide =
+    orisoShape === undefined
+      ? shapelessFaceSide(targetWidth, targetHeight)
+      : Math.min(targetWidth, targetHeight);
+
   const orisoCircle = ((): { inline: string; block: string } | undefined => {
     if (orisoIdentity === undefined || orisoShape !== undefined)
       return undefined;
-    const side = Math.min(targetWidth, targetHeight);
-    const pad = 0.08 * side;
+    const pad = HALO_ROOM_MAX_SHARE * orisoSide;
     return {
-      inline: `${Math.round((targetWidth - side) / 2 + pad)}px`,
-      block: `${Math.round((targetHeight - side) / 2 + pad)}px`,
+      inline: `${Math.round((targetWidth - orisoSide) / 2 + pad)}px`,
+      block: `${Math.round((targetHeight - orisoSide) / 2 + pad)}px`,
     };
   })();
 
@@ -241,7 +255,7 @@ export const MediaView: FC<Props> = ({
         <OrisoFace
           className={styles.bg}
           identity={orisoIdentity}
-          size={Math.min(targetWidth, targetHeight)}
+          size={orisoSide}
           contentSize={
             orisoShape?.contentShare === undefined
               ? undefined

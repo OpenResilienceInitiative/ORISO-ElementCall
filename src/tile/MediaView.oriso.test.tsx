@@ -19,6 +19,7 @@ import { type ComponentProps } from "react";
 import { MediaView } from "./MediaView";
 import { EncryptionStatus } from "../state/MediaViewModel";
 import { mockLocalParticipant } from "../utils/test";
+import { HALO_ROOM_PX, shapelessFaceSide } from "../oriso/halo";
 import { type OrisoIdentity } from "../oriso/identity";
 import { resetArtworkCache } from "../oriso/artwork";
 import { liftFor } from "../oriso/lift";
@@ -107,12 +108,19 @@ describe("with an identity, the tile is a form", () => {
     expect(face.style.transform).toBe("rotate(4.2deg)");
   });
 
-  it("sizes the form by the tile's smaller side", () => {
-    // 300x200: a form sized off the width would overflow the tile
-    // vertically, and its lift would be judged against the wrong number.
+  it("judges the lift against the form, not against the tile", () => {
+    /*
+     * 300x200: a form sized off the width would overflow the tile vertically,
+     * and its lift would be judged against the wrong number. The lift grows
+     * with the form, so it has to be given the form's own side — which for a
+     * shapeless face is the shorter side less the halo's room, not the
+     * shorter side itself.
+     */
     render(<MediaView {...base} orisoIdentity={FOX} videoEnabled={false} />);
-    expect(screen.getByTestId("oriso-face").style.boxShadow).toBe(liftFor(200));
-    expect(liftFor(200)).not.toBe(liftFor(300));
+    expect(screen.getByTestId("oriso-face").style.boxShadow).toBe(
+      liftFor(shapelessFaceSide(300, 200)),
+    );
+    expect(liftFor(shapelessFaceSide(300, 200))).not.toBe(liftFor(300));
   });
 
   it("is a circle, not an ellipse, when the layout gave it no shape", () => {
@@ -127,8 +135,9 @@ describe("with an identity, the tile is a form", () => {
     render(<MediaView {...base} orisoIdentity={FOX} />);
     const face = screen.getByTestId("oriso-face");
     expect(face.style.borderRadius).toBe("50%");
-    expect(face.style.inlineSize).toBe("200px");
-    expect(face.style.blockSize).toBe("200px");
+    // 200 less the halo's room on each side, capped at 8% of 200 = 16.
+    expect(face.style.inlineSize).toBe("168px");
+    expect(face.style.blockSize).toBe("168px");
     // Centred against the tile root, which is a containing block for it.
     expect(face.style.position).toBe("absolute");
     expect(face.style.margin).toBe("auto");
@@ -136,24 +145,53 @@ describe("with an identity, the tile is a form", () => {
 
   it("insets its chrome to the circle, not to the rectangle around it", () => {
     /*
-     * The other half of the circle. `OrisoFace` centres a square of the
-     * tile's smaller side, and the chrome layer beside it was still inset by
-     * 8% of the whole rectangle — so in a 300x200 tile the circle begins at
-     * x=50 while the capsule began at x=24, floating off the form it names.
+     * The other half of the circle. `OrisoFace` centres a square, and the
+     * chrome layer beside it was still inset by 8% of the whole rectangle —
+     * so in a 300x200 tile the circle begins at x=66 while the capsule began
+     * at x=24, floating off the form it names.
      *
-     * 300x200: the square is 200 wide, centred, so 50px either side, plus 8%
-     * of 200 = 16px. Vertically the square fills the height, so only the 16px.
+     * Both numbers come from `shapelessFaceSide`, which is the point: in a
+     * 300x200 tile the square is 168, centred, so 66px either side
+     * horizontally and 16px vertically, plus 8% of 168 = 13.44 in both.
      */
     const { container } = render(<MediaView {...base} orisoIdentity={FOX} />);
     const root = container.querySelector<HTMLElement>(
       '[data-oriso-circle="true"]',
     )!;
     expect(root.style.getPropertyValue("--oriso-circle-inset-inline")).toBe(
-      "66px",
+      "79px",
     );
     expect(root.style.getPropertyValue("--oriso-circle-inset-block")).toBe(
-      "16px",
+      "29px",
     );
+  });
+
+  it("keeps the halo's room inside the box that clips it", () => {
+    /*
+     * The speaking halo is an OUTER shadow, and every box the design puts a
+     * form in clips: `SpotlightTile`'s `.contents` carries `contain: strict`
+     * with `overflow-y: hidden`, and `Grid` carries `contain: strict`. A form
+     * sized to the full shorter side touches those edges, so the halo was cut
+     * along them — both short edges of a landscape spotlight, all four of a
+     * square one, which is most of what speaking looks like.
+     *
+     * Relaxing the containment would not have been enough: the `overflow-y`
+     * is there for the spotlight's scroll-snap and clips either way. So the
+     * form reserves the room instead, and this is the assertion that the room
+     * is actually reserved — in a 800x450 spotlight, where the cap does not
+     * bind and the full 32px is taken on each side.
+     */
+    render(
+      <MediaView
+        {...base}
+        targetWidth={800}
+        targetHeight={450}
+        orisoIdentity={FOX}
+      />,
+    );
+    const face = screen.getByTestId("oriso-face");
+    expect(face.style.inlineSize).toBe(`${450 - 2 * HALO_ROOM_PX}px`);
+    expect(HALO_ROOM_PX).toBeGreaterThan(0);
   });
 
   it("still fills the tile when the layout DID give it a shape", () => {

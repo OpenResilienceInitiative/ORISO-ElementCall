@@ -48,6 +48,19 @@ export const HALO_LIFT_PX = 4;
 const RING_ALPHA = 0.18;
 const GLOW_ALPHA = 0.5;
 
+/*
+ * The three layers' geometry, named rather than written into the string.
+ *
+ * `HALO_ROOM_PX` below is computed from these, so the room a form reserves
+ * for its halo cannot fall behind the halo itself. Written into the template
+ * literal they drifted apart silently, which is how the halo came to be
+ * clipped in the spotlight.
+ */
+const RING_SPREAD = 6;
+const GLOW_BLUR = 40;
+const GLOW_SPREAD = 12;
+const DROP = { offset: 22, blur: 38, spread: -10 };
+
 /**
  * The shadow stack for one shape.
  *
@@ -58,8 +71,57 @@ const GLOW_ALPHA = 0.5;
 export function haloFor(background: string, speaking: boolean): string {
   if (!speaking) return QUIET_SHADOW;
   return [
-    `0 0 0 6px ${tint(background, RING_ALPHA)}`,
-    `0 0 40px 12px ${tint(background, GLOW_ALPHA)}`,
-    "0 22px 38px -10px rgba(0, 0, 0, 0.24)",
+    `0 0 0 ${RING_SPREAD}px ${tint(background, RING_ALPHA)}`,
+    `0 0 ${GLOW_BLUR}px ${GLOW_SPREAD}px ${tint(background, GLOW_ALPHA)}`,
+    `0 ${DROP.offset}px ${DROP.blur}px ${DROP.spread}px rgba(0, 0, 0, 0.24)`,
   ].join(", ");
+}
+
+/**
+ * How far the speaking stack paints outside the form, in px.
+ *
+ * A box shadow reaches `spread + blur / 2` past the box it belongs to — the
+ * blur transition is centred on the shadow's edge — and the drop's vertical
+ * offset carries it further down. The widest of the three is the glow, at
+ * 12 + 20.
+ *
+ * This matters because a halo is an OUTER shadow and every box the design
+ * puts a form in clips: `SpotlightTile`'s `.contents` carries `contain:
+ * strict` together with `overflow-y: hidden`, and `Grid` carries `contain:
+ * strict` as well. A form sized to the full shorter side of its tile touches
+ * those edges, so the halo was cut along them — on both short edges of a
+ * landscape spotlight and on all four of a square one, which is most of the
+ * speaking signal. Relaxing the containment would not have been enough on its
+ * own: `overflow-y: hidden` is there for the spotlight's horizontal
+ * scroll-snap and clips regardless.
+ */
+export const HALO_ROOM_PX = Math.ceil(
+  Math.max(
+    RING_SPREAD,
+    GLOW_SPREAD + GLOW_BLUR / 2,
+    DROP.offset + DROP.blur / 2 + DROP.spread,
+  ),
+);
+
+/**
+ * The side of the square a form with NO shape of its own draws, inside a tile
+ * this size.
+ *
+ * One function, because two places need the same number and they are in
+ * different files: `MediaView` sizes the face with it and insets the chrome
+ * layer to it. Computed twice they drift, and the drift is a name capsule
+ * floating off the form it names — which is exactly the defect the chrome
+ * inset was added to fix.
+ *
+ * The room for the halo is capped at the chrome's own 8%, so a small tile
+ * gives away at most a sixth of its form. Past that the halo would be eating
+ * the thing it is meant to light up, and a clipped halo is the lesser loss.
+ */
+export const HALO_ROOM_MAX_SHARE = 0.08;
+
+export function shapelessFaceSide(width: number, height: number): number {
+  const shorter = Math.min(width, height);
+  if (!Number.isFinite(shorter) || shorter <= 0) return 0;
+  const room = Math.min(HALO_ROOM_PX, shorter * HALO_ROOM_MAX_SHARE);
+  return Math.max(1, Math.round(shorter - 2 * room));
 }
