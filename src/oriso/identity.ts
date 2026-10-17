@@ -261,8 +261,22 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
 
   const kind = raw.kind;
   if (kind === "initials") {
-    const initials = typeof raw.initials === "string" ? raw.initials : "";
-    return { kind, bg, ink, initials: initialsOf(initials) };
+    /*
+     * Taken as given, not re-derived.
+     *
+     * The host has already decided what the letters are, from name parts
+     * this side cannot see. Running `initialsOf` over the result turns the
+     * counsellor's "SP" into "S", because "SP" is one word — which is what
+     * the cross-repository contract test caught, and what neither
+     * repository's own suite could have. Sanitised, capped, and otherwise
+     * left alone.
+     */
+    const given = typeof raw.initials === "string" ? raw.initials : "";
+    const letters = [...given.replace(/[^\p{L}\p{N}]/gu, "")]
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+    return { kind, bg, ink, initials: letters };
   }
   if (kind !== "animal" && kind !== "motif") return null;
 

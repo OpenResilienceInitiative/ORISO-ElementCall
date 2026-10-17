@@ -69,13 +69,20 @@ describe("reading an identity off the wire", () => {
     expect(readIdentity({ ...sound, kind: "motif" })?.kind).toBe("motif");
   });
 
-  it("reads initials and trims them to two letters", () => {
+  it("takes the letters it is given, without re-deriving them", () => {
+    /*
+     * The host sends initials it has already worked out from name parts
+     * this side cannot see. An earlier version ran them back through
+     * `initialsOf`, which reads "SP" as one word and returns "S" — the
+     * counsellor lost a letter. Only the cross-repository contract test saw
+     * it; this one agreed with the bug.
+     */
     expect(
       readIdentity({
         kind: "initials",
         bg: "#FCE7E6",
         ink: "#1a1a1a",
-        initials: "Susanne Pfeiffer",
+        initials: "SP",
       }),
     ).toEqual({
       kind: "initials",
@@ -83,6 +90,17 @@ describe("reading an identity off the wire", () => {
       ink: "#1a1a1a",
       initials: "SP",
     });
+  });
+
+  it("trims and upper-cases whatever it is given", () => {
+    expect(
+      readIdentity({
+        kind: "initials",
+        bg: "#FCE7E6",
+        ink: "#1a1a1a",
+        initials: "s. p. q. r.",
+      })?.initials,
+    ).toBe("SP");
   });
 
   it.each([
