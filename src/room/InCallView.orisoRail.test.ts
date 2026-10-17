@@ -26,7 +26,13 @@ import { describe, expect, it } from "vitest";
 
 // Read from the repository root: vitest runs there, and `import.meta.url`
 // is not a file URL once Vite has transformed this module.
-const css = readFileSync("src/room/InCallView.module.css", "utf8");
+// Comments are stripped first: these rules document the selectors they
+// REPLACED, so a naive parse reads "`> *` was wrong here" as part of a
+// selector and the assertions below fail on their own prose.
+const css = readFileSync("src/room/InCallView.module.css", "utf8").replace(
+  /\/\*[\s\S]*?\*\//g,
+  "",
+);
 
 /** Every rule whose selector mentions the given class. */
 function rulesFor(className: string): string[] {

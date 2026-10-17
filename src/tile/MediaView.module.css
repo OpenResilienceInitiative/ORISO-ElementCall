@@ -240,7 +240,20 @@ unconditionally select the container so we can use cqmin units */
   pointer-events: none;
 }
 
-.media.oriso:not([data-oriso-half="true"]) > * {
+/*
+ * The form and the chrome — never the layer they sit in.
+ *
+ * `> *` was wrong here: `.fg` is absolutely positioned across the whole tile,
+ * so re-enabling it handed the square corners straight back and the fix did
+ * nothing. `.fg` itself stays non-hit-testable; its children are listed
+ * instead, and in this design they all sit INSIDE the form, because
+ * `--media-view-fg-inset` insets the chrome by the corner rather than by the
+ * rectangle's padding.
+ */
+.media.oriso:not([data-oriso-half="true"]) > .bg,
+.media.oriso:not([data-oriso-half="true"]) .nameTag,
+.media.oriso:not([data-oriso-half="true"]) .status,
+.media.oriso:not([data-oriso-half="true"]) button {
   pointer-events: auto;
 }
 
@@ -320,8 +333,14 @@ unconditionally select the container so we can use cqmin units */
    Both Einzelgespräch tiles are given the whole circle, so without this both
    name capsules sat at the same corner of it, one over the other. The shift is
    the same `focusX` the artwork and the camera get — where this half's middle
-   actually is. */
-.media.oriso[data-oriso-half="true"] .nameTag,
-.media.oriso[data-oriso-half="true"] > button {
+   actually is.
+
+   It moves the whole chrome LAYER. The first version listed `.nameTag` and
+   `> button`, and the button is not a child of the tile — it is rendered
+   inside `.fg` — so that selector never matched and the options button stayed
+   at the shared box's corner, clipped into the other half. Shifting `.fg`
+   carries the capsule, the status glyphs and the button together, which is
+   what belonging to a half means. */
+.media.oriso[data-oriso-half="true"] > .fg {
   translate: var(--oriso-focus-shift, 0) 0;
 }

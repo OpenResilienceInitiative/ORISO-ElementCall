@@ -456,6 +456,30 @@ describe("the call, in the ORISO design", () => {
     ).toBe("einzelgespraech");
   });
 
+  it("keeps the two-person rail constrained after the spotlight is picked", async () => {
+    /*
+     * The rail used to read `layout.type`, which only answers this in grid
+     * mode: picking the spotlight at two people makes the layout a spotlight,
+     * so the rail decided it was no longer a two-person call and offered the
+     * grove and the fields again — and both of those land straight back on
+     * the Einzelgespräch. It asks the view model now, which counts media
+     * items whatever mode is on.
+     */
+    createInCallView();
+    const rail = await screen.findByTestId("view-switcher");
+    fireEvent.click(rail.querySelector('[data-view="spotlight"]')!);
+
+    const views = [...rail.querySelectorAll('[role="radio"]')].map((radio) =>
+      radio.getAttribute("data-view"),
+    );
+    expect(views).toEqual(["einzelgespraech", "spotlight"]);
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("spotlight");
+  });
+
   it("takes focus along the rail when the arrows move the selection", async () => {
     /*
      * With a roving tabindex it has to. The first version only reported the

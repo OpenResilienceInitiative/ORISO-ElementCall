@@ -333,6 +333,11 @@ export interface CallViewModel {
    */
   layout$: Behavior<Layout>;
   /**
+   * Whether grid mode would choose the design's two-person arrangement,
+   * whatever mode is on. See the comment where it is built.
+   */
+  orisoOneOnOne$: Behavior<boolean>;
+  /**
    * The current generation of the tile store, exposed for debugging purposes.
    */
   tileStoreGeneration$: Behavior<number>;
@@ -1564,6 +1569,24 @@ export function createCallViewModel$(
     spotlight$: spotlight$,
     pip$: pip$,
     layout$: layout$,
+    /*
+     * Whether the design's two-person arrangement is the one GRID mode would
+     * choose — whatever mode is actually on.
+     *
+     * The view rail needs this rather than the current layout's type. In
+     * spotlight mode at two people the layout is a spotlight, so a rail that
+     * read `layout.type` saw "not one-on-one" and started offering the grove
+     * and the fields again — and both of those land straight back on the
+     * Einzelgespräch, which is the same lie the rail exists to stop telling.
+     *
+     * Derived from `oneOnOneLayoutMedia$` so it cannot drift from the real
+     * condition: exactly two media items, one local and one remote. A screen
+     * share makes a third, which is why a count of people would not do.
+     */
+    orisoOneOnOne$: scope.behavior(
+      oneOnOneLayoutMedia$.pipe(map((media) => media !== null)),
+      false,
+    ),
     tileStoreGeneration$: tileStoreGeneration$,
     showSpotlightIndicators$: showSpotlightIndicators$,
     showSpeakingIndicators$: showSpeakingIndicators$,

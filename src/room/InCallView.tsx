@@ -517,7 +517,18 @@ export const InCallView: FC<InCallViewProps> = ({
    * does; the stored arrangement is left alone so that it comes back when a
    * third person arrives.
    */
-  const alone = layout.type === "one-on-one";
+  /*
+   * Two people, as the VIEW MODEL counts them rather than as the stage
+   * happens to look.
+   *
+   * This read `layout.type === "one-on-one"`, which is the same thing only
+   * in grid mode: pick the spotlight at two people and the layout becomes a
+   * spotlight, so the rail decided it was no longer a two-person call and
+   * offered the grove and the fields again — both of which land straight
+   * back on the Einzelgespräch. The control went back to naming arrangements
+   * it cannot honour, which is the thing it was fixed to stop doing.
+   */
+  const alone = useBehavior(vm.orisoOneOnOne$);
   // A stable array, so the rail can memoise its entries on it and its
   // keyboard handler cannot close over a list that has moved on.
   const orisoOffer: readonly StageView[] = useMemo(
