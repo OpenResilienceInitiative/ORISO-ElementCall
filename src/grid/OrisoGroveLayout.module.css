@@ -28,6 +28,17 @@ Please see LICENSE in the repository root for full details.
   gap: var(--oriso-field-gutter);
   block-size: 100%;
   inline-size: 100%;
+  /*
+   * Border-box, because the padding below is INSIDE the sheet.
+   *
+   * With content-box sizing, `inline-size: 100%` plus a halo-sized padding
+   * made the sheet `parent + 2 * room` wide: the centred flex rows shifted
+   * right and `.inRoom` clipped the overflow, so at a width where a row
+   * nearly fills the box the rightmost field — or the halo the padding was
+   * added to protect — was cut off. The padding has to come out of the
+   * declared width, not be added to it.
+   */
+  box-sizing: border-box;
   overflow-y: auto;
   /*
    * Padded by the halo's room rather than by the gutter.

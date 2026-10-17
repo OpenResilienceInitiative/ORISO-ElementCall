@@ -33,6 +33,24 @@ const bodyOf = (selector: string): string => {
   return match?.[1] ?? "";
 };
 
+describe("the scrolling fields sheet", () => {
+  /*
+   * The halo padding has to come OUT of the sheet's width.
+   *
+   * With content-box sizing, `inline-size: 100%` plus that padding made the
+   * sheet `parent + 2 * room` wide: the centred rows shifted right and
+   * `.inRoom` clipped the overflow, so at a width where a row nearly fills
+   * the box the rightmost field — or the very halo the padding was added to
+   * protect — was cut off.
+   */
+  it("keeps its halo padding inside its own width", () => {
+    const body = bodyOf(".sheet");
+    expect(body).toMatch(/inline-size:\s*100%/);
+    expect(body).toMatch(/padding:/);
+    expect(body).toMatch(/box-sizing:\s*border-box/);
+  });
+});
+
 describe("the fixed screen-share slot", () => {
   it("never asks for more width than the stage has", () => {
     const body = bodyOf(".fixed > .slot");
