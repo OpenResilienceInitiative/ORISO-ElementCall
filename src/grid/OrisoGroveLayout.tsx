@@ -186,7 +186,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
       const speaker = seats.findIndex((s) => s.speaking);
       return splitCells(
         seats.map((_, i) => i),
-        { x: 0, y: 0, w: width, h: height },
+        { x: 0, y: 0, w: Math.max(0, width), h: Math.max(0, height) },
         speaker,
       ).map((cell) => ({
         id: seats[cell.i].model.id,

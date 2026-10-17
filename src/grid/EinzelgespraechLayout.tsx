@@ -93,7 +93,14 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
     const share = shareFor(speaking);
     const bow = seamFor(share);
     const tip = share + bow;
-    const circle = Math.round(Math.min(width, height) * CIRCLE_SHARE);
+    // Clamped, because the stage can be reported smaller than the header
+    // and footer that are subtracted from it — during a resize, or before
+    // either has measured itself. A negative circle renders as nothing at
+    // all, which looks like the call failing rather than like a frame.
+    const circle = Math.max(
+      0,
+      Math.round(Math.min(width, height) * CIRCLE_SHARE),
+    );
 
     const shapes = useMemo(() => {
       const common = {
