@@ -12,6 +12,7 @@ import {
   EVEN_SHARE,
   MAX_SHARE,
   SEAM_EASING,
+  SEAM_TWEEN,
   seamFor,
   shareFor,
 } from "./einzelgespraech";
@@ -96,5 +97,48 @@ describe("the transition", () => {
   it("is the easing the ticket names, and never a snap", () => {
     expect(SEAM_EASING).toContain("0.45s");
     expect(SEAM_EASING).toContain("cubic-bezier(0.2, 0, 0, 1)");
+  });
+});
+
+describe("the curve the seam travels on", () => {
+  /*
+   * The spring's easing has to BE the CSS curve the ticket names, not
+   * something that looks like it — the seam moves by a spring because no CSS
+   * transition can animate the `d` of a referenced clip path, and the two
+   * must not drift apart.
+   *
+   * These values are `cubic-bezier(0.2, 0, 0, 1)` solved by bisection on its
+   * own x polynomial, not read off this implementation.
+   */
+  it("is cubic-bezier(0.2, 0, 0, 1), to four decimals", () => {
+    expect(SEAM_EASING).toContain("cubic-bezier(0.2, 0, 0, 1)");
+    for (const [t, expected] of [
+      [0, 0],
+      [0.25, 0.60722],
+      [0.5, 0.877834],
+      [0.75, 0.97548],
+      [1, 1],
+    ] as const)
+      expect(SEAM_TWEEN.easing(t)).toBeCloseTo(expected, 4);
+  });
+
+  it("holds still outside the ride, rather than overshooting", () => {
+    expect(SEAM_TWEEN.easing(-1)).toBe(0);
+    expect(SEAM_TWEEN.easing(2)).toBe(1);
+  });
+
+  it("only ever moves forwards", () => {
+    // A seam that went backwards mid-ease would read as a wobble.
+    let last = -1;
+    for (let i = 0; i <= 100; i++) {
+      const value = SEAM_TWEEN.easing(i / 100);
+      expect(value).toBeGreaterThanOrEqual(last);
+      last = value;
+    }
+  });
+
+  it("runs for the ticket's 450ms", () => {
+    expect(SEAM_TWEEN.duration).toBe(450);
+    expect(SEAM_EASING).toContain("0.45s");
   });
 });

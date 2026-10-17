@@ -47,7 +47,11 @@ const FROM_THE_HOST = {
   },
 };
 
-function roomWith(records: Record<string, unknown>): Room {
+function roomWith(
+  records: Record<string, unknown>,
+  /** Who actually sent each record, when that is not the person it describes. */
+  senderFor?: (userId: string) => string,
+): Room {
   const emitter = new EventEmitter();
   const state = Object.assign(new EventEmitter(), {
     getStateEvents: (type: string) =>
@@ -55,6 +59,7 @@ function roomWith(records: Record<string, unknown>): Room {
         ? []
         : Object.entries(records).map(([userId, content]) => ({
             getStateKey: (): string => userId,
+            getSender: (): string => senderFor?.(userId) ?? userId,
             getContent: (): unknown => content,
           })),
   });
@@ -81,6 +86,20 @@ describe("finding out who everybody is", () => {
     );
     expect(identities.size).toBe(2);
     expect(identities.has("@broken:oriso.test")).toBe(false);
+  });
+
+  it("refuses a record one person wrote about another", () => {
+    /*
+     * Every participant may send this event type — each client publishes its
+     * own — so the only thing that makes a record trustworthy is that its
+     * state key is its sender. The Matrix authorization rules say the same,
+     * but this reader is the side that would be deceived, so it checks rather
+     * than trusting a server it cannot audit.
+     */
+    const identities = readIdentities(
+      roomWith(FROM_THE_HOST, () => "@mischief:oriso.test"),
+    );
+    expect(identities.size).toBe(0);
   });
 
   it("copes with a room whose state has not loaded", () => {

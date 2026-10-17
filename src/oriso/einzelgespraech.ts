@@ -40,6 +40,57 @@ const MAX_BOW = 0.18;
 export const SEAM_EASING = "0.45s cubic-bezier(0.2, 0, 0, 1)";
 
 /**
+ * The same curve, for the spring that actually drives the seam.
+ *
+ * It cannot be a CSS transition. The rendered halves carry
+ * `clip-path: url(#seam)`, and that string never changes — what changes is
+ * the `d` of the path it points at, which a transition on `clip-path` does
+ * not touch. (The first version put the transition on the invisible
+ * measurement slot, which has no clip path at all, so the seam simply
+ * jumped.) The share is tweened instead and the path is rebuilt from it, so
+ * the bow and the two faces' focus all move together, which is what the
+ * handoff draws.
+ */
+export const SEAM_TWEEN = {
+  duration: 450,
+  easing: (t: number): number => cubicBezier(0.2, 0, 0, 1, t),
+} as const;
+
+/**
+ * `cubic-bezier(x1, y1, x2, y2)` at `t`, by Newton on the x polynomial.
+ *
+ * react-spring takes an easing as a function, and CSS's curve is the one the
+ * ticket names; writing it out keeps the two the same thing rather than two
+ * things that look alike.
+ */
+function cubicBezier(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  t: number,
+): number {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const curve = (a: number, b: number, u: number): number =>
+    ((1 - u) ** 3 * 0 +
+      3 * (1 - u) ** 2 * u * a +
+      3 * (1 - u) * u ** 2 * b +
+      u ** 3) as number;
+  const slope = (a: number, b: number, u: number): number =>
+    3 * (1 - u) ** 2 * a + 6 * (1 - u) * u * (b - a) + 3 * u ** 2 * (1 - b);
+  let u = t;
+  for (let i = 0; i < 8; i++) {
+    const dx = curve(x1, x2, u) - t;
+    if (Math.abs(dx) < 1e-5) break;
+    const d = slope(x1, x2, u);
+    if (Math.abs(d) < 1e-6) break;
+    u -= dx / d;
+  }
+  return curve(y1, y2, Math.min(1, Math.max(0, u)));
+}
+
+/**
  * The first participant's share of the circle.
  *
  * Symmetric by construction: mirroring the input mirrors the output. Both

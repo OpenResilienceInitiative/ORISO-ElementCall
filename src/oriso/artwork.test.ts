@@ -116,6 +116,41 @@ describe("what comes back", () => {
     expect(text).not.toContain("hello");
   });
 
+  it("drops a handler on the root element itself", async () => {
+    // `querySelectorAll("*")` never visits the element it is called on, so
+    // the first version of the pass walked straight past `<svg onload>`.
+    serve(
+      '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" ' +
+        'onload="globalThis.pwned = 1"><circle r="4"/></svg>',
+    );
+    const text = await loadArtwork("fox.svg", null);
+    expect(text.toLowerCase()).not.toContain("onload");
+    expect(text).not.toContain("pwned");
+    expect(text).toContain("<circle");
+  });
+
+  it("drops a stylesheet, which would restyle the whole call", async () => {
+    serve(svg('<style>body{display:none}</style><circle r="4"/>'));
+    const text = await loadArtwork("fox.svg", null);
+    expect(text).not.toMatch(/<style/i);
+    expect(text).not.toContain("display:none");
+    expect(text).toContain("<circle");
+  });
+
+  it("drops a paint that reaches out to somebody else's server", async () => {
+    serve(
+      svg(
+        '<circle r="4" fill="url(https://beacon.example/x.svg#p)"/>' +
+          '<rect width="2" height="2" fill="url(#local)"/>',
+      ),
+    );
+    const text = await loadArtwork("fox.svg", null);
+    expect(text).not.toContain("beacon.example");
+    // A reference into this same drawing is the legitimate use.
+    expect(text).toContain("url(#local)");
+  });
+
   it("refuses something that is not an SVG at all", async () => {
     serve("<html><body>404</body></html>");
     await expect(loadArtwork("fox.svg", null)).rejects.toThrow(

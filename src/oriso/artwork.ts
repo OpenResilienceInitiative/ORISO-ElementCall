@@ -64,9 +64,18 @@ export function artworkUrl(file: string, parentUrl: string | null): string {
   return `${originOf(parentUrl)}${ARTWORK_PATH}/${file}?v=${ARTWORK_REVISION}`;
 }
 
-/** Tags that carry behaviour rather than drawing. */
+/**
+ * Tags that carry behaviour, or reach outside the drawing, rather than draw.
+ *
+ * `style` is in here because a stylesheet inside an inlined SVG applies to
+ * the WHOLE document it lands in — `body { display: none }` would take the
+ * call with it — and because `url(…)` inside CSS is a request to a third
+ * party from the call's origin. Inside an `<img>` neither is true, but the
+ * cached text has to be safe on its own terms.
+ */
 const FORBIDDEN_TAGS = new Set([
   "script",
+  "style",
   "foreignobject",
   "iframe",
   "object",
@@ -91,8 +100,14 @@ const FORBIDDEN_TAGS = new Set([
  * assumption.
  */
 function stripActiveContent(root: Element): void {
-  for (const element of [...root.querySelectorAll("*")]) {
-    if (FORBIDDEN_TAGS.has(element.nodeName.toLowerCase())) {
+  // The ROOT is in the pass, not only its descendants: `querySelectorAll("*")`
+  // never visits the element it is called on, so `<svg onload="…">` walked
+  // straight through the first version of this.
+  for (const element of [root, ...root.querySelectorAll("*")]) {
+    if (
+      element !== root &&
+      FORBIDDEN_TAGS.has(element.nodeName.toLowerCase())
+    ) {
       element.remove();
       continue;
     }
@@ -103,10 +118,15 @@ function stripActiveContent(root: Element): void {
       // everything unprintable taken out.
       const value = attribute.value.replace(/[^\x21-\x7e]/g, "").toLowerCase();
       const isLink = name === "href" || name.endsWith(":href");
+      // `fill="url(https://…)"`, `filter`, `mask`, `clip-path` and friends all
+      // take a reference. Into this drawing is fine; out of it is a request to
+      // somebody else's server from the call's origin.
+      const reachesOut = /url\(\s*['"]?(?!#)/i.test(attribute.value);
       if (
         name.startsWith("on") ||
         value.startsWith("javascript:") ||
         value.startsWith("data:text/html") ||
+        reachesOut ||
         // Only a reference into this same drawing, never out of it.
         (isLink && !attribute.value.trimStart().startsWith("#"))
       )

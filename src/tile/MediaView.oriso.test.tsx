@@ -166,6 +166,55 @@ describe("the name, when it does not fit", () => {
     expect(tag.lastElementChild?.textContent).toBe(" 303");
   });
 
+  it("owns only its half of a shared box", () => {
+    /*
+     * In the Einzelgespräch both tiles are given the WHOLE circle and differ
+     * only by the clip path — that is what makes them one body rather than
+     * two shapes side by side. But a tile is more than its background: the
+     * later one's box lay over both halves and swallowed every click meant
+     * for the other, and both name capsules sat at the same corner of the
+     * same circle, one on top of the other.
+     *
+     * The clip on the ROOT fixes the first (a clipped-away region is not
+     * hit-testable) and the focus shift fixes the second.
+     */
+    const { container } = render(
+      <MediaView
+        {...base}
+        orisoIdentity={FOX}
+        orisoShape={{
+          radius: "50%",
+          tilt: 0,
+          clipPath: "url(#seam)",
+          focusX: 0.31,
+          contentShare: 0.22 / 0.86,
+        }}
+      />,
+    );
+    const tile = container.querySelector<HTMLElement>(
+      '[data-testid="videoTile"]',
+    )!;
+    expect(tile.style.clipPath).toBe("url(#seam)");
+    expect(tile.dataset.orisoHalf).toBe("true");
+    // (0.31 - 0.5) * min(300, 200) = -38
+    expect(tile.style.getPropertyValue("--oriso-focus-shift")).toBe("-38px");
+  });
+
+  it("asks for neither when the layout gave it the whole shape", () => {
+    const { container } = render(
+      <MediaView
+        {...base}
+        orisoIdentity={FOX}
+        orisoShape={{ radius: "48% 52% 61% 39%", tilt: 4.2 }}
+      />,
+    );
+    const tile = container.querySelector<HTMLElement>(
+      '[data-testid="videoTile"]',
+    )!;
+    expect(tile.style.clipPath).toBe("");
+    expect(tile.dataset.orisoHalf).toBeUndefined();
+  });
+
   it("leaves upstream's name alone", () => {
     render(<MediaView {...base} displayName="naher Otter 303" />);
     const tag = screen.getByTestId("name_tag");

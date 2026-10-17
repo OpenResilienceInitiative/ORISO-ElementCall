@@ -259,6 +259,9 @@ function createInCallView({
           ? []
           : Object.entries(published).map(([userId, content]) => ({
               getStateKey: (): string => userId,
+              // A real state event knows who sent it, and the reader checks:
+              // only a record somebody wrote about themselves counts.
+              getSender: (): string => userId,
               getContent: (): unknown => content,
             })),
     } as unknown as RoomState,

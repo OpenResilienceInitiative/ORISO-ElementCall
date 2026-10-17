@@ -108,18 +108,50 @@ export const MediaView: FC<Props> = ({
 
   const hasVideo = video?.publication !== undefined;
 
+  /*
+   * Which half of a shared box this tile actually owns.
+   *
+   * In the Einzelgespräch both tiles are given the WHOLE circle and differ
+   * only by the clip path that cuts them, which is what makes them one body.
+   * But a tile is more than its background: without this the later tile's box
+   * lay over both halves and swallowed every click meant for the other one,
+   * and both name capsules sat at the same corner of the same circle, one on
+   * top of the other.
+   *
+   * The clip goes on the tile ROOT, so hit-testing follows the seam — a
+   * clipped-away region is not hit-testable — and the chrome is moved into
+   * the half by the same `focusX` the artwork uses.
+   */
+  const orisoFocusShift =
+    orisoShape?.focusX === undefined
+      ? undefined
+      : Math.round(
+          (orisoShape.focusX - 0.5) * Math.min(targetWidth, targetHeight),
+        );
+
   return (
     <animated.div
       className={classNames(styles.media, className, {
         [styles.mirror]: mirror,
         [styles.oriso]: orisoIdentity !== undefined,
       })}
-      style={style}
+      style={
+        orisoShape?.clipPath === undefined && orisoFocusShift === undefined
+          ? style
+          : {
+              ...style,
+              clipPath: orisoShape?.clipPath,
+              ...(orisoFocusShift === undefined
+                ? {}
+                : { "--oriso-focus-shift": `${orisoFocusShift}px` }),
+            }
+      }
       ref={ref}
       data-testid="videoTile"
       data-video-fit={videoFit}
       data-oriso={orisoIdentity === undefined ? undefined : "true"}
       data-oriso-speaking={orisoSpeaking ? "true" : undefined}
+      data-oriso-half={orisoFocusShift === undefined ? undefined : "true"}
       {...props}
     >
       {orisoIdentity === undefined ? (

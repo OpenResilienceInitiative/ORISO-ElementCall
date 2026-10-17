@@ -106,10 +106,28 @@ export const OrisoFace: FC<Props> = ({
   const rim = speaking && shape?.speakingAs === "rim";
   const lifted = shape?.lifted ?? true;
 
+  /*
+   * How big the drawing is, and who decides.
+   *
+   * With no `contentSize` the form decides: the handoff's padding off the
+   * whole shape, per motif. With one, the LAYOUT has already decided — its
+   * `contentShare` IS the handoff's target artwork fraction (0.56 of a field,
+   * 0.22/0.86 of the shared circle) — so applying the padding again on top
+   * shrank the animal to 36% of a field and 14% of the stage, well under both
+   * targets. The supplied size is taken as the target for a default-padded
+   * motif, and a flat one still gets its relative boost: the dolphin's 0.12
+   * padding is 1.125x the default's 0.16 either way.
+   */
+  /** What the contents belong to: the half, the field, or the whole form. */
   const artworkBox = contentSize ?? size;
+  const fraction = artworkFraction(artworkPaddingFor(identity.file));
   const inner = Math.max(
     0,
-    Math.round(artworkBox * artworkFraction(artworkPaddingFor(identity.file))),
+    Math.round(
+      contentSize === undefined
+        ? size * fraction
+        : contentSize * (fraction / artworkFraction(DEFAULT_ARTWORK_PADDING)),
+    ),
   );
 
   const style: CSSProperties = useMemo(
@@ -160,6 +178,9 @@ export const OrisoFace: FC<Props> = ({
             style={{
               ...upright,
               color: identity.ink,
+              // Letters are not padded artwork; 0.34 of the box they sit in
+              // was judged directly, and the drawing's own padding above does
+              // not apply to them.
               fontSize: Math.round(artworkBox * 0.34),
             }}
             data-testid="oriso-initials"
@@ -196,15 +217,30 @@ export const OrisoFace: FC<Props> = ({
           className={styles.video}
           data-fit={videoFit}
           data-testid="oriso-video"
-          style={
-            tilt === 0
-              ? undefined
-              : {
-                  // Counter-rotated like the artwork, and grown by exactly
-                  // enough to still cover the leaning frame.
-                  transform: `rotate(${-tilt}deg) scale(${coverScale(tilt).toFixed(4)})`,
-                }
-          }
+          /*
+           * The same shift the artwork and the letters get.
+           *
+           * In the Einzelgespräch both halves occupy the whole circle and are
+           * clipped to their own side, so a camera centred on the box is
+           * centred on the SEAM: the remote half showed the left of its
+           * frame and the local half the right, which cuts both faces in two.
+           * `focusX` is where this half's middle actually is.
+           */
+          style={{
+            transform:
+              [
+                focusShift === 0
+                  ? ""
+                  : `translateX(${Math.round(focusShift)}px)`,
+                tilt === 0
+                  ? ""
+                  : // Counter-rotated like the artwork, and grown by exactly
+                    // enough to still cover the leaning frame.
+                    `rotate(${-tilt}deg) scale(${coverScale(tilt).toFixed(4)})`,
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined,
+          }}
         >
           {video}
         </div>

@@ -314,10 +314,13 @@ export function initialsOf(displayName: string): string {
     .filter((w) => w.length > 0);
   if (words.length === 0) return "";
   const picked = words.length === 1 ? [words[0]] : words.slice(-2);
-  return picked
-    .map((w) => [...w][0].toUpperCase())
-    .join("")
-    .slice(0, 2);
+  // Sliced by code POINT, as `readIdentity` already does. `slice(0, 2)` counts
+  // UTF-16 units, so two letters outside the BMP collapsed to one and a BMP
+  // letter followed by one outside it left half a surrogate pair — which the
+  // font draws as a replacement glyph.
+  return [...picked.map((w) => [...w][0].toUpperCase()).join("")]
+    .slice(0, 2)
+    .join("");
 }
 
 function hashOf(value: string): number {

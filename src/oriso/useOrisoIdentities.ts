@@ -28,6 +28,18 @@ export function readIdentities(room: Room): Identities {
   for (const event of events) {
     const userId = event.getStateKey();
     if (userId === undefined) continue;
+    /*
+     * Only a record somebody wrote about THEMSELVES.
+     *
+     * The call room grants every participant the level to send this event,
+     * because each client publishes its own. The Matrix authorization rules
+     * also refuse a state key that starts with `@` and is not the sender's —
+     * but this reader is the side that would be deceived, so it checks for
+     * itself rather than trusting a server it cannot audit. Without this, one
+     * participant could overwrite another's animal and the stage would show
+     * it.
+     */
+    if (event.getSender?.() !== userId) continue;
     const identity = readIdentity(event.getContent());
     if (identity !== null) identities.set(userId, identity);
   }

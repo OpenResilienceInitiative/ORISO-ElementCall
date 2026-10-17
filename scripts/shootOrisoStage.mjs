@@ -77,6 +77,28 @@ const measured = await page.evaluate(() => {
         };
       }),
       artwork: plate.querySelectorAll('[data-testid="oriso-artwork"]').length,
+      /*
+       * How big the drawing actually comes out, as a share of the form it
+       * sits in. The handoff gives a number for this in the fields (0.56 of
+       * the smaller side) and in the Einzelgespräch (0.22 of the stage), and
+       * applying the per-motif padding ON TOP of the layout's share quietly
+       * halved both — nothing here measured it, so nothing caught it.
+       */
+      artworkShare: [...plate.querySelectorAll('[data-testid="oriso-face"]')]
+        .map((face) => {
+          const drawing = face.querySelector('[data-testid="oriso-artwork"]');
+          if (drawing === null) return null;
+          const form = face.getBoundingClientRect();
+          const shorter = Math.min(form.width, form.height);
+          return shorter === 0
+            ? null
+            : Number(
+                (
+                  drawing.getBoundingClientRect().width / shorter
+                ).toFixed(3),
+              );
+        })
+        .filter((value) => value !== null),
       initials: plate.querySelectorAll('[data-testid="oriso-initials"]').length,
       spheres: plate.querySelectorAll('[data-testid="oriso-sphere"]').length,
       rims: plate.querySelectorAll('[data-testid="oriso-rim"]').length,
@@ -139,6 +161,41 @@ for (const [name, expected] of [
     note(`${name}: ${plate.artwork} of ${expected} faces inherited artwork`);
   if (plate.initials !== 0)
     note(`${name}: ${plate.initials} faces fell back to initials`);
+}
+
+/*
+ * The drawing is the size the handoff says, not a fraction of it.
+ *
+ * The fields give the animal 0.56 of the field's smaller side and the
+ * Einzelgespräch 0.22 of the stage, which is 0.2558 of the circle. Those are
+ * the layout's own `contentShare`, so applying the per-motif padding on top of
+ * them halved both and nothing here noticed. The window is wide enough for the
+ * flat motifs, which legitimately get up to 12.5% more.
+ */
+for (const [name, target] of [
+  ["felder4", 0.56],
+  ["felder8", 0.56],
+  ["still", 0.22 / 0.86],
+  ["first", 0.22 / 0.86],
+  ["second", 0.22 / 0.86],
+]) {
+  const shares = measured[name].artworkShare;
+  if (shares.length === 0) {
+    note(`${name}: no drawing to measure`);
+    continue;
+  }
+  const low = target * 0.9;
+  const high = target * 1.2;
+  const strays = shares.filter((share) => share < low || share > high);
+  if (strays.length > 0)
+    note(
+      `${name}: artwork at ${strays.join(", ")} of the form, ` +
+        `outside ${low.toFixed(3)}–${high.toFixed(3)} (handoff ${target.toFixed(3)})`,
+    );
+  process.stdout.write(
+    `${name.padEnd(8)} artwork ${shares.join(", ")} of the form ` +
+      `(handoff ${target.toFixed(3)})\n`,
+  );
 }
 
 // The grove's forms are organic and individual: eight-value radii, a lean, and

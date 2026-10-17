@@ -7,13 +7,14 @@ Please see LICENSE in the repository root for full details.
 
 import { type ReactNode, useId, useMemo } from "react";
 import { useObservableEagerState } from "observable-hooks";
+import { animated, useSpring } from "@react-spring/web";
 
 import { type OneOnOneLayout as OneOnOneLayoutModel } from "../state/layout-types.ts";
 import styles from "./EinzelgespraechLayout.module.css";
 import { type CallLayout } from "./CallLayout";
 import { useUpdateLayout } from "./Grid";
 import {
-  SEAM_EASING,
+  SEAM_TWEEN,
   type Speaking,
   seamFor,
   shareFor,
@@ -102,9 +103,32 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
             ? "second"
             : "none";
 
+    /*
+     * The seam MOVES, and it has to be moved by hand.
+     *
+     * The halves carry `clip-path: url(#seam)`, and that string never
+     * changes — what changes is the `d` of the path it points at, which no
+     * CSS transition on `clip-path` touches. (The first version put a
+     * transition on the invisible measurement slot, which has no clip path at
+     * all, so the seam simply jumped between states.) So the share is tweened
+     * on the ticket's own curve and the path is rebuilt from it each frame,
+     * by `animated.path` rather than by a React render — a render of a layout
+     * layer bumps the grid's generation, and doing that sixty times a second
+     * is how the first attempt at shapes in React state deadlocked.
+     *
+     * The two faces' `focusX` still steps rather than eases, because it
+     * travels to the tiles through the shape store and a spring value cannot.
+     * They sit near the middle of their halves, so a 450ms seam with the
+     * faces already at their destination reads as the seam moving past them;
+     * easing those too would mean re-rendering the layer per frame.
+     */
     const share = shareFor(speaking);
-    const bow = seamFor(share);
-    const tip = share + bow;
+    const { eased } = useSpring({ eased: share, config: SEAM_TWEEN });
+    /** The seam, from a share — the same two curves at any point of the ease. */
+    const seamPath = (at: number): string =>
+      `M0,0 L${at},0 Q${at + seamFor(at)},0.5 ${at},1 L0,1 Z`;
+    const restPath = (at: number): string =>
+      `M0,0 L1,0 L1,1 L0,1 Z ${seamPath(at)}`;
     // Clamped, because the stage can be reported smaller than the header
     // and footer that are subtracted from it — during a resize, or before
     // either has measured itself. A negative circle renders as nothing at
@@ -154,7 +178,11 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
         <svg width="0" height="0" aria-hidden="true">
           <defs>
             <clipPath id={seamId} clipPathUnits="objectBoundingBox">
-              <path d={`M0,0 L${share},0 Q${tip},0.5 ${share},1 L0,1 Z`} />
+              {/* `animated.path` so react-spring writes `d` straight onto the
+                  element: the seam eases without a React render per frame,
+                  which matters because a render of a layout layer bumps the
+                  grid's generation. */}
+              <animated.path d={eased.to(seamPath)} />
             </clipPath>
             {/* The same seam from the other side: the whole box minus the
                 first half, by even-odd, so the second half bows exactly
@@ -164,10 +192,7 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
               clipPathUnits="objectBoundingBox"
               clipRule="evenodd"
             >
-              <path
-                clipRule="evenodd"
-                d={`M0,0 L1,0 L1,1 L0,1 Z M0,0 L${share},0 Q${tip},0.5 ${share},1 L0,1 Z`}
-              />
+              <animated.path clipRule="evenodd" d={eased.to(restPath)} />
             </clipPath>
           </defs>
         </svg>
@@ -185,18 +210,11 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
               boxShadow: liftFor(circle),
             }}
           />
-          <Slot
-            id={first.id}
-            model={first}
-            className={styles.slot}
-            style={{ transition: `clip-path ${SEAM_EASING}` }}
-          />
-          <Slot
-            id={second.id}
-            model={second}
-            className={styles.slot}
-            style={{ transition: `clip-path ${SEAM_EASING}` }}
-          />
+          {/* No transition on these: they are the invisible measurement
+              slots, they carry no clip path, and the motion is the spring on
+              `share` above. */}
+          <Slot id={first.id} model={first} className={styles.slot} />
+          <Slot id={second.id} model={second} className={styles.slot} />
         </div>
       </div>
     );

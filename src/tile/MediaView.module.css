@@ -290,3 +290,13 @@ unconditionally select the container so we can use cqmin units */
   flex: none;
   white-space: pre;
 }
+
+/* The chrome belongs to the half, not to the shared box.
+   Both Einzelgespräch tiles are given the whole circle, so without this both
+   name capsules sat at the same corner of it, one over the other. The shift is
+   the same `focusX` the artwork and the camera get — where this half's middle
+   actually is. */
+.media.oriso[data-oriso-half="true"] .nameTag,
+.media.oriso[data-oriso-half="true"] > button {
+  translate: var(--oriso-focus-shift, 0) 0;
+}
