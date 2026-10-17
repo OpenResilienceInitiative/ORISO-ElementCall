@@ -7,6 +7,8 @@ Please see LICENSE in the repository root for full details.
 
 import * as React from "react";
 
+import { usePrefersReducedMotion } from "../usePrefersReducedMotion";
+
 /*
  * `pond.js` registers <oriso-pond> at module load, and registering a custom
  * element means `class ... extends HTMLElement` — which throws outright in a
@@ -95,6 +97,44 @@ export const Atmosphere: React.FC<AtmosphereProps> = ({
   React.useEffect(() => {
     ref.current?.setAttribute("palette", palette);
   }, [palette]);
+
+  /*
+   * Stop drifting if the preference changes WHILE the call is open.
+   *
+   * `pond.js` reads `prefers-reduced-motion` once, into a module-level
+   * constant, so switching the preference on mid-call left its
+   * `requestAnimationFrame` loop running — and remounting would not help
+   * either, since that constant is evaluated at import and not per element.
+   *
+   * The fix belongs here rather than there. That file is ported verbatim and
+   * its ticket says so in as many words — "copy `pond.js`, do not rewrite
+   * it" — but it exposes `stop()`, `loop()` and `frame()`, which is enough
+   * for this layer to drive it: one still frame when the preference goes on,
+   * the drift resumed when it goes off. The drawing stays the prototype's
+   * and the policy stays ours.
+   *
+   * A deliberately still preset is left alone in both directions: `loop()`
+   * is guarded by the element's own `running` flag and `palette.still`, so
+   * asking it to resume cannot start a loop the design does not want.
+   */
+  const prefersReducedMotion = usePrefersReducedMotion();
+  React.useEffect(() => {
+    const pond = ref.current as
+      | (HTMLElement & {
+          stop?: () => void;
+          loop?: () => void;
+          frame?: () => void;
+        })
+      | null;
+    if (!pond) return;
+    if (prefersReducedMotion) {
+      pond.stop?.();
+      // One frame, so the backdrop is a picture rather than a blank.
+      pond.frame?.();
+      return;
+    }
+    pond.loop?.();
+  }, [prefersReducedMotion, palette]);
 
   return (
     <oriso-pond
