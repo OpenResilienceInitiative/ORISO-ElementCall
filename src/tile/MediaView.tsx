@@ -24,7 +24,7 @@ import { ReactionIndicator } from "../reactions/ReactionIndicator";
 import { RTCConnectionStats } from "../RTCConnectionStats";
 import { OrisoFace } from "../oriso/OrisoFace";
 import { type OrisoIdentity } from "../oriso/identity";
-import { type TileShape } from "../oriso/shape";
+import { splitName, type TileShape } from "../oriso/shape";
 
 interface Props extends ComponentProps<typeof animated.div> {
   className?: string;
@@ -227,7 +227,27 @@ export const MediaView: FC<Props> = ({
             className={styles.name}
             data-testid="name_tag"
           >
-            {displayName}
+            {orisoIdentity === undefined ? (
+              displayName
+            ) : (
+              /*
+               * Cut in the middle, not at the end.
+               *
+               * An ORISO pseudonym is "ruhiger Fuchs 432" and the number is
+               * what tells two foxes apart; a plain ellipsis takes exactly
+               * that off and leaves two people looking identical. The head
+               * shrinks and ellipsises, the tail never does — no measuring,
+               * no JavaScript, and it reflows with the capsule.
+               */
+              <>
+                <span className={styles.nameHead}>
+                  {splitName(displayName).head}
+                </span>
+                <span className={styles.nameTail}>
+                  {splitName(displayName).tail}
+                </span>
+              </>
+            )}
           </Text>
           {unencryptedWarning && (
             <Tooltip

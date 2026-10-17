@@ -68,6 +68,31 @@ export interface TileShape {
   lifted?: boolean;
 }
 
+/**
+ * How a name is cut when it does not fit.
+ *
+ * An ORISO pseudonym is "ruhiger Fuchs 432", and the number at the end is
+ * what tells two foxes apart. A plain ellipsis takes the end off — "naher
+ * O…" — which removes exactly the identifying part and leaves two people
+ * in a room looking identical. The tail is kept instead and the middle
+ * goes, so "naher Otter 303" becomes "naher…303".
+ *
+ * How many characters of the tail are worth keeping: enough for a
+ * three-digit number and the space before it.
+ */
+export const NAME_TAIL_CHARS = 4;
+
+/** A display name split into the part that may be cut and the part that may not. */
+export function splitName(name: string): { head: string; tail: string } {
+  const trimmed = name.trim();
+  // Nothing to protect in a name shorter than the tail itself.
+  if (trimmed.length <= NAME_TAIL_CHARS + 1) return { head: trimmed, tail: "" };
+  return {
+    head: trimmed.slice(0, trimmed.length - NAME_TAIL_CHARS),
+    tail: trimmed.slice(trimmed.length - NAME_TAIL_CHARS),
+  };
+}
+
 /** The field view's corner, the one number the handoff gives for it. */
 export const FIELD_RADIUS = "22px";
 

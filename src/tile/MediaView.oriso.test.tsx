@@ -153,3 +153,23 @@ describe("with an identity, the tile is a form", () => {
     expect(screen.getByTestId("mic")).toBeTruthy();
   });
 });
+
+describe("the name, when it does not fit", () => {
+  it("keeps the number that tells two foxes apart", () => {
+    render(
+      <MediaView {...base} orisoIdentity={FOX} displayName="naher Otter 303" />,
+    );
+    const tag = screen.getByTestId("name_tag");
+    // Whole to a screen reader and to a copy-paste; only the middle gives
+    // way visually, and only when there is not enough room.
+    expect(tag.textContent).toBe("naher Otter 303");
+    expect(tag.lastElementChild?.textContent).toBe(" 303");
+  });
+
+  it("leaves upstream's name alone", () => {
+    render(<MediaView {...base} displayName="naher Otter 303" />);
+    const tag = screen.getByTestId("name_tag");
+    expect(tag.textContent).toBe("naher Otter 303");
+    expect(tag.children).toHaveLength(0);
+  });
+});

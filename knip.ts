@@ -22,6 +22,7 @@ export default {
     "harness/vite.harness.config.ts",
     "scripts/shootOrisoStage.mjs",
     "scripts/measureVideoInShape.mjs",
+    "scripts/measureHainOverlap.mjs",
   ],
   ignoreBinaries: [
     // This is deprecated, so Knip doesn't actually recognize it as a globally

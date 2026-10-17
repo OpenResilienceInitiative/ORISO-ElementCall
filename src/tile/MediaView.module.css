@@ -269,3 +269,24 @@ unconditionally select the container so we can use cqmin units */
 .media.oriso .nameTag .muteIcon {
   color: #fff;
 }
+
+/* The head gives way; the tail never does. An ORISO pseudonym is identified
+   by the number at its end, so a plain ellipsis removes the one part that
+   distinguishes two people with the same animal. */
+.media.oriso .nameTag > .name {
+  display: inline-flex;
+  min-inline-size: 0;
+  overflow: visible;
+}
+
+.media.oriso .nameHead {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-inline-size: 0;
+}
+
+.media.oriso .nameTail {
+  flex: none;
+  white-space: pre;
+}
