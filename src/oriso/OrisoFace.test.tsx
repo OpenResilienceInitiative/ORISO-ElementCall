@@ -158,7 +158,7 @@ describe("speaking", () => {
       <OrisoFace
         identity={FOX}
         size={120}
-        shape={{ radius: "50%", lifted: false }}
+        shape={{ radius: "50%", tilt: 0, lifted: false }}
         speaking
       />,
     );

@@ -112,8 +112,15 @@ const CAST = [
   },
 ];
 
-/** `HALO_ROOM_PX` from `src/oriso/halo.ts`. */
-const HALO_ROOM_PX = 32;
+/**
+ * `HALO_ROOM_PX` from `src/oriso/halo.ts`.
+ *
+ * Mirrored rather than imported because this script runs against a BUILT
+ * bundle and should fail when the built value and the source value disagree.
+ * It went from 32 to 36 when the speaking shape started rising: the room is
+ * the shadow's reach plus the lift.
+ */
+const HALO_ROOM_PX = 36;
 
 const problems = [];
 const say = (ok, what, detail) => {

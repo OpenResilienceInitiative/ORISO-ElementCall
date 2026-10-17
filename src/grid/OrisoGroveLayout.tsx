@@ -14,7 +14,12 @@ import { type GridTileViewModel } from "../state/TileViewModel.ts";
 import styles from "./OrisoGroveLayout.module.css";
 import { useInitial } from "../useInitial";
 import { type CallLayout } from "./CallLayout";
-import { type DragCallback, useUpdateLayout, useVisibleTiles } from "./Grid";
+import {
+  type DragCallback,
+  SPEAKING_LAYER,
+  useUpdateLayout,
+  useVisibleTiles,
+} from "./Grid";
 import { packShapes, splitCells } from "../oriso/layout";
 import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
@@ -49,6 +54,15 @@ interface Placed {
   width: number;
   height: number;
   shape: TileShape;
+  /*
+   * Carried through to the slot, because a speaking form paints OUTSIDE its
+   * own tile: the halo reaches `HALO_ROOM_PX` past it and the rise moves it
+   * four pixels further. The grove packs its shapes until they abut, so with
+   * every tile on one layer a later quiet neighbour painted over the lit-up
+   * one — exactly where the two forms touch, which is where the halo is
+   * doing its work.
+   */
+  speaking: boolean;
 }
 
 /** What the engine needs to know about one person, and nothing more. */
@@ -219,6 +233,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
           width: spot.size,
           height: spot.size,
           shape: { radius: spot.blob, tilt: Number(spot.tilt) },
+          speaking: seats[i].speaking,
         }));
       }
 
@@ -241,6 +256,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
           body: false,
           contentShare: FIELD_FACE_SHARE,
         },
+        speaking: seats[cell.i].speaking,
       }));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [signature]);
@@ -292,6 +308,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               className={styles.slot}
               id={seat.model.id}
               model={seat.model}
+              layer={seat.speaking ? SPEAKING_LAYER : undefined}
               style={{
                 inlineSize: FIELD_MIN_WIDTH,
                 blockSize: Math.round(FIELD_MIN_WIDTH / FIELD_ASPECT),
@@ -316,6 +333,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
             className={styles.slot}
             id={p.id}
             model={p.model}
+            layer={p.speaking ? SPEAKING_LAYER : undefined}
             style={{
               position: "absolute",
               insetInlineStart: p.x,
