@@ -167,6 +167,32 @@ describe("speaking", () => {
     expect(face.style.boxShadow).toBe("");
   });
 
+  it("does not animate the rise for somebody who asked for less motion", () => {
+    /*
+     * The grid's springs and the Einzelgespräch's seam were taught this
+     * preference; the transition that carries the RISE was added with the
+     * rise and missed, which left the grove, the fields and the spotlight
+     * animating for somebody who had switched animation off.
+     */
+    const real = window.matchMedia;
+    const reduced = (query: string): MediaQueryList =>
+      ({
+        matches: query.includes("prefers-reduced-motion"),
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }) as Partial<MediaQueryList> as MediaQueryList;
+    try {
+      window.matchMedia = reduced as typeof window.matchMedia;
+      render(<OrisoFace identity={FOX} size={120} speaking />);
+      const face = screen.getByTestId("oriso-face");
+      // Risen, but not on its way there.
+      expect(face.style.transform).toBe(`translateY(-${HALO_LIFT_PX}px)`);
+      expect(face.style.transition).toBe("");
+    } finally {
+      window.matchMedia = real;
+    }
+  });
+
   it("grows its lift with the form, so a large shape is not a smudge", () => {
     render(<OrisoFace identity={NAMELESS} size={320} />);
     expect(screen.getByTestId("oriso-face").style.boxShadow).toBe(

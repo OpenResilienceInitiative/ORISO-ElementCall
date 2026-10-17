@@ -14,6 +14,7 @@ import { useArtwork } from "./artwork";
 import { HALO_LIFT_PX, SPEAKING_EASING, haloFor } from "./halo";
 import { liftFor } from "./lift";
 import { coverScale, type TileShape } from "./shape";
+import { usePrefersReducedMotion } from "../usePrefersReducedMotion";
 
 /**
  * Padding around the artwork, as a share of the form's smaller side.
@@ -102,6 +103,7 @@ export const OrisoFace: FC<Props> = ({
   className,
 }) => {
   const artwork = useArtwork(identity, parentUrl);
+  const prefersReducedMotion = usePrefersReducedMotion();
   const tilt = shape?.tilt ?? 0;
   const rim = speaking && shape?.speakingAs === "rim";
   const lifted = shape?.lifted ?? true;
@@ -177,10 +179,22 @@ export const OrisoFace: FC<Props> = ({
         ]
           .filter(Boolean)
           .join(" ") || undefined,
-      // So it rises rather than jumps. The shadow is not transitioned with
-      // it: `haloFor` swaps a one-layer stack for a three-layer one, which
-      // CSS cannot interpolate and renders as a flicker.
-      transition: `transform ${SPEAKING_EASING}`,
+      /*
+       * So it rises rather than jumps — unless the person asked for less
+       * motion, and then it just arrives.
+       *
+       * The grid's springs and the Einzelgespräch's seam were taught the
+       * preference in this same branch; this transition was added with the
+       * rise and missed, which left the grove, the fields and the spotlight
+       * animating for somebody who had switched animation off.
+       *
+       * The shadow is not transitioned either way: `haloFor` swaps a
+       * one-layer stack for a three-layer one, which CSS cannot interpolate
+       * and renders as a flicker.
+       */
+      transition: prefersReducedMotion
+        ? undefined
+        : `transform ${SPEAKING_EASING}`,
       background: identity.bg,
       // The lift scales with the form; the halo replaces it outright, because
       // the handoff gives the speaking state as a whole stack rather than as
@@ -193,7 +207,7 @@ export const OrisoFace: FC<Props> = ({
           ? haloFor(identity.bg, true)
           : liftFor(size),
     }),
-    [shape, tilt, identity.bg, speaking, size, lifted],
+    [shape, tilt, identity.bg, speaking, size, lifted, prefersReducedMotion],
   );
 
   // The contents stay upright while the form leans, and sit over their own

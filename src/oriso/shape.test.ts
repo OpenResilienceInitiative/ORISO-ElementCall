@@ -22,6 +22,24 @@ describe("cutting a name that does not fit", () => {
     expect(splitName("ruhiger Fuchs 432").tail).toHaveLength(NAME_TAIL_CHARS);
   });
 
+  it("never cuts a letter in half", () => {
+    /*
+     * The two pieces are rendered in separate spans, so a cut between the
+     * halves of a surrogate pair comes out as two replacement glyphs. A
+     * pseudonym is somebody's name here, and mangling it is not cosmetic.
+     *
+     * `\u{1D49C}` is a supplementary-plane letter: one code point, two
+     * UTF-16 units. Fourth from the end, a UTF-16 slice splits it.
+     */
+    const name = "Fuchs \u{1D49C} 43";
+    const { head, tail } = splitName(name);
+    expect(head + tail).toBe(name);
+    expect(head).not.toMatch(/[\uD800-\uDBFF]$/);
+    expect(tail).not.toMatch(/^[\uDC00-\uDFFF]/);
+    // Four code points of tail, which is what `NAME_TAIL_CHARS` promises.
+    expect([...tail]).toHaveLength(NAME_TAIL_CHARS);
+  });
+
   it("leaves a short name whole, with nothing to protect", () => {
     expect(splitName("Mika")).toEqual({ head: "Mika", tail: "" });
     expect(splitName("Ida")).toEqual({ head: "Ida", tail: "" });

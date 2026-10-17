@@ -20,7 +20,7 @@ import {
   useUpdateLayout,
   useVisibleTiles,
 } from "./Grid";
-import { packShapes, splitCells } from "../oriso/layout";
+import { groveBox, packShapes, splitCells } from "../oriso/layout";
 import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { useOrisoView } from "../oriso/useOrisoView";
@@ -216,10 +216,9 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         // The grove is built around a square, which is what the handoff
         // draws and what `packShapes` assumes. In a wide window it is
         // centred rather than stretched: stretching would turn every
-        // organic form into an ellipse.
-        const box = Math.max(1, Math.min(width, height));
-        const offsetX = Math.round((width - box) / 2);
-        const offsetY = Math.round((height - box) / 2);
+        // organic form into an ellipse. Inset by the room a speaking halo
+        // needs — see `groveBox`.
+        const { box, offsetX, offsetY } = groveBox(width, height);
         return packShapes(
           seats.map((s) => s.seed),
           box,

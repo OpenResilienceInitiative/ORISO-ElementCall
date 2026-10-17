@@ -28,6 +28,8 @@ Please see LICENSE in the repository root for full details.
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { describe, expect, it } from "vitest";
 
+import { HALO_ROOM_MAX_SHARE, HALO_ROOM_PX } from "./halo";
+
 import {
   type Placement,
   organicSpots,
@@ -35,6 +37,7 @@ import {
   packShapes,
   seeded,
   splitCells,
+  groveBox,
 } from "./layout";
 
 /** ORISO names, in the shape the engine is seeded with. */
@@ -243,5 +246,46 @@ describe("splitCells", () => {
     expect(splitCells([0, 1, 2, 3], rect, 2)).toEqual(
       splitCells([0, 1, 2, 3], rect, 2),
     );
+  });
+});
+
+describe("the room the grove leaves for a halo", () => {
+  /*
+   * `packShapes` may place a form within a few pixels of its box, a SPEAKING
+   * form paints `HALO_ROOM_PX` past its own edge and rises further, and
+   * `.inRoom` clips horizontal overflow. Packing into the whole stage
+   * therefore cut most of the halo off an edge participant exactly when they
+   * spoke, which is the one thing the halo is for.
+   */
+  it("insets the packing box on every side", () => {
+    const { box, offsetX, offsetY } = groveBox(1000, 600);
+    expect(box).toBe(600 - 2 * HALO_ROOM_PX);
+    // Centred, so the room is there on all four sides rather than two.
+    expect(offsetY).toBe(Math.round((600 - box) / 2));
+    expect(offsetY).toBeGreaterThanOrEqual(HALO_ROOM_PX);
+    expect(offsetX).toBe(Math.round((1000 - box) / 2));
+  });
+
+  it("stays square on a wide stage, so no form becomes an ellipse", () => {
+    const wide = groveBox(1600, 500);
+    const tall = groveBox(500, 1600);
+    expect(wide.box).toBe(tall.box);
+  });
+
+  it("never gives away more of a small stage than the chrome does", () => {
+    // Past the cap the margin would be eating the grove it protects, and a
+    // clipped halo is the lesser loss. Same cap `shapelessFaceSide` uses.
+    const small = groveBox(200, 200);
+    expect(small.box).toBe(200 - 2 * Math.round(200 * HALO_ROOM_MAX_SHARE));
+    expect(small.box).toBeGreaterThan(0);
+  });
+
+  it("answers a stage that has not measured itself yet", () => {
+    for (const [w, h] of [
+      [0, 0],
+      [-10, 400],
+      [Number.NaN, 400],
+    ])
+      expect(groveBox(w, h).box).toBeGreaterThan(0);
   });
 });

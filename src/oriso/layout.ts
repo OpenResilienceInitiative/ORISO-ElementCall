@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
+import { HALO_ROOM_MAX_SHARE, HALO_ROOM_PX } from "./halo";
+
 /**
  * Layout engine for the ORISO call arrangements.
  *
@@ -229,4 +231,34 @@ export function splitCells(
     ? { ...rect, x: rect.x + cut, w: rect.w - cut }
     : { ...rect, y: rect.y + cut, h: rect.h - cut };
   return splitCells(a, r1, speaker).concat(splitCells(b, r2, speaker));
+}
+
+/**
+ * The square the grove packs into, and where it sits on the stage.
+ *
+ * Inset, not the whole stage. `packShapes` is free to place a form within a
+ * few pixels of its box, and a SPEAKING form paints `HALO_ROOM_PX` past its
+ * own edge and rises `HALO_LIFT_PX` further — while `.inRoom` clips
+ * horizontal overflow. So an edge participant speaking lost most of the halo,
+ * which is the whole speaking signal, exactly when it mattered.
+ *
+ * The inset is capped at the chrome's own share of the stage, the same cap
+ * `shapelessFaceSide` uses, so a small stage gives away a sixth of itself at
+ * most: past that the margin would be eating the grove it is protecting, and
+ * a clipped halo is the lesser loss.
+ */
+export function groveBox(
+  width: number,
+  height: number,
+): { box: number; offsetX: number; offsetY: number } {
+  const stage = Math.min(width, height);
+  if (!Number.isFinite(stage) || stage <= 0)
+    return { box: 1, offsetX: 0, offsetY: 0 };
+  const room = Math.min(HALO_ROOM_PX, stage * HALO_ROOM_MAX_SHARE);
+  const box = Math.max(1, Math.round(stage - 2 * room));
+  return {
+    box,
+    offsetX: Math.round((width - box) / 2),
+    offsetY: Math.round((height - box) / 2),
+  };
 }

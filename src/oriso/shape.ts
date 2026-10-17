@@ -85,11 +85,21 @@ export const NAME_TAIL_CHARS = 4;
 /** A display name split into the part that may be cut and the part that may not. */
 export function splitName(name: string): { head: string; tail: string } {
   const trimmed = name.trim();
+  /*
+   * Counted and cut in CODE POINTS, not UTF-16 units.
+   *
+   * `slice` cuts between the halves of a surrogate pair, and the two pieces
+   * are rendered in separate spans — so a name whose fourth character from
+   * the end is outside the BMP came apart into two replacement glyphs. A
+   * pseudonym is somebody's name on a counselling platform; mangling it is
+   * not a cosmetic bug.
+   */
+  const points = [...trimmed];
   // Nothing to protect in a name shorter than the tail itself.
-  if (trimmed.length <= NAME_TAIL_CHARS + 1) return { head: trimmed, tail: "" };
+  if (points.length <= NAME_TAIL_CHARS + 1) return { head: trimmed, tail: "" };
   return {
-    head: trimmed.slice(0, trimmed.length - NAME_TAIL_CHARS),
-    tail: trimmed.slice(trimmed.length - NAME_TAIL_CHARS),
+    head: points.slice(0, points.length - NAME_TAIL_CHARS).join(""),
+    tail: points.slice(points.length - NAME_TAIL_CHARS).join(""),
   };
 }
 
