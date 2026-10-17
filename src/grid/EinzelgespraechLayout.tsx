@@ -23,6 +23,7 @@ import { liftFor } from "../oriso/lift";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { type TileShape } from "../oriso/shape";
 import { useBehavior } from "../useBehavior";
+import { usePrefersReducedMotion } from "../usePrefersReducedMotion";
 
 /**
  * How big the animal is inside its half.
@@ -123,7 +124,23 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
      * easing those too would mean re-rendering the layer per frame.
      */
     const share = shareFor(speaking);
-    const { eased } = useSpring({ eased: share, config: SEAM_TWEEN });
+    /*
+     * Not for everybody.
+     *
+     * `Grid` asks this of every spring it owns, and this one is created here
+     * instead — so it was the one piece of motion in the design that ignored
+     * the preference. It is also the largest: a 450ms sweep of the seam
+     * across the whole circle, on every change of who is speaking, in the
+     * view two people are in for the length of a counselling session. With
+     * the preference set the share goes straight to its destination, which
+     * is where the two faces already step to.
+     */
+    const prefersReducedMotion = usePrefersReducedMotion();
+    const { eased } = useSpring({
+      eased: share,
+      config: SEAM_TWEEN,
+      immediate: prefersReducedMotion,
+    });
     /** The seam, from a share — the same two curves at any point of the ease. */
     const seamPath = (at: number): string =>
       `M0,0 L${at},0 Q${at + seamFor(at)},0.5 ${at},1 L0,1 Z`;

@@ -112,15 +112,18 @@ const CAST = [
   },
 ];
 
-/**
- * `HALO_ROOM_PX` from `src/oriso/halo.ts`.
+/*
+ * The halo's geometry, from `src/oriso/halo.ts`.
  *
  * Mirrored rather than imported because this script runs against a BUILT
  * bundle and should fail when the built value and the source value disagree.
- * It went from 32 to 36 when the speaking shape started rising: the room is
- * the shadow's reach plus the lift.
  */
-const HALO_ROOM_PX = 36;
+/** The widest the speaking stack paints past the form it belongs to. */
+const HALO_REACH_PX = 32;
+/** How far a speaking form rises out of the field. */
+const HALO_LIFT_PX = 4;
+/** What a form therefore reserves on each side: the reach plus the rise. */
+const HALO_ROOM_PX = HALO_REACH_PX + HALO_LIFT_PX;
 
 const problems = [];
 const say = (ok, what, detail) => {
@@ -773,9 +776,28 @@ const halo = await grove.evaluate(() => {
   }
   return null;
 });
+/*
+ * Two facts, because a RISEN form is not centred in the room it reserves.
+ *
+ * The first version asked for `HALO_ROOM_PX` on every side and was right
+ * until the speaking shape started rising: a lit-up form now sits four
+ * pixels above the middle of its inset, so the real measurement is 32 above
+ * and 40 below. Asking for 36 on every side failed a form that is not
+ * clipped at all — the shadow reaches 32, and 32 is what it has.
+ *
+ * So: no side may have less room than the shadow actually reaches, and each
+ * axis must still reserve the full `2 * HALO_ROOM_PX` — the first says
+ * nothing is cut off, the second says the inset itself is still right and
+ * the form has merely moved inside it.
+ */
+const room = halo?.room;
 say(
-  !!halo && Math.min(...Object.values(halo.room)) >= HALO_ROOM_PX,
-  `7. the spotlight still reserves ${HALO_ROOM_PX}px for the halo on every side`,
+  !!room &&
+    Math.min(...Object.values(room)) >= HALO_REACH_PX &&
+    room.top + room.bottom === 2 * HALO_ROOM_PX &&
+    room.left + room.right === 2 * HALO_ROOM_PX,
+  `7. nothing clips the halo: at least ${HALO_REACH_PX}px on every side, ` +
+    `${2 * HALO_ROOM_PX}px reserved on each axis`,
   JSON.stringify(halo),
 );
 
