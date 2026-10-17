@@ -122,11 +122,13 @@ describe("the room a halo needs outside the form", () => {
     );
   };
 
-  it("covers how far the speaking stack actually reaches", () => {
+  it("covers how far the speaking stack actually reaches, once risen", () => {
     // Read off the string the component uses, so the constant cannot fall
-    // behind the halo it is reserving room for.
+    // behind the halo it is reserving room for — and the shape is four
+    // pixels higher than the box the shadows were measured against, so the
+    // rise is part of the reach.
     expect(HALO_ROOM_PX).toBeGreaterThanOrEqual(
-      reachOf(haloFor("#FCE7E6", true)),
+      reachOf(haloFor("#FCE7E6", true)) + HALO_LIFT_PX,
     );
   });
 

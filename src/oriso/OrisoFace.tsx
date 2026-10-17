@@ -11,7 +11,7 @@ import classNames from "classnames";
 import styles from "./OrisoFace.module.css";
 import { type OrisoIdentity } from "./identity";
 import { useArtwork } from "./artwork";
-import { haloFor } from "./halo";
+import { HALO_LIFT_PX, SPEAKING_EASING, haloFor } from "./halo";
 import { liftFor } from "./lift";
 import { coverScale, type TileShape } from "./shape";
 
@@ -159,7 +159,28 @@ export const OrisoFace: FC<Props> = ({
             blockSize: size,
           }
         : {}),
-      transform: tilt === 0 ? undefined : `rotate(${tilt}deg)`,
+      /*
+       * Leaning, and risen while speaking.
+       *
+       * The handoff gives the speaking state two halves: the shape lights up
+       * in the person's own colour AND it comes forward out of the field.
+       * Only the halo was here, so somebody speaking glowed in place —
+       * `HALO_LIFT_PX` existed, was exported, and was asserted by a test
+       * that never put it on screen. The rise is written before the lean on
+       * purpose: transforms apply right to left, so the shape rotates first
+       * and then moves straight up, rather than up along its own tilt.
+       */
+      transform:
+        [
+          !lifted || !speaking ? "" : `translateY(-${HALO_LIFT_PX}px)`,
+          tilt === 0 ? "" : `rotate(${tilt}deg)`,
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined,
+      // So it rises rather than jumps. The shadow is not transitioned with
+      // it: `haloFor` swaps a one-layer stack for a three-layer one, which
+      // CSS cannot interpolate and renders as a flicker.
+      transition: `transform ${SPEAKING_EASING}`,
       background: identity.bg,
       // The lift scales with the form; the halo replaces it outright, because
       // the handoff gives the speaking state as a whole stack rather than as

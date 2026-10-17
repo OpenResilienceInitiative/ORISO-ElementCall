@@ -20,7 +20,7 @@ Please see LICENSE in the repository root for full details.
 import { EventEmitter } from "node:events";
 import { type FC, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, render } from "@testing-library/react";
 import { MatrixEventEvent, type Room, RoomEvent } from "matrix-js-sdk";
 
 import {
@@ -409,6 +409,50 @@ describe("finding out who everybody is", () => {
     const empty = roomWith({}, undefined, "!empty:oriso.test");
     rerender({ room: empty.room });
     expect(result.current.size).toBe(0);
+  });
+
+  it("never paints the room just left", () => {
+    /*
+     * The frame, not just the outcome.
+     *
+     * Keeping the room's identity in a ref that only the effect consults
+     * fixed the lasting case and left the first render after the switch
+     * describing the new room with the old room's map. That render is the
+     * one that paints: changing rooms mid-call showed everybody the faces
+     * from the room just left for a frame — the wrong person's animal in
+     * front of the wrong people. So every render is recorded, not only the
+     * last one.
+     */
+    const first = roomWith({
+      "@berater:oriso.test": {
+        kind: "motif",
+        file: "owl.svg",
+        bg: "#a5000a",
+        ink: "#ffffff",
+      },
+    });
+    const second = roomWith({}, undefined, "!other:oriso.test");
+
+    const painted: { roomId: string; file: string | undefined }[] = [];
+    const Probe: FC<{ room: Room }> = ({ room }) => {
+      const identities = useOrisoIdentities(room);
+      painted.push({
+        roomId: room.roomId,
+        file: identities.get("@berater:oriso.test")?.file,
+      });
+      return null;
+    };
+
+    const { rerender } = render(<Probe room={first.room} />);
+    expect(painted.at(-1)).toEqual({
+      roomId: ROOM_ID,
+      file: "owl.svg",
+    });
+
+    rerender(<Probe room={second.room} />);
+    const inSecond = painted.filter((p) => p.roomId === "!other:oriso.test");
+    expect(inSecond.length).toBeGreaterThan(0);
+    expect(inSecond.map((p) => p.file)).toEqual(inSecond.map(() => undefined));
   });
 
   it("hands back the same map when nothing changed", () => {

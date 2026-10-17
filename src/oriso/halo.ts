@@ -44,6 +44,16 @@ export const QUIET_SHADOW = "0 2px 6px rgba(0, 0, 0, 0.1)";
 /** How far the speaking shape rises out of the field, in px. */
 export const HALO_LIFT_PX = 4;
 
+/**
+ * How the rise is timed.
+ *
+ * ORISO-Frontend's `HainStage` value, kept to the digit: the same shape
+ * rising in the chat-side prototype and in the call should not be two
+ * different movements. The curve is the one `SEAM_EASING` uses as well — the
+ * handoff has one easing — at the shorter duration a 4px move wants.
+ */
+export const SPEAKING_EASING = "0.32s cubic-bezier(0.2, 0, 0, 1)";
+
 /** Alpha of the tight ring, then of the wide glow. */
 const RING_ALPHA = 0.18;
 const GLOW_ALPHA = 0.5;
@@ -100,7 +110,17 @@ export const HALO_ROOM_PX = Math.ceil(
     RING_SPREAD,
     GLOW_SPREAD + GLOW_BLUR / 2,
     DROP.offset + DROP.blur / 2 + DROP.spread,
-  ),
+  ) +
+    /*
+     * Plus the rise, because the shape does not stay where it was measured.
+     * A speaking form translates up by `HALO_LIFT_PX`, which carries its
+     * whole shadow stack with it: room for the halo computed from the
+     * shadows alone was exactly enough while the form held still and four
+     * pixels short of the top edge the moment it rose. Costing four pixels
+     * on all four sides rather than only on top keeps the form a circle
+     * centred in its tile.
+     */
+    HALO_LIFT_PX,
 );
 
 /**

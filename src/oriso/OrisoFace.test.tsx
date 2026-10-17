@@ -11,7 +11,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { OrisoFace, artworkPaddingFor } from "./OrisoFace";
 import { resetArtworkCache } from "./artwork";
 import { type OrisoIdentity } from "./identity";
-import { QUIET_SHADOW } from "./halo";
+import { HALO_LIFT_PX, QUIET_SHADOW } from "./halo";
 import { liftFor } from "./lift";
 import { coverScale } from "./shape";
 
@@ -112,6 +112,59 @@ describe("speaking", () => {
     expect(shadow).toContain("rgba(22, 94, 131, 0.18)");
     expect(shadow).toContain("rgba(22, 94, 131, 0.5)");
     expect(screen.getByTestId("oriso-face").dataset.speaking).toBe("true");
+  });
+
+  it("comes forward out of the field, and only while speaking", () => {
+    /*
+     * The other half of the speaking state.
+     *
+     * The handoff gives it as a shape that lights up AND rises; only the
+     * halo was implemented, so somebody speaking glowed in place. The
+     * constant was already here, exported and asserted — by a test that
+     * checked its value and never checked that anything used it, which is
+     * the shape of defect a value test cannot see.
+     */
+    const { rerender } = render(<OrisoFace identity={FOX} size={120} />);
+    expect(screen.getByTestId("oriso-face").style.transform).toBe("");
+
+    rerender(<OrisoFace identity={FOX} size={120} speaking />);
+    expect(screen.getByTestId("oriso-face").style.transform).toBe(
+      `translateY(-${HALO_LIFT_PX}px)`,
+    );
+  });
+
+  it("rises straight up out of a leaning form, not along its lean", () => {
+    // Transforms apply right to left, so the rotation has to come last for
+    // the rise to be vertical. Written down because swapping the two reads
+    // as a harmless reordering and sends the shape off at eleven degrees.
+    render(
+      <OrisoFace
+        identity={FOX}
+        size={120}
+        shape={{ radius: "50%", tilt: 11 }}
+        speaking
+      />,
+    );
+    expect(screen.getByTestId("oriso-face").style.transform).toBe(
+      `translateY(-${HALO_LIFT_PX}px) rotate(11deg)`,
+    );
+  });
+
+  it("keeps one half of a shared circle in its place", () => {
+    // The Einzelgespräch's two halves occupy one box and are clipped to
+    // their own side of it. Lifting one would open a gap along the seam —
+    // the same reason neither half carries a shadow.
+    render(
+      <OrisoFace
+        identity={FOX}
+        size={120}
+        shape={{ radius: "50%", lifted: false }}
+        speaking
+      />,
+    );
+    const face = screen.getByTestId("oriso-face");
+    expect(face.style.transform).toBe("");
+    expect(face.style.boxShadow).toBe("");
   });
 
   it("grows its lift with the form, so a large shape is not a smudge", () => {

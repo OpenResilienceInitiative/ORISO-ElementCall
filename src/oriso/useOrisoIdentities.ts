@@ -170,6 +170,22 @@ function same(a: Identities, b: Identities): boolean {
   return true;
 }
 
+interface State {
+  /** The room the two maps below describe. */
+  roomId: string;
+  identities: Identities;
+  sources: ReadonlyMap<string, string>;
+}
+
+/** What a room says about itself before anything has been carried over. */
+function freshState(room: Room): State {
+  return {
+    roomId: room.roomId,
+    identities: readIdentities(room),
+    sources: readIdentitySources(room),
+  };
+}
+
 /**
  * Everybody's identity in this room, as published by their own client.
  *
@@ -191,23 +207,9 @@ export function useOrisoIdentities(room: Room): Identities {
    * ref written inside it is a side effect in something React may call twice,
    * which is the trap the `carryOver` parameter below already documents.
    */
-  const [state, setState] = useState<{
-    identities: Identities;
-    sources: ReadonlyMap<string, string>;
-  }>(() => ({
-    identities: readIdentities(room),
-    sources: readIdentitySources(room),
-  }));
-  const identities = state.identities;
+  const [state, setState] = useState<State>(() => freshState(room));
   /*
-   * A mirror for the listener, which runs outside React's rendering and
-   * needs the current ids without re-subscribing every time they change.
-   */
-  const sourcesRef = useRef(state.sources);
-  sourcesRef.current = state.sources;
-
-  /*
-   * Which room the map in state describes.
+   * Which room the map in state describes, as part of the state itself.
    *
    * Carrying known identities over is only valid WITHIN one room, and this
    * component is reused across rooms: `RoomPage` is a wildcard route, so SPA
@@ -216,12 +218,31 @@ export function useOrisoIdentities(room: Room): Identities {
    * map, and somebody present in both kept the animal they had in the room
    * just left — indefinitely, because absence from the new timeline is
    * deliberately not treated as withdrawal.
+   *
+   * The reset happens HERE, during the render, and not in the effect below.
+   * A ref consulted only inside the effect fixed the lasting case but left
+   * one render in which the new room was described by the old room's map —
+   * and that render is the one that paints. Changing rooms mid-call showed
+   * everybody the faces from the room just left for a frame, which on a
+   * counselling platform is a frame of the wrong person's animal in front of
+   * the wrong people. Setting state during a render of the same component is
+   * React's own answer to a prop the state derives from: the render is
+   * discarded and repeated, and nothing is shown in between.
    */
-  const describes = useRef(room.roomId);
+  const fresh = state.roomId === room.roomId ? null : freshState(room);
+  if (fresh !== null) setState(fresh);
+  // Not `state`: in the render that spots the change, `state` is the one
+  // being discarded, and this hook's caller must not be handed it.
+  const current = fresh ?? state;
+  const identities = current.identities;
+  /*
+   * A mirror for the listener, which runs outside React's rendering and
+   * needs the current ids without re-subscribing every time they change.
+   */
+  const sourcesRef = useRef(current.sources);
+  sourcesRef.current = current.sources;
 
   useEffect(() => {
-    const sameRoomAsState = describes.current === room.roomId;
-    describes.current = room.roomId;
     /*
      * `carryOver` is a parameter rather than a captured flag on purpose: a
      * mutable one would have to be written inside the state updater, and an
@@ -230,6 +251,10 @@ export function useOrisoIdentities(room: Room): Identities {
      */
     const update = (carryOver: boolean, forget?: string): void =>
       setState((prev) => {
+        // The room is reset during the render, so a `prev` from another room
+        // cannot reach here — but a listener firing between the two would be
+        // reading the wrong room, and dropping it is free.
+        if (prev.roomId !== room.roomId) return prev;
         let known = carryOver ? prev.identities : undefined;
         let knownSources = carryOver ? prev.sources : undefined;
         if (forget !== undefined && known?.has(forget)) {
@@ -243,11 +268,11 @@ export function useOrisoIdentities(room: Room): Identities {
         return same(prev.identities, next) &&
           sameSources(prev.sources, nextSources)
           ? prev
-          : { identities: next, sources: nextSources };
+          : { roomId: prev.roomId, identities: next, sources: nextSources };
       });
-    // The first read after a room change starts from nothing; every later
-    // read in this room carries what it already knows.
-    update(sameRoomAsState);
+    // Whatever arrived between the render and this effect, on top of what
+    // the render already read.
+    update(true);
     const onRoomEvent = (): void => update(true);
     room.on(RoomEvent.Timeline, onRoomEvent);
     /*
