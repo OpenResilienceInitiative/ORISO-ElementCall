@@ -11,7 +11,14 @@ import {
   type Room,
   RoomEvent,
 } from "matrix-js-sdk";
-import { createContext, use, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   ORISO_IDENTITY_EVENT_TYPE,
@@ -141,21 +148,45 @@ export function useOrisoIdentities(room: Room): Identities {
     readIdentities(room),
   );
 
+  /*
+   * Which room the map in state describes.
+   *
+   * Carrying known identities over is only valid WITHIN one room, and this
+   * component is reused across rooms: `RoomPage` is a wildcard route, so SPA
+   * navigation can replace `room` without remounting the hook. The first
+   * version of the carry-over seeded the new room's read from the old room's
+   * map, and somebody present in both kept the animal they had in the room
+   * just left — indefinitely, because absence from the new timeline is
+   * deliberately not treated as withdrawal.
+   */
+  const describes = useRef(room.roomId);
+
   useEffect(() => {
-    const update = (): void =>
+    const sameRoomAsState = describes.current === room.roomId;
+    describes.current = room.roomId;
+    /*
+     * `carryOver` is a parameter rather than a captured flag on purpose: a
+     * mutable one would have to be written inside the state updater, and an
+     * updater React may call twice would then seed the second call from the
+     * room that was just left.
+     */
+    const update = (carryOver: boolean): void =>
       setIdentities((prev) => {
-        const next = readIdentities(room, prev);
+        const next = readIdentities(room, carryOver ? prev : undefined);
         return same(prev, next) ? prev : next;
       });
-    update();
-    room.on(RoomEvent.Timeline, update);
+    // The first read after a room change starts from nothing; every later
+    // read in this room carries what it already knows.
+    update(sameRoomAsState);
+    const onRoomEvent = (): void => update(true);
+    room.on(RoomEvent.Timeline, onRoomEvent);
     /*
      * A gappy sync replaces the live timeline wholesale, so the new chunk has
      * to be read — but it is read ON TOP of what is known rather than instead
      * of it, because an identity missing from the new chunk has not been
      * withdrawn. See `readIdentities`.
      */
-    room.on(RoomEvent.TimelineReset, update);
+    room.on(RoomEvent.TimelineReset, onRoomEvent);
     /*
      * A redaction is not a timeline event either.
      *
@@ -166,7 +197,7 @@ export function useOrisoIdentities(room: Room): Identities {
      * a redacted event's content is empty, so `readIdentity` rejects it and
      * the record simply stops counting.
      */
-    room.on(RoomEvent.Redaction, update);
+    room.on(RoomEvent.Redaction, onRoomEvent);
     /*
      * And again once the event is readable.
      *
@@ -184,13 +215,13 @@ export function useOrisoIdentities(room: Room): Identities {
     const onDecrypted = (event: MatrixEvent): void => {
       if (event.getRoomId?.() !== room.roomId) return;
       if (event.getType?.() !== ORISO_IDENTITY_EVENT_TYPE) return;
-      update();
+      update(true);
     };
     room.client?.on?.(MatrixEventEvent.Decrypted, onDecrypted);
     return (): void => {
-      room.off(RoomEvent.Timeline, update);
-      room.off(RoomEvent.TimelineReset, update);
-      room.off(RoomEvent.Redaction, update);
+      room.off(RoomEvent.Timeline, onRoomEvent);
+      room.off(RoomEvent.TimelineReset, onRoomEvent);
+      room.off(RoomEvent.Redaction, onRoomEvent);
       room.client?.off?.(MatrixEventEvent.Decrypted, onDecrypted);
     };
   }, [room]);

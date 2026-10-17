@@ -72,6 +72,7 @@ function roomWith(
   records: Record<string, unknown>,
   /** Who actually sent each record, when that is not the person it describes. */
   senderFor?: (userId: string) => string,
+  roomId: string = ROOM_ID,
 ): TimelineRoom {
   const emitter = new EventEmitter();
   const events: unknown[] = [
@@ -93,7 +94,7 @@ function roomWith(
     push(senderFor?.(userId) ?? userId, content);
   const client = new EventEmitter();
   const room = Object.assign(emitter, {
-    roomId: ROOM_ID,
+    roomId,
     client,
     getLiveTimeline: (): { getEvents: () => unknown[] } => ({
       getEvents: (): unknown[] => events,
@@ -318,6 +319,53 @@ describe("finding out who everybody is", () => {
       (room as unknown as EventEmitter).emit(RoomEvent.TimelineReset);
     });
     expect(result.current.has("@berater:oriso.test")).toBe(false);
+  });
+
+  it("does not carry identities into a different room", () => {
+    /*
+     * The carry-over is only valid WITHIN one room, and this hook is reused
+     * across rooms: `RoomPage` is a wildcard route, so SPA navigation can
+     * replace `room` without remounting. Seeding the new room's read from the
+     * old room's map left somebody present in both wearing the animal they
+     * had in the room just left — and indefinitely, because absence from the
+     * new timeline is deliberately not withdrawal.
+     *
+     * This is a regression the carry-over itself introduced, which is why it
+     * is tested from the other side: same person, two rooms, two motifs.
+     */
+    const first = roomWith({
+      "@berater:oriso.test": {
+        kind: "motif",
+        file: "owl.svg",
+        bg: "#a5000a",
+        ink: "#ffffff",
+      },
+    });
+    const second = roomWith(
+      {
+        "@berater:oriso.test": {
+          kind: "motif",
+          file: "heron.svg",
+          bg: "#123456",
+          ink: "#ffffff",
+        },
+      },
+      undefined,
+      "!other:oriso.test",
+    );
+    const { result, rerender } = renderHook(
+      ({ room }: { room: typeof first.room }) => useOrisoIdentities(room),
+      { initialProps: { room: first.room } },
+    );
+    expect(result.current.get("@berater:oriso.test")?.file).toBe("owl.svg");
+
+    rerender({ room: second.room });
+    expect(result.current.get("@berater:oriso.test")?.file).toBe("heron.svg");
+
+    // And a room with nothing in it says nothing, rather than the last room.
+    const empty = roomWith({}, undefined, "!empty:oriso.test");
+    rerender({ room: empty.room });
+    expect(result.current.size).toBe(0);
   });
 
   it("hands back the same map when nothing changed", () => {

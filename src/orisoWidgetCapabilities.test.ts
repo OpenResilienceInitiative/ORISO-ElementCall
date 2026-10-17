@@ -17,6 +17,7 @@ describe("ORISO widget capability contract", () => {
     const capabilities = buildOrisoWidgetCapabilities(
       "@user:oriso.example",
       "ORISO_WEB_device",
+      true,
     );
 
     expect(capabilities).toEqual({
@@ -67,5 +68,56 @@ describe("ORISO widget capability contract", () => {
       sendDelayedEvents: true,
       updateDelayedEvents: true,
     });
+  });
+});
+
+describe("the identity capability follows the opt-in", () => {
+  /*
+   * Least privilege on the one event that carries who somebody is.
+   *
+   * A plain Element Web embedding of this fork renders upstream's rectangles
+   * — the design is gated on `orisoDesign` — so it has no use for identity
+   * records, and asking for them anyway widens the contract for an embedder
+   * that never reads them. In practice there would be nothing to deliver,
+   * since only the ORISO host publishes identities, but that is an argument
+   * about what happens to be in the room rather than about what the iframe is
+   * allowed to see.
+   */
+  const identityIn = (orisoDesign: boolean): boolean =>
+    (
+      buildOrisoWidgetCapabilities(
+        "@user:oriso.example",
+        "ORISO_WEB_device",
+        orisoDesign,
+      ).receiveEvent ?? []
+    ).includes(ORISO_IDENTITY_EVENT_TYPE);
+
+  it("asks for identity records when the ORISO design was asked for", () => {
+    expect(identityIn(true)).toBe(true);
+  });
+
+  it("does not ask for them in a plain embedding", () => {
+    expect(identityIn(false)).toBe(false);
+  });
+
+  it("changes nothing else between the two", () => {
+    // The gate must move exactly one event, not quietly reshape the contract.
+    const withDesign = buildOrisoWidgetCapabilities(
+      "@user:oriso.example",
+      "ORISO_WEB_device",
+      true,
+    );
+    const plain = buildOrisoWidgetCapabilities(
+      "@user:oriso.example",
+      "ORISO_WEB_device",
+      false,
+    );
+    expect({ ...plain, receiveEvent: undefined }).toEqual({
+      ...withDesign,
+      receiveEvent: undefined,
+    });
+    expect((withDesign.receiveEvent ?? []).length).toBe(
+      (plain.receiveEvent ?? []).length + 1,
+    );
   });
 });

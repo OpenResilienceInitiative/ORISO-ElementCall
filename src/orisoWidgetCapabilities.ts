@@ -19,6 +19,19 @@ import { ORISO_IDENTITY_EVENT_TYPE } from "./oriso/identity";
 export const buildOrisoWidgetCapabilities = (
   userId: string,
   deviceId: string,
+  /**
+   * Whether this embedding asked for the ORISO design.
+   *
+   * Required rather than defaulted, because it decides whether identity
+   * records are delivered into the iframe at all and a silent default is the
+   * wrong failure mode for that. A plain Element Web embedding of this fork
+   * renders upstream's rectangles, so it has no use for them: asking for them
+   * anyway widens the contract for an embedder that never reads them. There
+   * would be nothing to deliver in practice — only the ORISO host publishes
+   * identities — but least privilege on the one event that carries who
+   * somebody is should not depend on that.
+   */
+  orisoDesign: boolean,
 ): ICapabilities => {
   const rtcEvents = [
     EventType.CallEncryptionKeysPrefix,
@@ -38,7 +51,8 @@ export const buildOrisoWidgetCapabilities = (
   return {
     sendEvent: rtcEvents,
     /*
-     * Receive is deliberately wider than send, by exactly one event.
+     * Receive is wider than send by exactly one event, and only when the
+     * ORISO design was asked for.
      *
      * Who everybody is, as their own client published it, arrives as a
      * TIMELINE event so that the room's encryption covers it — room state is
@@ -47,7 +61,9 @@ export const buildOrisoWidgetCapabilities = (
      * identities and never writes one, not even its own. The host does that,
      * because the host is what knows.
      */
-    receiveEvent: [...rtcEvents, ORISO_IDENTITY_EVENT_TYPE],
+    receiveEvent: orisoDesign
+      ? [...rtcEvents, ORISO_IDENTITY_EVENT_TYPE]
+      : rtcEvents,
     sendState: groupCallStateKeys,
     // create/name/member are read-only boot metadata. The ORISO host driver
     // still confines every state read to the single active call room.
