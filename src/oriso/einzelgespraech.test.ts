@@ -1,0 +1,144 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+import { describe, expect, it } from "vitest";
+
+import {
+  EVEN_SHARE,
+  MAX_SHARE,
+  SEAM_EASING,
+  SEAM_TWEEN,
+  seamFor,
+  shareFor,
+} from "./einzelgespraech";
+
+/*
+ * SPECIFICATION — Einzelgespräch, ticket 04
+ *
+ * "The most common ORISO call: one advice seeker, one counsellor. A single
+ * circle divided into two halves along a soft seam."
+ *
+ * The acceptance list is about MOTION and BALANCE rather than pixels:
+ *
+ *   - Silence: an even split, neither half favoured.
+ *   - The speaking half's share grows past 50% and the seam bows toward the
+ *     quiet side.
+ *   - Turn-taking reads as one continuous motion — never a snap.
+ *
+ * "Neither half favoured" is the one a careless implementation breaks: it is
+ * tempting to treat the counsellor, or the local participant, as the default
+ * speaker. In a counselling call that would quietly give the professional
+ * more room than the person who came for help.
+ */
+
+describe("shareFor", () => {
+  it("splits evenly when nobody is speaking", () => {
+    // Not 50.1%. In this room an unearned advantage to either side is a
+    // statement, and silence is not a statement.
+    expect(shareFor("none")).toBe(EVEN_SHARE);
+    expect(EVEN_SHARE).toBe(0.5);
+  });
+
+  it("splits evenly when both are speaking", () => {
+    expect(shareFor("both")).toBe(EVEN_SHARE);
+  });
+
+  it("gives the speaking side more than half", () => {
+    expect(shareFor("first")).toBeGreaterThan(EVEN_SHARE);
+    expect(shareFor("second")).toBeLessThan(EVEN_SHARE);
+  });
+
+  it("is symmetric — neither side is the favoured one", () => {
+    // The counsellor is not the default. Mirror the input, mirror the
+    // output exactly.
+    expect(shareFor("first") + shareFor("second")).toBeCloseTo(1, 10);
+  });
+
+  it("never takes the whole circle", () => {
+    // The quiet person is still in the conversation and must stay visible.
+    for (const who of ["first", "second"] as const) {
+      expect(shareFor(who)).toBeLessThanOrEqual(MAX_SHARE);
+      expect(shareFor(who)).toBeGreaterThanOrEqual(1 - MAX_SHARE);
+    }
+  });
+});
+
+describe("seamFor", () => {
+  it("is straight when the split is even", () => {
+    expect(seamFor(EVEN_SHARE)).toBe(0);
+  });
+
+  it("bows toward the quiet side", () => {
+    // The seam bulges into whoever is NOT speaking, which is what makes
+    // the growth read as one body pressing against another rather than a
+    // bar chart.
+    expect(seamFor(0.62)).toBeGreaterThan(0);
+    expect(seamFor(0.38)).toBeLessThan(0);
+  });
+
+  it("bows further the more lopsided the split", () => {
+    expect(seamFor(0.62)).toBeGreaterThan(seamFor(0.55));
+  });
+
+  it("moves continuously, with no jump at the midpoint", () => {
+    // Turn-taking has to read as one motion. A discontinuity here would
+    // show up as a flick exactly when the turn passes.
+    const step = (a: number, b: number) => Math.abs(seamFor(a) - seamFor(b));
+    expect(step(0.499, 0.501)).toBeLessThan(0.02);
+  });
+});
+
+describe("the transition", () => {
+  it("is the easing the ticket names, and never a snap", () => {
+    expect(SEAM_EASING).toContain("0.45s");
+    expect(SEAM_EASING).toContain("cubic-bezier(0.2, 0, 0, 1)");
+  });
+});
+
+describe("the curve the seam travels on", () => {
+  /*
+   * The spring's easing has to BE the CSS curve the ticket names, not
+   * something that looks like it — the seam moves by a spring because no CSS
+   * transition can animate the `d` of a referenced clip path, and the two
+   * must not drift apart.
+   *
+   * These values are `cubic-bezier(0.2, 0, 0, 1)` solved by bisection on its
+   * own x polynomial, not read off this implementation.
+   */
+  it("is cubic-bezier(0.2, 0, 0, 1), to four decimals", () => {
+    expect(SEAM_EASING).toContain("cubic-bezier(0.2, 0, 0, 1)");
+    for (const [t, expected] of [
+      [0, 0],
+      [0.25, 0.60722],
+      [0.5, 0.877834],
+      [0.75, 0.97548],
+      [1, 1],
+    ] as const)
+      expect(SEAM_TWEEN.easing(t)).toBeCloseTo(expected, 4);
+  });
+
+  it("holds still outside the ride, rather than overshooting", () => {
+    expect(SEAM_TWEEN.easing(-1)).toBe(0);
+    expect(SEAM_TWEEN.easing(2)).toBe(1);
+  });
+
+  it("only ever moves forwards", () => {
+    // A seam that went backwards mid-ease would read as a wobble.
+    let last = -1;
+    for (let i = 0; i <= 100; i++) {
+      const value = SEAM_TWEEN.easing(i / 100);
+      expect(value).toBeGreaterThanOrEqual(last);
+      last = value;
+    }
+  });
+
+  it("runs for the ticket's 450ms", () => {
+    expect(SEAM_TWEEN.duration).toBe(450);
+    expect(SEAM_EASING).toContain("0.45s");
+  });
+});

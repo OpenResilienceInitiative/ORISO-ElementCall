@@ -111,6 +111,7 @@ export const widget = ((): WidgetHelpers | null => {
         baseUrl,
         e2eEnabled,
         allowIceFallback,
+        orisoDesign,
       } = getUrlParams();
       if (!roomId) throw new Error("Room ID must be supplied");
       if (!userId) throw new Error("User ID must be supplied");
@@ -119,7 +120,7 @@ export const widget = ((): WidgetHelpers | null => {
 
       const client = createRoomWidgetClient(
         api,
-        buildOrisoWidgetCapabilities(userId, deviceId),
+        buildOrisoWidgetCapabilities(userId, deviceId, orisoDesign),
         roomId,
         {
           baseUrl,
