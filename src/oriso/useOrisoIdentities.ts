@@ -72,23 +72,38 @@ export function readIdentities(room: Room, known?: Identities): Identities {
    * only a thing we cannot currently see.
    */
   const identities = new Map<string, OrisoIdentity>(known ?? []);
-  // A mock, or a room whose timeline has not loaded, answers neither.
+  const newest = newestIdentityEvents(room);
+  if (newest === null) return identities;
+  for (const [sender, event] of newest) {
+    const identity = readIdentity(event.getContent?.());
+    // Explicitly removed rather than merely not set: with the known
+    // identities seeded above, skipping would leave the withdrawn record
+    // standing, which is the redaction bug over again.
+    if (identity === null) identities.delete(sender);
+    else identities.set(sender, identity);
+  }
+  return identities;
+}
+
+/**
+ * The newest identity event per sender in the live timeline, or `null` when
+ * the room cannot answer — a mock, or a timeline that has not loaded.
+ *
+ * The newest record per sender, and only then read it. Reading as we go would
+ * let an older valid record survive a newer invalid one — and the commonest
+ * newer-invalid record is a REDACTED one, whose content is empty. Somebody who
+ * withdrew their animal would have kept it, or fallen back to one they had
+ * replaced, instead of returning to the stand-in letters. The newest thing a
+ * person said about themselves wins, including when the newest thing is
+ * nothing.
+ *
+ * One malformed record still costs only its own owner a face, which is the
+ * other half of the rule.
+ */
+function newestIdentityEvents(room: Room): Map<string, MatrixEvent> | null {
   const events = room.getLiveTimeline?.()?.getEvents?.();
-  if (!Array.isArray(events)) return identities;
-  /*
-   * The newest record per sender, and only then read it.
-   *
-   * Reading as we go would let an older valid record survive a newer invalid
-   * one — and the commonest newer-invalid record is a REDACTED one, whose
-   * content is empty. Somebody who withdrew their animal would have kept it,
-   * or fallen back to one they had replaced, instead of returning to the
-   * stand-in letters. The newest thing a person said about themselves wins,
-   * including when the newest thing is nothing.
-   *
-   * One malformed record still costs only its own owner a face, which is the
-   * other half of the rule.
-   */
-  const newest = new Map<string, unknown>();
+  if (!Array.isArray(events)) return null;
+  const newest = new Map<string, MatrixEvent>();
   for (const event of events) {
     /*
      * An event still in flight reads as `m.room.encrypted` and only becomes
@@ -99,17 +114,42 @@ export function readIdentities(room: Room, known?: Identities): Identities {
     if (event.getType?.() !== ORISO_IDENTITY_EVENT_TYPE) continue;
     const sender = event.getSender?.();
     if (typeof sender !== "string" || sender.length === 0) continue;
-    newest.set(sender, event.getContent?.());
+    newest.set(sender, event);
   }
-  for (const [sender, content] of newest) {
-    const identity = readIdentity(content);
-    // Explicitly removed rather than merely not set: with the known
-    // identities seeded above, skipping would leave the withdrawn record
-    // standing, which is the redaction bug over again.
-    if (identity === null) identities.delete(sender);
-    else identities.set(sender, identity);
+  return newest;
+}
+
+/**
+ * Which event each identity we are holding came from.
+ *
+ * Needed because an identity can outlive its event's presence in the window:
+ * the carry-over keeps a record that a limited sync pushed out of the live
+ * timeline, and a redaction of THAT event arrives as a redaction with nothing
+ * left in the timeline to match it against. Without the id the withdrawn
+ * animal stayed on the stage indefinitely.
+ */
+function readIdentitySources(
+  room: Room,
+  known?: ReadonlyMap<string, string>,
+): Map<string, string> {
+  const sources = new Map<string, string>(known ?? []);
+  const newest = newestIdentityEvents(room);
+  if (newest === null) return sources;
+  for (const [sender, event] of newest) {
+    const id = event.getId?.();
+    if (typeof id === "string") sources.set(sender, id);
   }
-  return identities;
+  return sources;
+}
+
+function sameSources(
+  a: ReadonlyMap<string, string>,
+  b: ReadonlyMap<string, string>,
+): boolean {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const [sender, id] of a) if (b.get(sender) !== id) return false;
+  return true;
 }
 
 function same(a: Identities, b: Identities): boolean {
@@ -144,9 +184,27 @@ function same(a: Identities, b: Identities): boolean {
  * plus an equality check is the version that holds still.
  */
 export function useOrisoIdentities(room: Room): Identities {
-  const [identities, setIdentities] = useState<Identities>(() =>
-    readIdentities(room),
-  );
+  /*
+   * The map, and where each entry came from, in one piece of state.
+   *
+   * One piece, because the updater has to stay a pure function of `prev`: a
+   * ref written inside it is a side effect in something React may call twice,
+   * which is the trap the `carryOver` parameter below already documents.
+   */
+  const [state, setState] = useState<{
+    identities: Identities;
+    sources: ReadonlyMap<string, string>;
+  }>(() => ({
+    identities: readIdentities(room),
+    sources: readIdentitySources(room),
+  }));
+  const identities = state.identities;
+  /*
+   * A mirror for the listener, which runs outside React's rendering and
+   * needs the current ids without re-subscribing every time they change.
+   */
+  const sourcesRef = useRef(state.sources);
+  sourcesRef.current = state.sources;
 
   /*
    * Which room the map in state describes.
@@ -170,10 +228,22 @@ export function useOrisoIdentities(room: Room): Identities {
      * updater React may call twice would then seed the second call from the
      * room that was just left.
      */
-    const update = (carryOver: boolean): void =>
-      setIdentities((prev) => {
-        const next = readIdentities(room, carryOver ? prev : undefined);
-        return same(prev, next) ? prev : next;
+    const update = (carryOver: boolean, forget?: string): void =>
+      setState((prev) => {
+        let known = carryOver ? prev.identities : undefined;
+        let knownSources = carryOver ? prev.sources : undefined;
+        if (forget !== undefined && known?.has(forget)) {
+          known = new Map([...known].filter(([sender]) => sender !== forget));
+          knownSources = new Map(
+            [...(knownSources ?? [])].filter(([sender]) => sender !== forget),
+          );
+        }
+        const next = readIdentities(room, known);
+        const nextSources = readIdentitySources(room, knownSources);
+        return same(prev.identities, next) &&
+          sameSources(prev.sources, nextSources)
+          ? prev
+          : { identities: next, sources: nextSources };
       });
     // The first read after a room change starts from nothing; every later
     // read in this room carries what it already knows.
@@ -197,7 +267,32 @@ export function useOrisoIdentities(room: Room): Identities {
      * a redacted event's content is empty, so `readIdentity` rejects it and
      * the record simply stops counting.
      */
-    room.on(RoomEvent.Redaction, onRoomEvent);
+    /*
+     * The redacted event's own id, because it may be gone from the window.
+     *
+     * Re-reading alone only works while the redacted event is still in the
+     * live timeline, where its emptied content makes `readIdentity` reject
+     * it. Once a limited sync has replaced the window, the carry-over is
+     * holding a record whose event is no longer there to contradict — and
+     * the withdrawn animal stayed on the stage for good. So the sender whose
+     * newest record the redaction names is dropped by hand.
+     */
+    const onRedaction = (event?: MatrixEvent): void => {
+      // The emitter promises an event; a test double, and older SDKs, do not.
+      const redacted =
+        event?.getAssociatedId?.() ??
+        (event as { event?: { redacts?: unknown } } | undefined)?.event
+          ?.redacts;
+      if (typeof redacted !== "string") {
+        update(true);
+        return;
+      }
+      let forget: string | undefined;
+      for (const [sender, id] of sourcesRef.current)
+        if (id === redacted) forget = sender;
+      update(true, forget);
+    };
+    room.on(RoomEvent.Redaction, onRedaction);
     /*
      * And again once the event is readable.
      *
@@ -221,7 +316,7 @@ export function useOrisoIdentities(room: Room): Identities {
     return (): void => {
       room.off(RoomEvent.Timeline, onRoomEvent);
       room.off(RoomEvent.TimelineReset, onRoomEvent);
-      room.off(RoomEvent.Redaction, onRoomEvent);
+      room.off(RoomEvent.Redaction, onRedaction);
       room.client?.off?.(MatrixEventEvent.Decrypted, onDecrypted);
     };
   }, [room]);

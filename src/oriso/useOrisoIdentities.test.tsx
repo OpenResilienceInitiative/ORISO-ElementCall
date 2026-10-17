@@ -51,8 +51,8 @@ const ROOM_ID = "!call:oriso.test";
 
 interface TimelineRoom {
   room: Room;
-  /** Send another record, as that person's own client would. */
-  push: (sender: string, content: unknown) => void;
+  /** Send another record, as that person's own client would. Returns its id. */
+  push: (sender: string, content: unknown) => string;
   /** The client the room belongs to, for decryption signals. */
   client: EventEmitter;
   /** Replace the live timeline with a fresh, empty chunk, as a gappy sync does. */
@@ -83,12 +83,16 @@ function roomWith(
       getContent: (): unknown => ({ body: "hello" }),
     },
   ];
-  const push = (sender: string, content: unknown): void => {
+  let nextId = 0;
+  const push = (sender: string, content: unknown): string => {
+    const id = `$identity-${++nextId}`;
     events.push({
       getType: (): string => ORISO_IDENTITY_EVENT_TYPE,
       getSender: (): string => sender,
       getContent: (): unknown => content,
+      getId: (): string => id,
     });
+    return id;
   };
   for (const [userId, content] of Object.entries(records))
     push(senderFor?.(userId) ?? userId, content);
@@ -240,6 +244,45 @@ describe("finding out who everybody is", () => {
       });
     });
     expect(result.current.size).toBe(0);
+  });
+
+  it("drops a carried-over identity whose event is redacted after a gappy sync", () => {
+    /*
+     * The two halves of this hook pulling against each other.
+     *
+     * Absence from the live timeline is deliberately not withdrawal, so a
+     * limited sync that replaces the window keeps what is known. A redaction
+     * of one of those kept records then arrives with nothing in the timeline
+     * to contradict it — re-reading finds no event, and the carry-over puts
+     * the withdrawn animal straight back. It stayed on the stage for good.
+     *
+     * So the id of the event each identity came from is kept too, and the
+     * redaction names it.
+     */
+    const { room, push, resetTimeline } = roomWith({});
+    const eventId = push("@berater:oriso.test", {
+      kind: "motif",
+      file: "owl.svg",
+      bg: "#a5000a",
+      ink: "#ffffff",
+    });
+    const { result } = renderHook(() => useOrisoIdentities(room));
+    expect(result.current.get("@berater:oriso.test")?.file).toBe("owl.svg");
+
+    // A gappy sync: a fresh, empty window. The record is kept.
+    resetTimeline();
+    act(() => {
+      (room as unknown as EventEmitter).emit(RoomEvent.TimelineReset);
+    });
+    expect(result.current.get("@berater:oriso.test")?.file).toBe("owl.svg");
+
+    // And now it is withdrawn, with nothing left in the window to say so.
+    act(() => {
+      (room as unknown as EventEmitter).emit(RoomEvent.Redaction, {
+        getAssociatedId: (): string => eventId,
+      });
+    });
+    expect(result.current.has("@berater:oriso.test")).toBe(false);
   });
 
   it("re-reads when an identity record is redacted", () => {

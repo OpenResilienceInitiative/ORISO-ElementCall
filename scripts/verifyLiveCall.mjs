@@ -27,12 +27,15 @@ Please see LICENSE in the repository root for full details.
  *      it reaches whoever is listening at the time; the people already in the
  *      call re-announce for a newcomer. Nothing short of a third client
  *      arriving late exercises that.
- *   3. The call room's STATE holds no identity. Matrix does not encrypt room
+ *   3. The homeserver holds ciphertext. The identity records it stores are
+ *      `m.room.encrypted`, which is the claim the whole transport rests on
+ *      and the one a plaintext harness would quietly skip.
+ *   4. The call room's STATE holds no identity. Matrix does not encrypt room
  *      state, which is the whole reason the record travels in the timeline.
- *   4. The view rail is on screen at phone width with four people in the
+ *   5. The view rail is on screen at phone width with four people in the
  *      call. jsdom applies no media queries and the harness mounts the rail
  *      on its own rather than inside `InCallView`'s footer.
- *   5. A form's square tile box does not swallow the clicks around it. The
+ *   6. A form's square tile box does not swallow the clicks around it. The
  *      forms are inscribed in square tiles packed until they abut, so the
  *      corners had to be made transparent to pointers; CSS hit-testing is
  *      not something jsdom can exercise.
@@ -53,6 +56,7 @@ Please see LICENSE in the repository root for full details.
  * against anything but a local stack.
  */
 import { chromium } from "@playwright/test";
+import { createClient } from "matrix-js-sdk";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -176,25 +180,124 @@ async function account(localpart) {
   }
 }
 
-let txnId = Date.now();
+/**
+ * One encrypting client per person, made the first time they speak.
+ *
+ * Not a raw `/send` request: the homeserver would then store the identity in
+ * clear, and checks 1 to 3 would pass with the encrypted transport entirely
+ * broken — which is the one thing this file exists to disprove. Matrix
+ * encryption is client-side, so the publisher has to be a client.
+ */
+const publishers = new Map();
+
+async function publisherFor(person) {
+  const existing = publishers.get(person.user_id);
+  if (existing) return existing;
+  /*
+   * Its OWN device, not the one the browser is signed in as.
+   *
+   * The browser contexts are signed in by writing this account's session into
+   * local storage, so they already hold `person.device_id`. A second crypto
+   * store on the same device id is two clients claiming one identity: each
+   * uploads its own device keys over the other's, the one-time keys stop
+   * verifying, and the Megolm key for the identity record never reaches the
+   * browser — which looks exactly like the encrypted transport being broken,
+   * and is not. Another device of the same person is also the truer model:
+   * in production the record is published by a client, not by this script.
+   */
+  const session = await cs("/_matrix/client/v3/login", {
+    method: "POST",
+    body: {
+      type: "m.login.password",
+      identifier: { type: "m.id.user", user: person.localpart },
+      password: PASSWORD,
+      initial_device_display_name: `oriso-live-publisher-${person.localpart}`,
+    },
+  });
+  const client = createClient({
+    baseUrl: HOMESERVER,
+    accessToken: session.access_token,
+    userId: session.user_id,
+    deviceId: session.device_id,
+  });
+  await client.initRustCrypto({ useIndexedDB: false });
+  await client.startClient({ initialSyncLimit: 1 });
+  await new Promise((resolve) => client.once("sync", resolve));
+  publishers.set(person.user_id, client);
+  return client;
+}
 
 /**
  * What the ORISO host does: publish one person's identity into the call room
  * as a timeline event. The host does this when a call surface opens and again
  * whenever somebody new arrives, which is what keeps a late joiner from
- * seeing a room full of initials.
+ * seeing a room full of initials — and a late joiner is also a device that
+ * could not have been given the earlier Megolm session, so the re-announce is
+ * what the encryption makes necessary rather than merely tidy.
  */
 async function announce(roomId, person) {
   if (!person.identity) return;
-  await cs(
-    `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/send/org.oriso.call.identity/${txnId++}`,
-    { method: "PUT", body: person.identity, token: person.access_token },
+  const client = await publisherFor(person);
+  /*
+   * Ask who is holding a device first, and do not take a cached answer.
+   *
+   * The Megolm session is shared with the devices known at the moment of
+   * sending. A browser that joined seconds ago is a device this client has
+   * never queried for, and without the refresh the first record of a call
+   * went out to nobody but its own sender — the stage showed initials until
+   * the next re-announce happened to carry a fresher device list.
+   */
+  await client.getCrypto()?.getUserDeviceInfo(
+    CAST.map((member) => member.user_id),
+    true,
   );
+  await client.sendEvent(roomId, "org.oriso.call.identity", person.identity);
+}
+
+/**
+ * Everything this account logged in as before, gone.
+ *
+ * Each run — and each browser context inside it — is a new device, and they
+ * are never signed out. Left to accumulate, the homeserver hands out one-time
+ * keys for devices whose keys have moved on, every Olm session with them
+ * fails to verify, and the Megolm key for an identity event reaches some
+ * participants and not others. The run then reports that identity is broken
+ * when what is broken is the leftovers.
+ */
+async function forgetOldDevices(person) {
+  const { devices = [] } = await cs("/_matrix/client/v3/devices", {
+    token: person.access_token,
+  });
+  const stale = devices
+    .map((device) => device.device_id)
+    .filter((id) => typeof id === "string" && id !== person.device_id);
+  if (stale.length === 0) return;
+  try {
+    await cs("/_matrix/client/v3/delete_devices", {
+      method: "POST",
+      body: {
+        devices: stale,
+        auth: {
+          type: "m.login.password",
+          identifier: { type: "m.id.user", user: person.localpart },
+          password: PASSWORD,
+        },
+      },
+      token: person.access_token,
+    });
+  } catch (error) {
+    // User-interactive auth differs between homeservers; a run with
+    // leftovers is noisier, not wrong.
+    console.log(
+      `could not clear ${person.localpart}'s old devices: ${error.message}`,
+    );
+  }
 }
 
 console.log(`homeserver ${HOMESERVER} (${SERVER_NAME}), call at ${EC_URL}`);
 for (const person of CAST)
   Object.assign(person, await account(person.localpart));
+for (const person of CAST) await forgetOldDevices(person);
 for (const person of CAST) {
   await cs(
     `/_matrix/client/v3/profile/${encodeURIComponent(person.user_id)}/displayname`,
@@ -229,6 +332,19 @@ const { room_id: roomId } = await cs("/_matrix/client/v3/createRoom", {
         "m.room.encrypted": 0,
       },
     },
+    /*
+     * Encrypted, because that is the entire argument for putting identity in
+     * the timeline rather than in room state. A verification that published
+     * into a plain room would pass with the encrypted transport completely
+     * broken.
+     */
+    initial_state: [
+      {
+        type: "m.room.encryption",
+        state_key: "",
+        content: { algorithm: "m.megolm.v1.aes-sha2" },
+      },
+    ],
   },
   token: first.access_token,
 });
@@ -364,6 +480,36 @@ async function settled(page, timeout = 45_000) {
   }
 }
 
+/**
+ * Waits until every tile has inherited artwork, or gives up and reports what
+ * it has.
+ *
+ * Fixed sleeps are wrong here: the record is encrypted, so the tile shows
+ * stand-in letters until the Megolm key has travelled to-device and the event
+ * has been decrypted a second time. That is a race with no fixed length, and
+ * a sleep long enough to always win is a sleep that wastes a minute on every
+ * run.
+ */
+async function waitForArtwork(page, expected) {
+  await page
+    .waitForFunction(
+      (want) => {
+        const tiles = [
+          ...document.querySelectorAll('[data-testid="videoTile"]'),
+        ];
+        return (
+          tiles.length >= want &&
+          tiles.every((tile) =>
+            tile.querySelector('[data-testid="oriso-artwork"]'),
+          )
+        );
+      },
+      expected,
+      { timeout: 60_000 },
+    )
+    .catch(() => undefined);
+}
+
 const facesOn = (page) =>
   page.evaluate(() =>
     [...document.querySelectorAll('[data-testid="videoTile"]')].map((tile) => ({
@@ -383,8 +529,8 @@ for (const person of CAST.slice(0, 2)) pages.push(await openCall(person));
 for (const person of CAST.slice(0, 2)) await announce(roomId, person);
 await pages[0].waitForTimeout(2_500);
 for (const page of pages) await camera(page, false);
-await pages[0].waitForTimeout(2_500);
 await settled(pages[0]);
+await waitForArtwork(pages[0], 2);
 await pages[0].screenshot({ path: join(OUT, "einzelgespraech.png") });
 
 const hex = (colour) => {
@@ -408,8 +554,8 @@ await camera(latecomer, false);
 // The newcomer's own surface publishes for her; the others re-announce for her.
 await announce(roomId, CAST[2]);
 for (const person of CAST.slice(0, 2)) await announce(roomId, person);
-await latecomer.waitForTimeout(3_000);
 await settled(latecomer);
+await waitForArtwork(latecomer, 3);
 const latecomerSees = await facesOn(latecomer);
 await latecomer.screenshot({ path: join(OUT, "latecomer.png") });
 say(
@@ -425,6 +571,27 @@ say(
   ),
 );
 
+// ── What the server actually stored ───────────────────────────────────────
+const stored = await cs(
+  `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/messages?dir=b&limit=60`,
+  { token: first.access_token },
+);
+const identityShaped = (stored.chunk ?? []).filter(
+  (event) =>
+    event.type === "org.oriso.call.identity" ||
+    (event.type === "m.room.encrypted" &&
+      CAST.some((p) => p.user_id === event.sender)),
+);
+const inClear = identityShaped.filter(
+  (event) => event.type !== "m.room.encrypted",
+);
+say(
+  identityShaped.length > 0 && inClear.length === 0,
+  "3. the homeserver holds ciphertext, not identities",
+  `${identityShaped.length} candidate events, ${inClear.length} of them readable; ` +
+    `types: ${[...new Set((stored.chunk ?? []).map((e) => e.type))].join(", ")}`,
+);
+
 // ── Identity is nowhere in the room's state ────────────────────────────────
 const state = await cs(
   `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state`,
@@ -437,7 +604,7 @@ const leaked = state.filter(
 );
 say(
   leaked.length === 0,
-  "3. the call room's state holds no identity",
+  "4. the call room's state holds no identity",
   `${state.length} state events, ${leaked.length} identity; ` +
     `types: ${[...new Set(state.map((event) => event.type))].join(", ")}`,
 );
@@ -447,8 +614,15 @@ const fourth = await openCall(CAST[3]);
 await camera(fourth, false);
 for (const person of CAST.slice(0, 3)) await announce(roomId, person);
 const phone = await openCall(CAST[0], { width: 390, height: 844 });
-await phone.waitForTimeout(3_000);
 await settled(phone);
+// Everybody has to be on the stage before the stage can be judged.
+await phone
+  .waitForFunction(
+    () => document.querySelectorAll('[data-testid="videoTile"]').length >= 4,
+    { timeout: 45_000 },
+  )
+  .catch(() => undefined);
+await phone.waitForTimeout(2_000);
 await phone.screenshot({ path: join(OUT, "phone-four.png") });
 const rail = await phone.evaluate(() => {
   const el = document.querySelector('[data-testid="view-switcher"]');
@@ -483,7 +657,7 @@ const rail = await phone.evaluate(() => {
 });
 say(
   !!rail?.onScreen && rail.tiles === 4 && rail.overflow <= 1,
-  "4. the view rail is reachable at 390px with four people, and no form runs off the screen",
+  "5. the view rail is reachable at 390px with four people, and no form runs off the screen",
   JSON.stringify(rail),
 );
 
@@ -549,7 +723,7 @@ const stolen = pointerRule.filter(
 );
 say(
   pointerRule.length === 4 && stolen.length === 0,
-  "5. a form's square box does not swallow the clicks around it",
+  "6. a form's square box does not swallow the clicks around it",
   JSON.stringify(pointerRule),
 );
 
@@ -594,11 +768,12 @@ const halo = await grove.evaluate(() => {
 });
 say(
   !!halo && Math.min(...Object.values(halo.room)) >= HALO_ROOM_PX,
-  `6. the spotlight still reserves ${HALO_ROOM_PX}px for the halo on every side`,
+  `7. the spotlight still reserves ${HALO_ROOM_PX}px for the halo on every side`,
   JSON.stringify(halo),
 );
 
 await browser.close();
+for (const client of publishers.values()) client.stopClient();
 
 console.log(`\nplates in ${OUT}`);
 if (problems.length > 0) {
@@ -607,3 +782,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log("the call held up.");
+// The crypto workers keep the process alive otherwise.
+process.exit(0);
