@@ -28,7 +28,7 @@ import { OrisoFace } from "../src/oriso/OrisoFace";
 import { Atmosphere } from "../src/oriso/Atmosphere";
 import { ViewSwitcher } from "../src/oriso/ViewSwitcher";
 import { type OrisoIdentity } from "../src/oriso/identity";
-import { packShapes, splitCells } from "../src/oriso/layout";
+import { packShapes, pairShapes, splitCells } from "../src/oriso/layout";
 import { shareFor, seamFor, type Speaking } from "../src/oriso/einzelgespraech";
 import { FIELD_RADIUS } from "../src/oriso/shape";
 import { liftFor } from "../src/oriso/lift";
@@ -92,22 +92,35 @@ function Plate({
   );
 }
 
-/** The grove, placed by `packShapes` exactly as `OrisoGroveLayout` places it. */
+/**
+ * The grove, placed exactly as `OrisoGroveLayout` places it — including the
+ * split at two people, where the packing buries one of them and the layout
+ * therefore divides the rectangle instead.
+ */
 function Hain({
   count,
   speaker,
   box,
+  width = box,
 }: {
   count: number;
   speaker: number | null;
   box: number;
+  width?: number;
 }): React.ReactNode {
   const cast = CAST.slice(0, count);
-  const spots = packShapes(
-    cast.map((person) => person.name),
-    box,
-    cast.map((_, i) => (i === speaker ? SPEAKING_WEIGHT : 1)),
-  );
+  const spots =
+    count === 2
+      ? pairShapes(
+          cast.map((person) => person.name),
+          { x: 0, y: 0, w: width, h: box },
+          cast.map((_, i) => (i === speaker ? SPEAKING_WEIGHT : 1)),
+        )
+      : packShapes(
+          cast.map((person) => person.name),
+          box,
+          cast.map((_, i) => (i === speaker ? SPEAKING_WEIGHT : 1)),
+        );
   return (
     <>
       {spots.map((spot, i) => (
@@ -278,6 +291,18 @@ function Harness(): React.ReactNode {
   const stage = { width: 960, height: 640 };
   const box = Math.min(stage.width, stage.height);
   const offset = Math.round((stage.width - box) / 2);
+  // Two people take the whole stage rather than the grove's square: there is
+  // no packing to keep square, and the division is the fields'.
+  const pair = (speaker: number | null) => (
+    <div style={{ position: "absolute", inset: 0 }}>
+      <Hain
+        count={2}
+        speaker={speaker}
+        box={stage.height}
+        width={stage.width}
+      />
+    </div>
+  );
   const grove = (count: number, speaker: number | null) => (
     <div style={{ position: "absolute", inset: 0, left: offset, width: box }}>
       <Hain count={count} speaker={speaker} box={box} />
@@ -289,7 +314,10 @@ function Harness(): React.ReactNode {
       style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}
     >
       <Plate id="hain-2" caption="Hain · 2 · niemand spricht" {...stage}>
-        {grove(2, null)}
+        {pair(null)}
+      </Plate>
+      <Plate id="hain-2-spricht" caption="Hain · 2 · eine spricht" {...stage}>
+        {pair(0)}
       </Plate>
       <Plate id="hain-3" caption="Hain · 3 · einer spricht" {...stage}>
         {grove(3, 1)}

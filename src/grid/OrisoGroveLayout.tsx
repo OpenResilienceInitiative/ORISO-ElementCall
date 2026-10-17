@@ -20,7 +20,13 @@ import {
   useUpdateLayout,
   useVisibleTiles,
 } from "./Grid";
-import { groveBox, haloRoomFor, packShapes, splitCells } from "../oriso/layout";
+import {
+  groveBox,
+  haloRoomFor,
+  packShapes,
+  pairShapes,
+  splitCells,
+} from "../oriso/layout";
 import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { useOrisoView } from "../oriso/useOrisoView";
@@ -213,6 +219,43 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
       if (seats.length === 0) return [];
 
       if (view === "hain") {
+        /*
+         * Two people are not a packing problem, and `packShapes` treats them
+         * as one: with two shapes the relaxation has nothing to relax
+         * against and buries 31.2% of one behind the other — measured, and
+         * pinned in `layout.test.ts`. The count arises whenever a screen
+         * share takes the Einzelgespräch away from a two-person call, or
+         * when somebody simply picks the Kreis at two.
+         *
+         * So the positions come from the fields' own division, with the
+         * grove's forms inscribed in them. Design decided this on
+         * 2026-10-17; three, five and six still overlap and are left to the
+         * prototype's packing until that has its own answer.
+         */
+        if (seats.length === 2) {
+          const room = Math.round(haloRoomFor(width, height));
+          return pairShapes(
+            seats.map((s) => s.seed),
+            {
+              x: room,
+              y: room,
+              w: Math.max(0, width - 2 * room),
+              h: Math.max(0, height - 2 * room),
+            },
+            seats.map((s) => (s.speaking ? SPEAKING_WEIGHT : 1)),
+          ).map((spot, i) => ({
+            id: seats[i].model.id,
+            mediaId: seats[i].mediaId,
+            model: seats[i].model,
+            x: spot.x,
+            y: spot.y,
+            width: spot.size,
+            height: spot.size,
+            shape: { radius: spot.blob, tilt: Number(spot.tilt) },
+            speaking: seats[i].speaking,
+          }));
+        }
+
         // The grove is built around a square, which is what the handoff
         // draws and what `packShapes` assumes. In a wide window it is
         // centred rather than stretched: stretching would turn every

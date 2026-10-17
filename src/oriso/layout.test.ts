@@ -31,9 +31,11 @@ import { describe, expect, it } from "vitest";
 import { HALO_ROOM_MAX_SHARE, HALO_ROOM_PX } from "./halo";
 import {
   type Placement,
+  type Rect,
   organicSpots,
   ownShape,
   packShapes,
+  pairShapes,
   seeded,
   splitCells,
   groveBox,
@@ -167,7 +169,12 @@ describe("packShapes", () => {
     },
   );
 
-  // Known defect of the prototype, awaiting a decision from design.
+  /*
+   * Known defect of the prototype. Two is pinned here as the REASON the
+   * Kreis does not pack a pair any more — design chose the fields' division
+   * for that count on 2026-10-17, see `pairShapes` below — and three, five
+   * and six are still awaiting a decision of their own.
+   */
   it.fails.each([2, 3, 5, 6])(
     "TICKET 01 UNMET — %i shapes bury one another",
     (n) => {
@@ -310,5 +317,71 @@ describe("the room the grove leaves for a halo", () => {
       [Number.NaN, 400],
     ])
       expect(groveBox(w, h).box).toBeGreaterThan(0);
+  });
+});
+
+describe("the Kreis at two people", () => {
+  /*
+   * The count `packShapes` cannot do: 31.2% of one form buried behind the
+   * other, measured in the table above. A screen share takes the
+   * Einzelgespräch away from a two-person call and the Kreis is what is left,
+   * so this is not a corner case anybody can avoid.
+   */
+  const STAGE: Rect = { x: 36, y: 36, w: 888, h: 568 };
+  const PAIR = ["ruhiger Fuchs 432", "naher Otter 303"];
+
+  const overlap = (placed: Placement[]): number => {
+    const [a, b] = placed;
+    const dx = Math.max(a.x, b.x) - Math.min(a.x + a.size, b.x + b.size);
+    const dy = Math.max(a.y, b.y) - Math.min(a.y + a.size, b.y + b.size);
+    // Negative on BOTH axes is a genuine overlap of the boxes.
+    return Math.max(dx, dy);
+  };
+
+  it.each([
+    ["quiet", [1, 1]],
+    ["one speaking", [1.6, 1]],
+    ["the other speaking", [1, 1.6]],
+  ] as const)("never buries one behind the other (%s)", (_name, weights) => {
+    expect(overlap(pairShapes(PAIR, STAGE, weights))).toBeGreaterThan(0);
+  });
+
+  it("keeps both forms inside the rectangle it was given", () => {
+    for (const spot of pairShapes(PAIR, STAGE, [1.6, 1])) {
+      expect(spot.x).toBeGreaterThanOrEqual(STAGE.x);
+      expect(spot.y).toBeGreaterThanOrEqual(STAGE.y);
+      expect(spot.x + spot.size).toBeLessThanOrEqual(STAGE.x + STAGE.w);
+      expect(spot.y + spot.size).toBeLessThanOrEqual(STAGE.y + STAGE.h);
+    }
+  });
+
+  it("grows the speaker without demoting the listener", () => {
+    const [speaking, listening] = pairShapes(PAIR, STAGE, [1.6, 1]);
+    expect(speaking.size).toBeGreaterThan(listening.size);
+    /*
+     * The grove's own 1.6, not the fields' 2.6.
+     *
+     * `splitCells` gives a speaker 72% of the width, and a form inscribed in
+     * the remaining 28% is a QUARTER of the speaker's size. Between two
+     * people on a counselling stage that is not emphasis; the listener is
+     * one of the two people in the conversation.
+     */
+    expect(listening.size).toBeGreaterThan(speaking.size * 0.45);
+  });
+
+  it("cuts the long axis, so a phone stacks them", () => {
+    const tall: Rect = { x: 0, y: 0, w: 390, h: 760 };
+    const [first, second] = pairShapes(PAIR, tall, [1, 1]);
+    expect(second.y).toBeGreaterThan(first.y + first.size - 1);
+    expect(overlap(pairShapes(PAIR, tall, [1.6, 1]))).toBeGreaterThan(0);
+  });
+
+  it("gives each person their own form, not a field", () => {
+    const [fox, otter] = pairShapes(PAIR, STAGE, [1, 1]);
+    // The blob is the person's, derived from their name, exactly as the
+    // packing derives it — this is the grove, laid out differently.
+    expect(fox.blob).not.toBe(otter.blob);
+    expect(fox.blob).toMatch(/%/);
+    expect(packShapes([PAIR[0]], 400, [1])[0].blob).toBe(fox.blob);
   });
 });

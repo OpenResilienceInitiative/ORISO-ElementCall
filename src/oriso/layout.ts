@@ -208,6 +208,67 @@ export function organicSpots(
   });
 }
 
+/**
+ * The grove at TWO people: the rectangle divided, one organic form per half.
+ *
+ * `packShapes` is a relaxation, and with two shapes it has nothing to relax
+ * against: measured, the worst overlap at two is 31.2% of a shape — one
+ * person buried behind the other — where four or more settle to a few per
+ * cent of deliberate abutting. The engine is the prototype's and is ported
+ * verbatim, so this does not touch it; it routes the one count that cannot
+ * work around it.
+ *
+ * The division is the fields' — the same orientation rule as `splitCells`,
+ * the same proportional cut — but with the GROVE's weights rather than the
+ * fields' own 2.6. That matters at two: `splitCells` gives a speaker 72% of
+ * the width, and a circle inscribed in the remaining 28% is a quarter of the
+ * size of the one speaking. On a counselling stage with exactly two people in
+ * it, that is not emphasis, it is a demotion. With the grove's 1.6 the forms
+ * end in the same ratio the packing would have given them.
+ *
+ * What stays the grove's is the FORM: each cell gets the person's own blob
+ * and lean from `ownShape`, inscribed in it, not a field's rounded rectangle.
+ *
+ * Decided by design on 2026-10-17, against withholding the view at two or
+ * leaving the overlap. Three, five and six still bury one another by 12 to
+ * 18% and are NOT routed here — that is the prototype's packing and awaits
+ * its own decision; `layout.test.ts` pins it.
+ */
+export function pairShapes(
+  names: readonly string[],
+  rect: Rect,
+  weights: readonly number[],
+): Placement[] {
+  const shapes = names.map(ownShape);
+  const total = weights[0] + weights[1];
+  // The long axis is cut, as `splitCells` cuts it: a phone-shaped stage puts
+  // the two above each other rather than squeezing them side by side.
+  const horiz = rect.w >= rect.h;
+  const cut = Math.round((horiz ? rect.w : rect.h) * (weights[0] / total));
+  const cells: Rect[] = horiz
+    ? [
+        { ...rect, w: cut },
+        { ...rect, x: rect.x + cut, w: rect.w - cut },
+      ]
+    : [
+        { ...rect, h: cut },
+        { ...rect, y: rect.y + cut, h: rect.h - cut },
+      ];
+  // Short of the cell, so the two forms keep a visible gap at the seam and a
+  // speaking halo has somewhere to go.
+  const fill = 0.92;
+  return cells.map((cell, i) => {
+    const size = Math.round(Math.min(cell.w, cell.h) * fill);
+    return {
+      size,
+      x: Math.round(cell.x + (cell.w - size) / 2),
+      y: Math.round(cell.y + (cell.h - size) / 2),
+      blob: shapes[i].blob,
+      tilt: shapes[i].tilt,
+    };
+  });
+}
+
 // Recursive subdivision: one shape splits until everyone has a cell. The
 // speaker's branch keeps the larger share, so the picture re-balances by itself.
 export function splitCells(
