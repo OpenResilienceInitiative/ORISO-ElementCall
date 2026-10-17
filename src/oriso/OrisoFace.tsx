@@ -134,6 +134,29 @@ export const OrisoFace: FC<Props> = ({
     () => ({
       borderRadius: shape?.radius ?? "50%",
       clipPath: shape?.clipPath,
+      /*
+       * With no shape of its own, the form is a CIRCLE — not an ellipse.
+       *
+       * `.face` fills its tile, which is what the grove and the fields want:
+       * there the engine supplies an eight-value radius meant for that exact
+       * box. With no shape the radius falls back to `50%`, and 50% of a
+       * 300x200 spotlight is a 300x200 oval with the camera stretched into
+       * it. The handoff's default is a circle, so take the smaller side —
+       * `size` is already `min(width, height)` — and centre it.
+       *
+       * `inset: 0` with `margin: auto` centres on both axes against the tile
+       * root, which is a containing block for it: `container-type: size`
+       * implies `contain: layout`.
+       */
+      ...(shape === undefined
+        ? {
+            position: "absolute" as const,
+            inset: 0,
+            margin: "auto",
+            inlineSize: size,
+            blockSize: size,
+          }
+        : {}),
       transform: tilt === 0 ? undefined : `rotate(${tilt}deg)`,
       background: identity.bg,
       // The lift scales with the form; the halo replaces it outright, because
@@ -147,7 +170,7 @@ export const OrisoFace: FC<Props> = ({
           ? haloFor(identity.bg, true)
           : liftFor(size),
     }),
-    [shape?.radius, shape?.clipPath, tilt, identity.bg, speaking, size, lifted],
+    [shape, tilt, identity.bg, speaking, size, lifted],
   );
 
   // The contents stay upright while the form leans, and sit over their own

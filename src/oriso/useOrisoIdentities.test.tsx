@@ -21,7 +21,7 @@ import { EventEmitter } from "node:events";
 import { type FC, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { type Room, RoomEvent } from "matrix-js-sdk";
+import { MatrixEventEvent, type Room, RoomEvent } from "matrix-js-sdk";
 
 import {
   OrisoStageContext,
@@ -47,10 +47,14 @@ const FROM_THE_HOST = {
   },
 };
 
+const ROOM_ID = "!call:oriso.test";
+
 interface TimelineRoom {
   room: Room;
   /** Send another record, as that person's own client would. */
   push: (sender: string, content: unknown) => void;
+  /** The client the room belongs to, for decryption signals. */
+  client: EventEmitter;
 }
 
 /**
@@ -85,12 +89,15 @@ function roomWith(
   };
   for (const [userId, content] of Object.entries(records))
     push(senderFor?.(userId) ?? userId, content);
+  const client = new EventEmitter();
   const room = Object.assign(emitter, {
+    roomId: ROOM_ID,
+    client,
     getLiveTimeline: (): { getEvents: () => unknown[] } => ({
       getEvents: (): unknown[] => events,
     }),
   }) as unknown as Room;
-  return { room, push };
+  return { room, push, client };
 }
 
 describe("finding out who everybody is", () => {
@@ -173,6 +180,60 @@ describe("finding out who everybody is", () => {
       (room as unknown as EventEmitter).emit(RoomEvent.Timeline);
     });
     expect(result.current.get("@berater:oriso.test")?.file).toBe("swan.svg");
+  });
+
+  it("re-reads when an identity finishes decrypting", () => {
+    /*
+     * The timeline fires while the event is still `m.room.encrypted`.
+     *
+     * In the embedded build the host decrypts before feeding the widget, so
+     * what arrives is already clear. This hook must not depend on an
+     * invariant of the other repository: with a client of its own, the
+     * timeline event comes first and decryption is a separate signal, so
+     * without this listener the last identity of a batch — or a motif
+     * changed mid-call — would stay as initials until unrelated timeline
+     * activity happened to re-read it.
+     */
+    const { room, push, client } = roomWith({});
+    const { result } = renderHook(() => useOrisoIdentities(room));
+    expect(result.current.size).toBe(0);
+
+    push("@berater:oriso.test", {
+      kind: "motif",
+      file: "owl.svg",
+      bg: "#a5000a",
+      ink: "#ffffff",
+    });
+    // No timeline event: the arrival was the encrypted one, already past.
+    act(() => {
+      client.emit(MatrixEventEvent.Decrypted, {
+        getRoomId: (): string => ROOM_ID,
+        getType: (): string => ORISO_IDENTITY_EVENT_TYPE,
+      });
+    });
+    expect(result.current.get("@berater:oriso.test")?.file).toBe("owl.svg");
+  });
+
+  it("ignores a decryption in another room, or of something else", () => {
+    const { room, push, client } = roomWith({});
+    const { result } = renderHook(() => useOrisoIdentities(room));
+    push("@berater:oriso.test", {
+      kind: "motif",
+      file: "owl.svg",
+      bg: "#a5000a",
+      ink: "#ffffff",
+    });
+    act(() => {
+      client.emit(MatrixEventEvent.Decrypted, {
+        getRoomId: (): string => "!elsewhere:oriso.test",
+        getType: (): string => ORISO_IDENTITY_EVENT_TYPE,
+      });
+      client.emit(MatrixEventEvent.Decrypted, {
+        getRoomId: (): string => ROOM_ID,
+        getType: (): string => "m.room.message",
+      });
+    });
+    expect(result.current.size).toBe(0);
   });
 
   it("hands back the same map when nothing changed", () => {

@@ -11,6 +11,7 @@ import {
   type ReactNode,
   type TouchEvent,
   useCallback,
+  useMemo,
 } from "react";
 import { useTranslation } from "react-i18next";
 import classNames from "classnames";
@@ -86,29 +87,40 @@ export const ViewSwitcher: FC<Props> = ({
 }) => {
   const { t } = useTranslation();
 
-  const entries: Record<StageView, Entry> = {
-    hain: {
-      key: "hain",
-      label: t("oriso.view_grove"),
-      icon: <GroupIcon aria-hidden width={20} height={20} />,
-    },
-    felder: {
-      key: "felder",
-      label: t("oriso.view_fields"),
-      icon: <GridIcon aria-hidden width={20} height={20} />,
-    },
-    einzelgespraech: {
-      key: "einzelgespraech",
-      label: t("oriso.view_one_on_one"),
-      icon: <UserProfileIcon aria-hidden width={20} height={20} />,
-    },
-    spotlight: {
-      key: "spotlight",
-      label: t("layout_spotlight_label"),
-      icon: <SpotlightIcon aria-hidden width={20} height={20} />,
-    },
-  };
-  const views: Entry[] = offer.map((key) => entries[key]);
+  /*
+   * One list, memoised on what it is actually made of.
+   *
+   * `offer` changes when the stage changes what it can honour — at two
+   * people the rail offers the Einzelgespräch and the spotlight, otherwise
+   * the handoff's three. `move` closes over this list, so a stale copy could
+   * select a view that is no longer on the rail, and then focus nothing
+   * because no button carries that `data-view`.
+   */
+  const views: Entry[] = useMemo(() => {
+    const entries: Record<StageView, Entry> = {
+      hain: {
+        key: "hain",
+        label: t("oriso.view_grove"),
+        icon: <GroupIcon aria-hidden width={20} height={20} />,
+      },
+      felder: {
+        key: "felder",
+        label: t("oriso.view_fields"),
+        icon: <GridIcon aria-hidden width={20} height={20} />,
+      },
+      einzelgespraech: {
+        key: "einzelgespraech",
+        label: t("oriso.view_one_on_one"),
+        icon: <UserProfileIcon aria-hidden width={20} height={20} />,
+      },
+      spotlight: {
+        key: "spotlight",
+        label: t("layout_spotlight_label"),
+        icon: <SpotlightIcon aria-hidden width={20} height={20} />,
+      },
+    };
+    return offer.map((key) => entries[key]);
+  }, [offer, t]);
 
   const move = useCallback(
     (event: KeyboardEvent) => {
@@ -152,8 +164,7 @@ export const ViewSwitcher: FC<Props> = ({
         .querySelector<HTMLElement>(`[data-view="${views[next].key}"]`)
         ?.focus();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [active, onChange],
+    [active, onChange, views],
   );
 
   return (

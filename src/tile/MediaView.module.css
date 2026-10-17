@@ -219,6 +219,31 @@ unconditionally select the container so we can use cqmin units */
   contain: none;
 }
 
+/*
+ * Only the visible form takes the pointer.
+ *
+ * A grove tile's ROOT is a square; the shape lives on the face inside it, as
+ * an eight-value border radius. The packer sets `--hover-space-margin: 0` and
+ * packs the squares until they abut, so they overlap — and a neighbour's
+ * transparent corner sat on top of a visible form and swallowed the clicks,
+ * the drags and the context menu meant for it.
+ *
+ * The root stops being a hit target and its children become ones, so the
+ * pointer lands on the form and on the chrome rather than on empty corners.
+ * Handlers stay where they were: pointer events still bubble to the root.
+ *
+ * The Einzelgespräch is excluded on purpose. There the root carries a
+ * `clip-path` for the seam, and a clipped-away region is already not
+ * hit-testable — so its halves already behave.
+ */
+.media.oriso:not([data-oriso-half="true"]) {
+  pointer-events: none;
+}
+
+.media.oriso:not([data-oriso-half="true"]) > * {
+  pointer-events: auto;
+}
+
 /* The camera is cropped into the form, so it covers rather than letter-boxes
    and brings no backdrop of its own. */
 .media.oriso video {

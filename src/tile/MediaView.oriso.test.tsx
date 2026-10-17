@@ -115,6 +115,40 @@ describe("with an identity, the tile is a form", () => {
     expect(liftFor(200)).not.toBe(liftFor(300));
   });
 
+  it("is a circle, not an ellipse, when the layout gave it no shape", () => {
+    /*
+     * The spotlight's single form, and any other face with no shape.
+     *
+     * `.face` fills its tile, which the grove and the fields want — their
+     * eight-value radius is meant for that box. With no shape the radius
+     * falls back to `50%`, and 50% of this 300x200 tile is a 300x200 oval
+     * with the camera stretched into it. The handoff's default is a circle.
+     */
+    render(<MediaView {...base} orisoIdentity={FOX} />);
+    const face = screen.getByTestId("oriso-face");
+    expect(face.style.borderRadius).toBe("50%");
+    expect(face.style.inlineSize).toBe("200px");
+    expect(face.style.blockSize).toBe("200px");
+    // Centred against the tile root, which is a containing block for it.
+    expect(face.style.position).toBe("absolute");
+    expect(face.style.margin).toBe("auto");
+  });
+
+  it("still fills the tile when the layout DID give it a shape", () => {
+    // The blob is meant to fill its slot; squaring it off would shrink
+    // every grove form to its smaller side and undo the packing.
+    render(
+      <MediaView
+        {...base}
+        orisoIdentity={FOX}
+        orisoShape={{ radius: "48% 52% 61% 39%", tilt: 4.2 }}
+      />,
+    );
+    const face = screen.getByTestId("oriso-face");
+    expect(face.style.inlineSize).toBe("");
+    expect(face.style.position).toBe("");
+  });
+
   it("puts the camera inside the form rather than beside it", () => {
     render(<MediaView {...base} orisoIdentity={FOX} />);
     const face = screen.getByTestId("oriso-face");

@@ -518,9 +518,15 @@ export const InCallView: FC<InCallViewProps> = ({
    * third person arrives.
    */
   const alone = layout.type === "one-on-one";
-  const orisoOffer: readonly StageView[] = alone
-    ? ["einzelgespraech", "spotlight"]
-    : ["hain", "felder", "spotlight"];
+  // A stable array, so the rail can memoise its entries on it and its
+  // keyboard handler cannot close over a list that has moved on.
+  const orisoOffer: readonly StageView[] = useMemo(
+    () =>
+      alone
+        ? ["einzelgespraech", "spotlight"]
+        : ["hain", "felder", "spotlight"],
+    [alone],
+  );
   const stageView: StageView =
     gridMode === "spotlight"
       ? "spotlight"
@@ -884,6 +890,8 @@ export const InCallView: FC<InCallViewProps> = ({
     <div
       ref={footerRef}
       className={classNames(styles.footer, {
+        // Gives the view rail a row of its own on a phone; see the CSS.
+        [styles.orisoFooter]: orisoEnabled,
         [styles.overlay]: windowMode === "flat",
         [styles.hidden]:
           !showFooter || (!showControls && headerStyle === "none"),
@@ -896,7 +904,7 @@ export const InCallView: FC<InCallViewProps> = ({
       {showControls &&
         (orisoEnabled ? (
           <ViewSwitcher
-            className={styles.layout}
+            className={styles.orisoLayout}
             active={stageView}
             offer={orisoOffer}
             onChange={setStageView}

@@ -106,6 +106,39 @@ Please see LICENSE in the repository root for full details.
   justify-self: end;
 }
 
+/*
+ * ORISO's rail is not upstream's toggle, and it stays on a phone.
+ *
+ * `.layout` is hidden below 660px further down, because a two-way
+ * grid/spotlight toggle is not worth the width there. The ORISO rail is a
+ * different control: the handoff draws every arrangement at phone size
+ * (`Hain-Handy`, `Felder-Handy`, `Einzel-handy`), so choosing one is part of
+ * the design at phone width rather than a desktop extra. Sharing the class
+ * left a portrait phone with no way to leave the stored arrangement — and no
+ * unit test could see it, because jsdom applies no media queries.
+ *
+ * It takes a row of its own rather than a slice of the buttons' row: at 390px
+ * the call buttons already fill two thirds of that row.
+ */
+.orisoLayout {
+  grid-area: layout;
+  justify-self: end;
+}
+
+@media (max-width: 660px) {
+  .footer.orisoFooter {
+    grid-template-areas:
+      ". oriso oriso oriso ."
+      ". buttons buttons buttons .";
+    row-gap: var(--cpd-space-2x);
+  }
+
+  .orisoFooter .orisoLayout {
+    grid-area: oriso;
+    justify-self: center;
+  }
+}
+
 @media (max-width: 660px) {
   .footer {
     grid-template-areas: ". buttons buttons buttons .";

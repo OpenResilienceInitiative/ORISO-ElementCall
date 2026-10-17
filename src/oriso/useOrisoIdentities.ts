@@ -5,7 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-import { type Room, RoomEvent } from "matrix-js-sdk";
+import {
+  type MatrixEvent,
+  MatrixEventEvent,
+  type Room,
+  RoomEvent,
+} from "matrix-js-sdk";
 import { createContext, use, useEffect, useMemo, useState } from "react";
 
 import {
@@ -108,9 +113,30 @@ export function useOrisoIdentities(room: Room): Identities {
     // A gappy sync replaces the live timeline wholesale; without this the
     // stage would keep identities that are no longer in it.
     room.on(RoomEvent.TimelineReset, update);
+    /*
+     * And again once the event is readable.
+     *
+     * In the embedded build the host decrypts before it feeds the widget, so
+     * what arrives here is already clear and the timeline listener alone is
+     * enough. That is an invariant of the OTHER repository, though, and this
+     * hook should not depend on one it cannot see: the standalone build with
+     * the flag set has a client of its own, and there `RoomEvent.Timeline`
+     * fires while the type is still `m.room.encrypted` and nothing fires on
+     * the timeline again when it opens. The last identity of a batch — or a
+     * motif changed mid-call — would sit as initials until some unrelated
+     * timeline activity happened to re-read it. `ReactionsReader` listens for
+     * the same reason.
+     */
+    const onDecrypted = (event: MatrixEvent): void => {
+      if (event.getRoomId?.() !== room.roomId) return;
+      if (event.getType?.() !== ORISO_IDENTITY_EVENT_TYPE) return;
+      update();
+    };
+    room.client?.on?.(MatrixEventEvent.Decrypted, onDecrypted);
     return (): void => {
       room.off(RoomEvent.Timeline, update);
       room.off(RoomEvent.TimelineReset, update);
+      room.client?.off?.(MatrixEventEvent.Decrypted, onDecrypted);
     };
   }, [room]);
 
