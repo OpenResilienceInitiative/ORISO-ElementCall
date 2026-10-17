@@ -35,7 +35,12 @@ import {
   screen,
   type RenderResult,
 } from "@testing-library/react";
-import { type MatrixClient, JoinRule, type RoomState } from "matrix-js-sdk";
+import {
+  type EventTimeline,
+  type MatrixClient,
+  JoinRule,
+  type RoomState,
+} from "matrix-js-sdk";
 import { type RelationsContainer } from "matrix-js-sdk/lib/models/relations-container";
 import { type LocalParticipant } from "livekit-client";
 import { BehaviorSubject, of } from "rxjs";
@@ -247,24 +252,35 @@ function createInCallView({
     hasEncryptionStateEvent: vi.fn().mockReturnValue(true),
     getCanonicalAlias: () => null,
     currentState: {
-      // RoomState is an event emitter and the ORISO stage subscribes to it,
+      // RoomState is an event emitter and parts of the view subscribe to it,
       // exactly as GroupCallView's own mock already does.
       ...mockEmitter(),
       getJoinRule: () => JoinRule.Invite,
       // A real RoomState always has this and returns [] for a type nobody
-      // has written. The ORISO stage reads identities out of room state, so
-      // the mock has to answer rather than be absent.
-      getStateEvents: (type: string) =>
-        type !== "org.oriso.call.identity"
-          ? []
-          : Object.entries(published).map(([userId, content]) => ({
-              getStateKey: (): string => userId,
-              // A real state event knows who sent it, and the reader checks:
-              // only a record somebody wrote about themselves counts.
-              getSender: (): string => userId,
-              getContent: (): unknown => content,
-            })),
+      // has written.
+      getStateEvents: () => [],
     } as unknown as RoomState,
+    /*
+     * Identities come off the TIMELINE, not out of room state.
+     *
+     * Room state is not encrypted, in an encrypted room or any other, so an
+     * identity in state was a record the homeserver could read — which
+     * advice seeker chose which animal. The host sends each one as an
+     * ordinary room event, sealed by the room's Megolm session and decrypted
+     * before it reaches the widget, and the reader files it under the
+     * event's SENDER: there is no state key left to claim, so one person
+     * cannot write another's face.
+     */
+    getLiveTimeline: () =>
+      ({
+        getEvents: () =>
+          Object.entries(published).map(([userId, content]) => ({
+            getType: (): string => "org.oriso.call.identity",
+            getSender: (): string => userId,
+            getContent: (): unknown => content,
+          })),
+        getState: () => undefined,
+      }) as unknown as EventTimeline,
   });
 
   const muteState = mockMuteStates();

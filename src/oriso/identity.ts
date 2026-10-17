@@ -14,8 +14,9 @@ Please see LICENSE in the repository root for full details.
  * vote. That rule is why this file has no animal list in it and no way to
  * pick one.
  *
- * What travels is a tiny record, published by each client into its own
- * MatrixRTC membership. The colour maths below is here only to serve it:
+ * What travels is a tiny record, sent by each client as an encrypted timeline
+ * event in the call room — not as room state, which Matrix does not encrypt.
+ * The colour maths below is here only to serve it:
  * `recolorSvg` paints the inherited artwork in the inherited ink, and the
  * palette and contrast functions exist for the one case the transport cannot
  * cover — a member who published nothing at all.

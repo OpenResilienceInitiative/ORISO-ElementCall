@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-import { type Room, RoomEvent, RoomStateEvent } from "matrix-js-sdk";
+import { type Room, RoomEvent } from "matrix-js-sdk";
 import { createContext, use, useEffect, useMemo, useState } from "react";
 
 import {
@@ -18,30 +18,45 @@ import {
 
 export type Identities = ReadonlyMap<string, OrisoIdentity>;
 
-/** Everybody's published identity, read out of room state. */
+/**
+ * Everybody's published identity, read out of the call room's timeline.
+ *
+ * Timeline, not room state, and that is the whole point: room state is NOT
+ * encrypted, in an encrypted room or any other. An `org.oriso.call.identity`
+ * state event was readable by the homeserver and by every server it
+ * federates to, which on a counselling platform is a record of which advice
+ * seeker chose which animal. A timeline event in this room is sealed by the
+ * room's Megolm session, so the server stores ciphertext and the design is
+ * unchanged.
+ *
+ * Keyed by SENDER, which is also what closes forgery. A state event let one
+ * participant claim another's slot unless the reader checked the sender
+ * against the state key by hand; here there is no key to claim. The sender of
+ * a decrypted event is attested by the device that encrypted it.
+ *
+ * The newest record wins. `getEvents()` is ordered oldest first, so a later
+ * assignment simply overwrites — which is what makes a person who changes
+ * their motif mid-call change on the stage, and what makes the re-send that
+ * the host performs when somebody new joins land as an update rather than a
+ * duplicate.
+ */
 export function readIdentities(room: Room): Identities {
   const identities = new Map<string, OrisoIdentity>();
-  const state = room.currentState;
-  // A mock, or a room whose state has not loaded, answers neither.
-  const events = state?.getStateEvents?.(ORISO_IDENTITY_EVENT_TYPE);
+  // A mock, or a room whose timeline has not loaded, answers neither.
+  const events = room.getLiveTimeline?.()?.getEvents?.();
   if (!Array.isArray(events)) return identities;
   for (const event of events) {
-    const userId = event.getStateKey();
-    if (userId === undefined) continue;
     /*
-     * Only a record somebody wrote about THEMSELVES.
-     *
-     * The call room grants every participant the level to send this event,
-     * because each client publishes its own. The Matrix authorization rules
-     * also refuse a state key that starts with `@` and is not the sender's —
-     * but this reader is the side that would be deceived, so it checks for
-     * itself rather than trusting a server it cannot audit. Without this, one
-     * participant could overwrite another's animal and the stage would show
-     * it.
+     * An event still in flight reads as `m.room.encrypted` and only becomes
+     * this type once decrypted, which is why the hook below re-reads on every
+     * timeline change: the host feeds the widget decrypted events, so the
+     * arrival of the clear event IS a timeline event.
      */
-    if (event.getSender?.() !== userId) continue;
-    const identity = readIdentity(event.getContent());
-    if (identity !== null) identities.set(userId, identity);
+    if (event.getType?.() !== ORISO_IDENTITY_EVENT_TYPE) continue;
+    const sender = event.getSender?.();
+    if (typeof sender !== "string" || sender.length === 0) continue;
+    const identity = readIdentity(event.getContent?.());
+    if (identity !== null) identities.set(sender, identity);
   }
   return identities;
 }
@@ -67,9 +82,9 @@ function same(a: Identities, b: Identities): boolean {
 /**
  * Everybody's identity in this room, as published by their own client.
  *
- * Read from room state rather than computed: the call is told who somebody is
- * and does not get a vote. Live, so a person who changes their motif
- * mid-call changes on the stage too.
+ * Read from the room's encrypted timeline rather than computed: the call is
+ * told who somebody is and does not get a vote. Live, so a person who
+ * changes their motif mid-call changes on the stage too.
  *
  * Deliberately NOT built on `useRoomState`. That hook maps room state through
  * `useSyncExternalStore`, whose `getSnapshot` must return a stable value — and
@@ -89,11 +104,13 @@ export function useOrisoIdentities(room: Room): Identities {
         return same(prev, next) ? prev : next;
       });
     update();
-    room.on(RoomEvent.CurrentStateUpdated, update);
-    room.currentState?.on?.(RoomStateEvent.Events, update);
+    room.on(RoomEvent.Timeline, update);
+    // A gappy sync replaces the live timeline wholesale; without this the
+    // stage would keep identities that are no longer in it.
+    room.on(RoomEvent.TimelineReset, update);
     return (): void => {
-      room.off(RoomEvent.CurrentStateUpdated, update);
-      room.currentState?.off?.(RoomStateEvent.Events, update);
+      room.off(RoomEvent.Timeline, update);
+      room.off(RoomEvent.TimelineReset, update);
     };
   }, [room]);
 

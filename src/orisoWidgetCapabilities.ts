@@ -37,7 +37,17 @@ export const buildOrisoWidgetCapabilities = (
 
   return {
     sendEvent: rtcEvents,
-    receiveEvent: rtcEvents,
+    /*
+     * Receive is deliberately wider than send, by exactly one event.
+     *
+     * Who everybody is, as their own client published it, arrives as a
+     * TIMELINE event so that the room's encryption covers it — room state is
+     * not encrypted, and an identity in state was a record the homeserver
+     * could read. It is absent from `sendEvent` on purpose: the call is told
+     * identities and never writes one, not even its own. The host does that,
+     * because the host is what knows.
+     */
+    receiveEvent: [...rtcEvents, ORISO_IDENTITY_EVENT_TYPE],
     sendState: groupCallStateKeys,
     // create/name/member are read-only boot metadata. The ORISO host driver
     // still confines every state read to the single active call room.
@@ -47,10 +57,6 @@ export const buildOrisoWidgetCapabilities = (
       { eventType: EventType.RoomMember },
       { eventType: EventType.RoomEncryption },
       { eventType: EventType.GroupCallMemberPrefix },
-      // Who everybody is, as their own client published it. Read-only on
-      // purpose: the call is told identities and never writes one, not even
-      // its own — the host does that, because the host is what knows.
-      { eventType: ORISO_IDENTITY_EVENT_TYPE },
     ],
     sendToDevice: [EventType.CallEncryptionKeysPrefix],
     receiveToDevice: [EventType.CallEncryptionKeysPrefix],

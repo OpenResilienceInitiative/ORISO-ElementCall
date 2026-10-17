@@ -26,11 +26,19 @@ describe("ORISO widget capability contract", () => {
         EventType.Reaction,
         ElementCallReactionEventType,
       ],
+      /*
+       * Wider than `sendEvent` by exactly one event: the identity record,
+       * which arrives as a TIMELINE event so that the room's encryption
+       * covers it — room state is not encrypted, and an identity in state is
+       * a record the homeserver can read. Readable, never sendable: the call
+       * is told who everybody is and never decides it.
+       */
       receiveEvent: [
         EventType.CallEncryptionKeysPrefix,
         EventType.RTCNotification,
         EventType.Reaction,
         ElementCallReactionEventType,
+        ORISO_IDENTITY_EVENT_TYPE,
       ],
       sendState: [
         {
@@ -52,7 +60,6 @@ describe("ORISO widget capability contract", () => {
         { eventType: EventType.RoomMember },
         { eventType: EventType.RoomEncryption },
         { eventType: EventType.GroupCallMemberPrefix },
-        { eventType: ORISO_IDENTITY_EVENT_TYPE },
       ],
       sendToDevice: [EventType.CallEncryptionKeysPrefix],
       receiveToDevice: [EventType.CallEncryptionKeysPrefix],

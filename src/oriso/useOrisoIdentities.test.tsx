@@ -6,13 +6,13 @@ Please see LICENSE in the repository root for full details.
 */
 
 /**
- * The chain from a room state event to a face.
+ * The chain from an encrypted timeline event to a face.
  *
  * `identity.contract.test.ts` proves the record the host publishes is one
  * this repository accepts. This proves the rest of the way: that the event
- * is found in room state under the right type, keyed by the right person,
- * and that a member nobody published anything for gets initials rather than
- * an invented animal.
+ * is found in the room's timeline under the right type, credited to the
+ * person who sent it, and that a member nobody published anything for gets
+ * initials rather than an invented animal.
  *
  * Between them the two cover the whole crossing, which is the part neither
  * repository's component tests can see.
@@ -47,28 +47,55 @@ const FROM_THE_HOST = {
   },
 };
 
+interface TimelineRoom {
+  room: Room;
+  /** Send another record, as that person's own client would. */
+  push: (sender: string, content: unknown) => void;
+}
+
+/**
+ * A room whose live timeline holds identity records.
+ *
+ * Timeline, not state: an identity in room state is readable by the
+ * homeserver, because Matrix does not encrypt state events. The host sends
+ * these as ordinary room events so the room's Megolm session covers them, and
+ * what arrives here has already been decrypted by the host before it was fed
+ * to the widget.
+ */
 function roomWith(
   records: Record<string, unknown>,
   /** Who actually sent each record, when that is not the person it describes. */
   senderFor?: (userId: string) => string,
-): Room {
+): TimelineRoom {
   const emitter = new EventEmitter();
-  const state = Object.assign(new EventEmitter(), {
-    getStateEvents: (type: string) =>
-      type !== ORISO_IDENTITY_EVENT_TYPE
-        ? []
-        : Object.entries(records).map(([userId, content]) => ({
-            getStateKey: (): string => userId,
-            getSender: (): string => senderFor?.(userId) ?? userId,
-            getContent: (): unknown => content,
-          })),
-  });
-  return Object.assign(emitter, { currentState: state }) as unknown as Room;
+  const events: unknown[] = [
+    // Something else in the timeline, so the filter has work to do.
+    {
+      getType: (): string => "m.room.message",
+      getSender: (): string => "@anon:oriso.test",
+      getContent: (): unknown => ({ body: "hello" }),
+    },
+  ];
+  const push = (sender: string, content: unknown): void => {
+    events.push({
+      getType: (): string => ORISO_IDENTITY_EVENT_TYPE,
+      getSender: (): string => sender,
+      getContent: (): unknown => content,
+    });
+  };
+  for (const [userId, content] of Object.entries(records))
+    push(senderFor?.(userId) ?? userId, content);
+  const room = Object.assign(emitter, {
+    getLiveTimeline: (): { getEvents: () => unknown[] } => ({
+      getEvents: (): unknown[] => events,
+    }),
+  }) as unknown as Room;
+  return { room, push };
 }
 
 describe("finding out who everybody is", () => {
   it("reads what the host published, under the type it published it as", () => {
-    const identities = readIdentities(roomWith(FROM_THE_HOST));
+    const identities = readIdentities(roomWith(FROM_THE_HOST).room);
     expect([...identities.keys()].sort()).toEqual([
       "@anon:oriso.test",
       "@berater:oriso.test",
@@ -82,56 +109,80 @@ describe("finding out who everybody is", () => {
   it("ignores a record that is not one, rather than failing the room", () => {
     // One malformed record must not cost everybody else their face.
     const identities = readIdentities(
-      roomWith({ ...FROM_THE_HOST, "@broken:oriso.test": { kind: "animal" } }),
+      roomWith({ ...FROM_THE_HOST, "@broken:oriso.test": { kind: "animal" } })
+        .room,
     );
     expect(identities.size).toBe(2);
     expect(identities.has("@broken:oriso.test")).toBe(false);
   });
 
-  it("refuses a record one person wrote about another", () => {
+  it("credits a record to whoever sent it, not to whoever it describes", () => {
     /*
-     * Every participant may send this event type — each client publishes its
-     * own — so the only thing that makes a record trustworthy is that its
-     * state key is its sender. The Matrix authorization rules say the same,
-     * but this reader is the side that would be deceived, so it checks rather
-     * than trusting a server it cannot audit.
+     * The one property that makes a record trustworthy.
+     *
+     * As a state event this needed checking by hand: the key was a user id,
+     * so one participant could write a record under another's and the reader
+     * had to compare key against sender or be deceived. A timeline event has
+     * no key to claim. Whatever this content says, it is filed under the
+     * sender — so a mischief-maker can only ever change their OWN face, and
+     * the people they tried to impersonate are simply absent and fall back to
+     * initials.
      */
     const identities = readIdentities(
-      roomWith(FROM_THE_HOST, () => "@mischief:oriso.test"),
+      roomWith(FROM_THE_HOST, () => "@mischief:oriso.test").room,
     );
-    expect(identities.size).toBe(0);
+    expect(identities.has("@anon:oriso.test")).toBe(false);
+    expect(identities.has("@berater:oriso.test")).toBe(false);
+    expect([...identities.keys()]).toEqual(["@mischief:oriso.test"]);
   });
 
-  it("copes with a room whose state has not loaded", () => {
-    expect(readIdentities({} as Room).size).toBe(0);
-  });
-
-  it("follows the room, so a motif changed mid-call changes on the stage", () => {
-    const records: Record<string, unknown> = { ...FROM_THE_HOST };
-    const room = roomWith(records);
-    const { result } = renderHook(() => useOrisoIdentities(room));
-    expect(result.current.get("@berater:oriso.test")?.file).toBe("owl.svg");
-
-    records["@berater:oriso.test"] = {
+  it("lets the newest record win", () => {
+    // Which is what makes the host's re-send on a new arrival an update
+    // rather than a second, conflicting answer.
+    const { room, push } = roomWith(FROM_THE_HOST);
+    push("@berater:oriso.test", {
       kind: "motif",
       file: "swan.svg",
       bg: "#a5000a",
       ink: "#ffffff",
-    };
+    });
+    expect(readIdentities(room).get("@berater:oriso.test")?.file).toBe(
+      "swan.svg",
+    );
+  });
+
+  it("copes with a room whose timeline has not loaded", () => {
+    expect(readIdentities({} as Room).size).toBe(0);
+    expect(
+      readIdentities({ getLiveTimeline: () => ({}) } as unknown as Room).size,
+    ).toBe(0);
+  });
+
+  it("follows the room, so a motif changed mid-call changes on the stage", () => {
+    const { room, push } = roomWith(FROM_THE_HOST);
+    const { result } = renderHook(() => useOrisoIdentities(room));
+    expect(result.current.get("@berater:oriso.test")?.file).toBe("owl.svg");
+
     act(() => {
-      (room as unknown as EventEmitter).emit(RoomEvent.CurrentStateUpdated);
+      push("@berater:oriso.test", {
+        kind: "motif",
+        file: "swan.svg",
+        bg: "#a5000a",
+        ink: "#ffffff",
+      });
+      (room as unknown as EventEmitter).emit(RoomEvent.Timeline);
     });
     expect(result.current.get("@berater:oriso.test")?.file).toBe("swan.svg");
   });
 
   it("hands back the same map when nothing changed", () => {
-    // Every tile re-renders on a new map, and a membership event arrives for
+    // Every tile re-renders on a new map, and a timeline event arrives for
     // reasons that have nothing to do with identities.
-    const room = roomWith(FROM_THE_HOST);
+    const { room } = roomWith(FROM_THE_HOST);
     const { result } = renderHook(() => useOrisoIdentities(room));
     const first = result.current;
     act(() => {
-      (room as unknown as EventEmitter).emit(RoomEvent.CurrentStateUpdated);
+      (room as unknown as EventEmitter).emit(RoomEvent.Timeline);
     });
     expect(result.current).toBe(first);
   });
