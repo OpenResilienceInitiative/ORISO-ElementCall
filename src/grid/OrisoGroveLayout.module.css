@@ -26,7 +26,26 @@ Please see LICENSE in the repository root for full details.
   justify-content: center;
   align-content: flex-start;
   gap: var(--oriso-field-gutter);
-  block-size: 100%;
+  /*
+   * A FLOOR, not a height — the sheet must reach its last row.
+   *
+   * Review read the previous `block-size: 100%` as cutting the box to one
+   * screenful, leaving the wrapped rows past the fold outside the content box
+   * and the block-end padding at the fold rather than after the last row. I
+   * measured it in Chromium against the real chain — `.inRoom` >
+   * `.scrollingGrid` > this sheet, fourteen 220x165 slots at 900x620 and at
+   * 390x640 — and it did not happen: `.scrollingGrid` is a flex item whose
+   * automatic minimum size is its content, so it grew, and the percentage
+   * resolved against the grown height. Both spellings put the halo's room
+   * after the last row, to the pixel (`docs/evidence/scrollport`).
+   *
+   * It stays as a minimum anyway. The sheet's own rule should say "at least a
+   * screenful, and as much more as the rows need" rather than depend on an
+   * ancestor's automatic minimum size staying `auto` — one `min-height: 0`
+   * added upstairs for an unrelated reason, which is a common flexbox fix,
+   * and the clipped version is what ships.
+   */
+  min-block-size: 100%;
   inline-size: 100%;
   /*
    * Border-box, because the padding below is INSIDE the sheet.

@@ -76,6 +76,21 @@ describe("the scrolling fields sheet", () => {
     expect(bodyOf(".sheet")).not.toMatch(/overflow/);
   });
 
+  it("asks for a minimum height rather than a fixed one", () => {
+    /*
+     * The padding above only does its job inside a box that reaches the last
+     * row. A fixed `block-size: 100%` says "one screenful" whatever the sheet
+     * holds, and this sheet exists only for the counts that need more than
+     * one: that it still grew in Chromium is an ancestor's automatic minimum
+     * size doing the work (measured — `docs/evidence/scrollport`), which one
+     * `min-height: 0` added upstairs for an unrelated reason would take away.
+     * The floor belongs in the rule.
+     */
+    const body = bodyOf(".sheet");
+    expect(body).toMatch(/min-block-size:\s*100%/);
+    expect(body).not.toMatch(/(?<!min-)block-size:\s*100%/);
+  });
+
   it("reserves that room on the edge it scrolls to, as well", () => {
     /*
      * The block-end is the edge where this stops being cosmetic.

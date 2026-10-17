@@ -225,10 +225,32 @@ Please see LICENSE in the repository root for full details.
   flex-grow: 1;
 }
 
-/* The ORISO backdrop sits behind the whole call, inside the scroll container
-   so it covers the stage rather than only the first screenful. */
+/* The living backdrop behind the whole call: behind every tile, the header
+   and the footer, and behind every row of a stage that scrolls. */
 .orisoBackdrop {
-  position: absolute;
+  /*
+   * Pinned to the scrollport, not to the first screenful.
+   *
+   * `.inRoom` is the scroll container, and `position: absolute; inset: 0`
+   * inside it sizes the backdrop to the padding box — one screen — and
+   * scrolls it away with the content. Above eight people the fields scroll,
+   * and every row below the fold came out from under the pond onto bare
+   * background.
+   *
+   * Fixed rather than sticky, because sticky needs the element to stay in
+   * flow: as a flex item of this column it would then take a row's worth of
+   * height, and the usual way out — `block-size: 100%; margin-block-end:
+   * -100%` — does not work here, since a PERCENTAGE BLOCK MARGIN resolves
+   * against the containing block's INLINE size. In a landscape window that
+   * subtracts more than the backdrop's height and drags the header and the
+   * stage up out of the box.
+   *
+   * `.inRoom` fills the viewport (100%/100%, and nothing on it establishes a
+   * containing block for fixed descendants), so the viewport IS this
+   * scrollport: the first screenful looks exactly as it did, and the rows
+   * below it now have the pond behind them too.
+   */
+  position: fixed;
   inset: 0;
   /* Behind the call's own content, and WITHOUT reaching into it.
      The first version lifted every sibling instead, with
