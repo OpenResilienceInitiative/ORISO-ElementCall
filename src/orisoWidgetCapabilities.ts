@@ -7,6 +7,8 @@ Please see LICENSE in the repository root for full details.
 
 import { EventType } from "matrix-js-sdk";
 
+import { ORISO_IDENTITY_EVENT_TYPE } from "./oriso/identity";
+
 import type { ICapabilities } from "matrix-js-sdk";
 import { ElementCallReactionEventType } from "./reactions";
 
@@ -46,6 +48,10 @@ export const buildOrisoWidgetCapabilities = (
       { eventType: EventType.RoomMember },
       { eventType: EventType.RoomEncryption },
       { eventType: EventType.GroupCallMemberPrefix },
+      // Who everybody is, as their own client published it. Read-only on
+      // purpose: the call is told identities and never writes one, not even
+      // its own — the host does that, because the host is what knows.
+      { eventType: ORISO_IDENTITY_EVENT_TYPE },
     ],
     sendToDevice: [EventType.CallEncryptionKeysPrefix],
     receiveToDevice: [EventType.CallEncryptionKeysPrefix],

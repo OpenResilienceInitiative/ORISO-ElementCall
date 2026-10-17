@@ -27,6 +27,15 @@ export const SPEAKING_WEIGHT = 1.6;
 /** The handoff's gutter between fields. */
 export const FIELD_GUTTER = 6;
 
+/**
+ * How much of a field the animal fills.
+ *
+ * The handoff's 0.56 of the field's smaller side. A field is a rectangle and
+ * can be very wide; sizing the animal off the whole cell filled it corner to
+ * corner and left no room for the name capsule under it.
+ */
+export const FIELD_FACE_SHARE = 0.56;
+
 /** The fixed field beyond eight people, when the surface starts scrolling. */
 export const FIELD_MIN_WIDTH = 220;
 export const FIELD_ASPECT = 4 / 3;
@@ -187,7 +196,12 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         y: cell.y + FIELD_GUTTER / 2,
         width: Math.max(1, cell.w - FIELD_GUTTER),
         height: Math.max(1, cell.h - FIELD_GUTTER),
-        shape: { radius: FIELD_RADIUS, tilt: 0 },
+        shape: {
+          radius: FIELD_RADIUS,
+          tilt: 0,
+          body: false,
+          contentShare: FIELD_FACE_SHARE,
+        },
       }));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [signature]);
@@ -212,7 +226,12 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
       const map = new Map<string, TileShape>();
       if (scrolls)
         for (const seat of sheet)
-          map.set(seat.userId, { radius: FIELD_RADIUS, tilt: 0 });
+          map.set(seat.userId, {
+            radius: FIELD_RADIUS,
+            tilt: 0,
+            body: false,
+            contentShare: FIELD_FACE_SHARE,
+          });
       else for (const p of placed) map.set(p.userId, p.shape);
       return map;
     }, [scrolls, sheet, placed]);

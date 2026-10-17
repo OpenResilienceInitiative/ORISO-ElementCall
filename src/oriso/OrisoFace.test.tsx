@@ -29,7 +29,15 @@ const NAMELESS: OrisoIdentity = {
   initials: "KM",
 };
 
+/*
+ * With the XML prolog the real files carry.
+ *
+ * The fixture used to start at `<svg`, which let a prefix check in the loader
+ * pass here and reject every actual ORISO animal in the browser. The prolog
+ * belongs in the fixture precisely because the production files have it.
+ */
 const SVG =
+  '<?xml version="1.0" encoding="UTF-8"?>\n' +
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
   '<path d="M0 0h10v10H0z"/></svg>';
 
@@ -175,6 +183,13 @@ describe("the artwork, which is inherited", () => {
       expect(screen.getAllByTestId("oriso-artwork")).toHaveLength(2),
     );
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts a file that opens with the XML prolog, as every real one does", async () => {
+    serveArtwork();
+    render(<OrisoFace identity={FOX} size={200} />);
+    const artwork = await screen.findByTestId("oriso-artwork");
+    expect(artwork.innerHTML).toContain("<svg");
   });
 
   it("refuses a body that is not an SVG", async () => {

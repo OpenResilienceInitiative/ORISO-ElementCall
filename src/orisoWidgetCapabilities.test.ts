@@ -10,6 +10,7 @@ import { EventType } from "matrix-js-sdk";
 
 import { ElementCallReactionEventType } from "./reactions";
 import { buildOrisoWidgetCapabilities } from "./orisoWidgetCapabilities";
+import { ORISO_IDENTITY_EVENT_TYPE } from "./oriso/identity";
 
 describe("ORISO widget capability contract", () => {
   it("exposes only the minimum MatrixRTC and reaction surface", () => {
@@ -51,6 +52,7 @@ describe("ORISO widget capability contract", () => {
         { eventType: EventType.RoomMember },
         { eventType: EventType.RoomEncryption },
         { eventType: EventType.GroupCallMemberPrefix },
+        { eventType: ORISO_IDENTITY_EVENT_TYPE },
       ],
       sendToDevice: [EventType.CallEncryptionKeysPrefix],
       receiveToDevice: [EventType.CallEncryptionKeysPrefix],

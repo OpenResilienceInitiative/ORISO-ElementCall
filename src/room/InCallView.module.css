@@ -191,3 +191,24 @@ Please see LICENSE in the repository root for full details.
   position: relative;
   flex-grow: 1;
 }
+
+/* The ORISO backdrop sits behind the whole call, inside the scroll container
+   so it covers the stage rather than only the first screenful. */
+.orisoBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.inRoom[data-oriso="true"] {
+  position: relative;
+}
+
+/* Everything else goes above it. The backdrop is the only thing in the call
+   with no z-index of its own, so one rule here is enough. */
+.inRoom[data-oriso="true"] > *:not(.orisoBackdrop) {
+  position: relative;
+  z-index: 1;
+}

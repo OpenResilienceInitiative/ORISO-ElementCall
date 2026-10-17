@@ -23,6 +23,15 @@ import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { type TileShape } from "../oriso/shape";
 
 /**
+ * How big the animal is inside its half.
+ *
+ * The handoff sizes it at 22% of the stage, and the circle is 86% of the
+ * stage, so within the circle that is this. Expressed against the circle
+ * because the circle is what the halves are measured in.
+ */
+const FACE_SHARE_OF_CIRCLE = 0.22 / 0.86;
+
+/**
  * How much of the stage the circle takes.
  *
  * The handoff's 86%. In px rather than as a percentage, because a percentage
@@ -95,6 +104,7 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
         // inset rim light instead.
         speakingAs: "rim" as const,
         lifted: false,
+        contentShare: FACE_SHARE_OF_CIRCLE,
       };
       const map = new Map<string, TileShape>();
       map.set(first.media$.value.userId, {

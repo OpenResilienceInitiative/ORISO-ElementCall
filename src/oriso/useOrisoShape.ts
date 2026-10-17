@@ -67,6 +67,8 @@ export function sameShapes(
       other.clipPath !== shape.clipPath ||
       other.focusX !== shape.focusX ||
       other.speakingAs !== shape.speakingAs ||
+      other.contentShare !== shape.contentShare ||
+      other.body !== shape.body ||
       other.lifted !== shape.lifted
     )
       return false;

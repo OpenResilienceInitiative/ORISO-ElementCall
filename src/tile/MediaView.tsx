@@ -148,6 +148,13 @@ export const MediaView: FC<Props> = ({
           className={styles.bg}
           identity={orisoIdentity}
           size={Math.min(targetWidth, targetHeight)}
+          contentSize={
+            orisoShape?.contentShare === undefined
+              ? undefined
+              : Math.round(
+                  Math.min(targetWidth, targetHeight) * orisoShape.contentShare,
+                )
+          }
           shape={orisoShape}
           speaking={orisoSpeaking}
           parentUrl={orisoParentUrl}

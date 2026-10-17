@@ -70,7 +70,23 @@ export async function loadArtwork(
       if (!response.ok || !contentType.toLowerCase().includes("image/svg"))
         throw new Error(`Failed to load avatar SVG: ${file}`);
       const text = (await response.text()).trim();
-      if (!text.startsWith("<svg"))
+      if (text.length === 0) throw new Error(`Empty avatar SVG: ${file}`);
+      /*
+       * Parsed, not prefix-matched.
+       *
+       * The first version of this checked `text.startsWith("<svg")`, which
+       * rejected every single real ORISO animal: they are written by a tool
+       * and begin `<?xml version="1.0" encoding="UTF-8"?>`. Nothing caught it
+       * — the unit test's fixture began with `<svg` and so agreed with the
+       * bug — and it only showed up when the faces came back as initials in
+       * a screenshot. This is the same check ORISO-Frontend's own loader
+       * makes, for the same reason.
+       */
+      const document = new DOMParser().parseFromString(text, "image/svg+xml");
+      if (
+        document.documentElement.nodeName.toLowerCase() !== "svg" ||
+        document.querySelector("parsererror") !== null
+      )
         throw new Error(`Invalid avatar SVG: ${file}`);
       return text;
     })();

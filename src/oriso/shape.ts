@@ -39,6 +39,25 @@ export interface TileShape {
    */
   speakingAs?: "halo" | "rim";
   /**
+   * What the face inside should be sized against, as a share of the box.
+   *
+   * Only the Einzelgespräch sets it: both halves occupy the whole circle, so
+   * an animal sized off the box is nearly as wide as the circle — clipped at
+   * the seam on one side and running off the rim on the other.
+   */
+  contentShare?: number;
+  /**
+   * Whether the form is shaded like a body.
+   *
+   * On for the grove's blobs and the Einzelgespräch's circle: two radial
+   * gradients and two inset shadows, verbatim from the prototype, which are
+   * what turn a flat disc into something with a form. Off for the fields —
+   * they are rectangles, and the same shading makes them read as glossy
+   * plastic buttons rather than as surfaces. Seen in a screenshot; no test
+   * would have said a word.
+   */
+  body?: boolean;
+  /**
    * Whether this form carries its own lift.
    *
    * False for the Einzelgespräch's halves. A clip path clips a box shadow

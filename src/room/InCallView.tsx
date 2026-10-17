@@ -90,6 +90,11 @@ import {
   type OrisoView,
 } from "../oriso/useOrisoView";
 import { useLocalStorage } from "../useLocalStorage";
+import {
+  Atmosphere,
+  DEFAULT_ATMOSPHERE,
+  isAtmosphereName,
+} from "../oriso/Atmosphere";
 import { GridTileViewModel, type TileViewModel } from "../state/TileViewModel";
 import {
   ReactionsSenderProvider,
@@ -458,7 +463,7 @@ export const InCallView: FC<InCallViewProps> = ({
    * `parentUrl` says. Standalone keeps upstream's rectangles — one tile
    * implementation serving both, rather than a fork in the component tree.
    * ---------------------------------------------------------------------- */
-  const { parentUrl } = useUrlParams();
+  const { parentUrl, orisoAtmosphere } = useUrlParams();
   const orisoEnabled = parentUrl !== null;
   const orisoIdentities = useOrisoIdentities(matrixRoom);
   const orisoStage = useMemo(
@@ -470,6 +475,14 @@ export const InCallView: FC<InCallViewProps> = ({
     [orisoIdentities, parentUrl, orisoEnabled],
   );
   const orisoShapes = useInitial(() => new OrisoShapeStore());
+
+  // The backdrop world. Configured centrally by the counselling centre, so it
+  // arrives on the URL rather than being chosen in the call; an unknown name
+  // falls back to the handoff's default rather than rendering nothing.
+  const atmosphere =
+    orisoAtmosphere !== null && isAtmosphereName(orisoAtmosphere)
+      ? orisoAtmosphere
+      : DEFAULT_ATMOSPHERE;
 
   // The arrangement is remembered, because it is a preference about how
   // somebody likes to see a room rather than a property of this call.
@@ -884,6 +897,16 @@ export const InCallView: FC<InCallViewProps> = ({
             onPointerOut={onPointerOut}
             data-oriso={orisoEnabled ? "true" : undefined}
           >
+            {/* The living backdrop. Behind everything, announced to
+                nobody: it carries no information, and reading it out would be
+                noise between a counsellor and what they need. The preset is
+                the counselling centre's choice and travels on the URL — an
+                advice seeker never picks it. */}
+            {orisoEnabled && (
+              <div className={styles.orisoBackdrop} aria-hidden="true">
+                <Atmosphere palette={atmosphere} />
+              </div>
+            )}
             {header}
             {mediaError !== null && (
               <div className={styles.mediaError} role="alert">

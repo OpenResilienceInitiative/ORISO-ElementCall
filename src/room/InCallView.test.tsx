@@ -144,7 +144,7 @@ function createInCallView(
       // has written. The ORISO stage reads identities out of room state, so
       // the mock has to answer rather than be absent.
       getStateEvents: () => [],
-    } as Partial<RoomState> as RoomState,
+    } as unknown as RoomState,
   });
 
   const muteState = mockMuteStates();

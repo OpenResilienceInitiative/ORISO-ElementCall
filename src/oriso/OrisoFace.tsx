@@ -39,10 +39,33 @@ export function artworkPaddingFor(file?: string): number {
   );
 }
 
+/**
+ * Share of the diameter the artwork fills, for a given padding.
+ *
+ * ORISO-Frontend's formula, including the 4% it subtracts for the ring that
+ * exists on a chat avatar and not here. Keeping the subtraction is deliberate:
+ * the padding values were judged by eye on a 104px avatar that HAD that ring,
+ * so dropping it would make every animal in the call 4% larger than the same
+ * animal in the chat beside it.
+ */
+const BORDER_SHARE_AT_REFERENCE = 0.04;
+const artworkFraction = (padding: number): number =>
+  1 - 2 * padding - BORDER_SHARE_AT_REFERENCE;
+
 interface Props {
   identity: OrisoIdentity;
-  /** The form's smaller side in px, which is what the artwork is sized off. */
+  /** The form's smaller side in px. Drives the lift and the halo. */
   size: number;
+  /**
+   * What the artwork is sized against, when that is not the whole form.
+   *
+   * The Einzelgespräch needs it: both halves occupy the whole circle's box,
+   * so sizing the animal off `size` gave each one an animal nearly as wide as
+   * the circle — clipped at the seam on one side and running off the rim on
+   * the other. The half is what the animal belongs to, so the half is what it
+   * is measured against.
+   */
+  contentSize?: number;
   shape?: TileShape;
   speaking?: boolean;
   /** The host's origin, for inheriting the artwork. */
@@ -70,6 +93,7 @@ interface Props {
 export const OrisoFace: FC<Props> = ({
   identity,
   size,
+  contentSize,
   shape,
   speaking = false,
   parentUrl = null,
@@ -82,11 +106,11 @@ export const OrisoFace: FC<Props> = ({
   const rim = speaking && shape?.speakingAs === "rim";
   const lifted = shape?.lifted ?? true;
 
-  const padding = Math.max(
-    2,
-    Math.round(size * artworkPaddingFor(identity.file)),
+  const artworkBox = contentSize ?? size;
+  const inner = Math.max(
+    0,
+    Math.round(artworkBox * artworkFraction(artworkPaddingFor(identity.file))),
   );
-  const inner = Math.max(0, size - padding * 2);
 
   const style: CSSProperties = useMemo(
     () => ({
@@ -136,7 +160,7 @@ export const OrisoFace: FC<Props> = ({
             style={{
               ...upright,
               color: identity.ink,
-              fontSize: Math.round(size * 0.34),
+              fontSize: Math.round(artworkBox * 0.34),
             }}
             data-testid="oriso-initials"
             aria-hidden="true"
@@ -170,7 +194,9 @@ export const OrisoFace: FC<Props> = ({
           {video}
         </div>
       )}
-      <span className={styles.sphere} data-testid="oriso-sphere" />
+      {(shape?.body ?? true) && (
+        <span className={styles.sphere} data-testid="oriso-sphere" />
+      )}
       {rim && <span className={styles.rim} data-testid="oriso-rim" />}
     </div>
   );
