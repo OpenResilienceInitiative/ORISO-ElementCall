@@ -50,6 +50,20 @@ export function readIdentities(room: Room): Identities {
   // A mock, or a room whose timeline has not loaded, answers neither.
   const events = room.getLiveTimeline?.()?.getEvents?.();
   if (!Array.isArray(events)) return identities;
+  /*
+   * The newest record per sender, and only then read it.
+   *
+   * Reading as we go would let an older valid record survive a newer invalid
+   * one — and the commonest newer-invalid record is a REDACTED one, whose
+   * content is empty. Somebody who withdrew their animal would have kept it,
+   * or fallen back to one they had replaced, instead of returning to the
+   * stand-in letters. The newest thing a person said about themselves wins,
+   * including when the newest thing is nothing.
+   *
+   * One malformed record still costs only its own owner a face, which is the
+   * other half of the rule.
+   */
+  const newest = new Map<string, unknown>();
   for (const event of events) {
     /*
      * An event still in flight reads as `m.room.encrypted` and only becomes
@@ -60,7 +74,10 @@ export function readIdentities(room: Room): Identities {
     if (event.getType?.() !== ORISO_IDENTITY_EVENT_TYPE) continue;
     const sender = event.getSender?.();
     if (typeof sender !== "string" || sender.length === 0) continue;
-    const identity = readIdentity(event.getContent?.());
+    newest.set(sender, event.getContent?.());
+  }
+  for (const [sender, content] of newest) {
+    const identity = readIdentity(content);
     if (identity !== null) identities.set(sender, identity);
   }
   return identities;
@@ -114,6 +131,17 @@ export function useOrisoIdentities(room: Room): Identities {
     // stage would keep identities that are no longer in it.
     room.on(RoomEvent.TimelineReset, update);
     /*
+     * A redaction is not a timeline event either.
+     *
+     * Removing the latest identity record emits `RoomEvent.Redaction`, so
+     * without this the person would keep the animal or motif they had
+     * withdrawn, for as long as the call stayed otherwise quiet. Re-reading
+     * puts them back to whatever their previous record said, or to initials;
+     * a redacted event's content is empty, so `readIdentity` rejects it and
+     * the record simply stops counting.
+     */
+    room.on(RoomEvent.Redaction, update);
+    /*
      * And again once the event is readable.
      *
      * In the embedded build the host decrypts before it feeds the widget, so
@@ -136,6 +164,7 @@ export function useOrisoIdentities(room: Room): Identities {
     return (): void => {
       room.off(RoomEvent.Timeline, update);
       room.off(RoomEvent.TimelineReset, update);
+      room.off(RoomEvent.Redaction, update);
       room.client?.off?.(MatrixEventEvent.Decrypted, onDecrypted);
     };
   }, [room]);

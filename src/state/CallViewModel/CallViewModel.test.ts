@@ -623,6 +623,45 @@ describe.each([
     });
   });
 
+  it("gives the ORISO spotlight the portrait layout on a portrait phone", () => {
+    /*
+     * The grove, the fields and the Einzelgespräch are ORISO's own and hold
+     * at every window size — that is what routing the design through the view
+     * model is for. The spotlight is upstream's, and it still has to respect
+     * the window: `spotlight-landscape` reserves a 180px participant rail and
+     * 60px of padding, which on a 390px phone leaves about 150px for the
+     * person who is supposed to be spotlit. Upstream has the portrait
+     * spotlight for exactly this, with the rail below rather than beside.
+     */
+    withTestScheduler(({ behavior, schedule, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          windowSize$: behavior("a", {
+            a: { width: 360, height: 780 }, // phone, portrait -> narrow
+          }),
+        },
+        (vm) => {
+          schedule("-s", { s: () => vm.setGridMode("spotlight") });
+          expectObservable(summarizeLayout$(vm.layout$)).toBe("ab", {
+            a: {
+              type: "grid",
+              spotlight: undefined,
+              grid: [`${localId}:0`, `${aliceId}:0`, `${bobId}:0`],
+            },
+            b: {
+              type: "spotlight-portrait",
+              spotlight: [`${aliceId}:0`],
+              grid: [`${localId}:0`, `${bobId}:0`],
+            },
+          });
+        },
+        { orisoDesign: true },
+      );
+    });
+  });
+
   test("spotlight speakers swap places", () => {
     withTestScheduler(({ behavior, schedule, expectObservable }) => {
       // Go immediately into spotlight mode for the test

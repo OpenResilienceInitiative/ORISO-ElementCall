@@ -200,6 +200,41 @@ describe("the name, when it does not fit", () => {
     expect(tag.lastElementChild?.textContent).toBe(" 303");
   });
 
+  it("sizes its chrome to the half it owns, on both sides", () => {
+    /*
+     * Shifting the chrome layer was not enough: `.fg` spans 84% of the WHOLE
+     * box, so moving it sideways carries its left-aligned name capsule and
+     * its right-aligned options button the same distance — the left tile's
+     * button stayed past the seam and was clipped away with the tile's only
+     * menu control in it. The bounds come from `focusX`, which the layout
+     * sets to the middle of the half it gave this tile.
+     *
+     * An even split: the left half is [0, 0.5] and the right [0.5, 1], each
+     * inset by 8% of its own width — so 4% of the box, not 8%.
+     */
+    const half = (focusX: number): CSSStyleDeclaration =>
+      render(
+        <MediaView
+          {...base}
+          orisoIdentity={FOX}
+          orisoShape={{
+            radius: "50%",
+            tilt: 0,
+            clipPath: "url(#seam)",
+            focusX,
+          }}
+        />,
+      ).container.querySelector<HTMLElement>('[data-oriso-half="true"]')!.style;
+
+    const left = half(0.25);
+    expect(left.getPropertyValue("--oriso-half-inset-start")).toBe("4.000%");
+    expect(left.getPropertyValue("--oriso-half-inset-end")).toBe("54.000%");
+
+    const right = half(0.75);
+    expect(right.getPropertyValue("--oriso-half-inset-start")).toBe("54.000%");
+    expect(right.getPropertyValue("--oriso-half-inset-end")).toBe("4.000%");
+  });
+
   it("owns only its half of a shared box", () => {
     /*
      * In the Einzelgespräch both tiles are given the WHOLE circle and differ

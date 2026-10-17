@@ -236,6 +236,32 @@ describe("finding out who everybody is", () => {
     expect(result.current.size).toBe(0);
   });
 
+  it("re-reads when an identity record is redacted", () => {
+    /*
+     * Withdrawing a record emits `RoomEvent.Redaction` and no timeline
+     * event, so without a listener for it the person kept the animal they
+     * had just removed for as long as the call stayed quiet. A redacted
+     * event has empty content, which `readIdentity` rejects — so the record
+     * simply stops counting and the stand-in letters come back.
+     */
+    const { room, push } = roomWith({});
+    push("@berater:oriso.test", {
+      kind: "motif",
+      file: "owl.svg",
+      bg: "#a5000a",
+      ink: "#ffffff",
+    });
+    const { result } = renderHook(() => useOrisoIdentities(room));
+    expect(result.current.get("@berater:oriso.test")?.file).toBe("owl.svg");
+
+    // The host redacts it: the event stays in the timeline with no content.
+    push("@berater:oriso.test", {});
+    act(() => {
+      (room as unknown as EventEmitter).emit(RoomEvent.Redaction);
+    });
+    expect(result.current.has("@berater:oriso.test")).toBe(false);
+  });
+
   it("hands back the same map when nothing changed", () => {
     // Every tile re-renders on a new map, and a timeline event arrives for
     // reasons that have nothing to do with identities.

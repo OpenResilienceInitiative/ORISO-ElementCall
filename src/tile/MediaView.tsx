@@ -129,6 +129,32 @@ export const MediaView: FC<Props> = ({
           (orisoShape.focusX - 0.5) * Math.min(targetWidth, targetHeight),
         );
 
+  /*
+   * Where this tile's half of the shared box actually is.
+   *
+   * Translating the chrome layer by the focus shift was not enough, and the
+   * reason is arithmetic: `.fg` spans 84% of the WHOLE box, so moving it
+   * sideways carries its left-aligned name capsule and its right-aligned
+   * options button the same distance — the button of the left-hand tile
+   * stayed past the seam and was clipped away, taking the tile's only menu
+   * control with it. The chrome has to be sized to the half, not shifted
+   * within the pair.
+   *
+   * The bounds follow exactly from `focusX`, which `EinzelgespraechLayout`
+   * sets to the middle of the half it gave this tile: `share / 2` for the
+   * left one and `share + (1 - share) / 2` for the right. So the seam is at
+   * `2 * focusX` on the left and `2 * focusX - 1` on the right, and the 8%
+   * chrome inset is taken from the half's own width rather than the pair's.
+   */
+  const orisoHalf = ((): { start: string; end: string } | undefined => {
+    const focusX = orisoShape?.focusX;
+    if (focusX === undefined) return undefined;
+    const [start, end] = focusX < 0.5 ? [0, 2 * focusX] : [2 * focusX - 1, 1];
+    const inset = 0.08 * (end - start);
+    const percent = (value: number): string => `${(value * 100).toFixed(3)}%`;
+    return { start: percent(start + inset), end: percent(1 - end + inset) };
+  })();
+
   return (
     <animated.div
       className={classNames(styles.media, className, {
@@ -144,6 +170,12 @@ export const MediaView: FC<Props> = ({
               ...(orisoFocusShift === undefined
                 ? {}
                 : { "--oriso-focus-shift": `${orisoFocusShift}px` }),
+              ...(orisoHalf === undefined
+                ? {}
+                : {
+                    "--oriso-half-inset-start": orisoHalf.start,
+                    "--oriso-half-inset-end": orisoHalf.end,
+                  }),
             }
       }
       ref={ref}

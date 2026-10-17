@@ -36,10 +36,22 @@ Please see LICENSE in the repository root for full details.
   position: relative;
 }
 
+/*
+ * The shared screen, kept inside the window.
+ *
+ * 404x233 is upstream's size and it is right on a desktop. Upstream's grid can
+ * hard-code it because its narrow branch hands a screen share to the portrait
+ * spotlight instead — this layout now holds at every width except
+ * picture-in-picture, so on a 320-390px phone a fixed 404px slot plus its
+ * inset overflowed, and `.inRoom` hides horizontal overflow, so the shared
+ * content was simply cut off. The aspect ratio is kept rather than the
+ * numbers.
+ */
 .fixed > .slot {
   position: absolute;
-  inline-size: 404px;
-  block-size: 233px;
+  inline-size: min(404px, calc(100% - 2 * var(--cpd-space-3x)));
+  block-size: auto;
+  aspect-ratio: 404 / 233;
   inset-block: 0;
   inset-inline: var(--cpd-space-3x);
 }

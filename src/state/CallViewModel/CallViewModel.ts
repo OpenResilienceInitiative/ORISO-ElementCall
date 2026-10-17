@@ -1111,35 +1111,51 @@ export function createCallViewModel$(
    * `pip` keeps upstream's: it is a thumbnail of a call happening elsewhere,
    * and the handoff draws nothing for it.
    */
-  const orisoArrangement$ = gridMode$.pipe(
-    switchMap((gridMode) => {
-      switch (gridMode) {
-        case "grid":
-          return oneOnOneLayoutMedia$.pipe(
-            switchMap((oneOnOne) =>
-              oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
-            ),
-          );
-        case "spotlight":
-          return spotlightExpanded$.pipe(
-            switchMap((expanded) =>
-              expanded
-                ? spotlightExpandedLayoutMedia$
-                : spotlightLandscapeLayoutMedia$,
-            ),
-          );
-      }
-    }),
-  );
+  const orisoArrangement = (windowMode: WindowMode): Observable<LayoutMedia> =>
+    gridMode$.pipe(
+      switchMap((gridMode) => {
+        switch (gridMode) {
+          case "grid":
+            return oneOnOneLayoutMedia$.pipe(
+              switchMap((oneOnOne) =>
+                oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
+              ),
+            );
+          case "spotlight":
+            /*
+             * The spotlight is upstream's layout, so it still respects the
+             * window.
+             *
+             * The grove, the fields and the Einzelgespräch are ORISO's own and
+             * hold at every size — that is the point of routing the design
+             * through here. The spotlight is not: `spotlight-landscape`
+             * reserves a 180px participant rail and 60px of padding, which on
+             * a 390px phone in portrait leaves about 150px for the person who
+             * is supposed to be spotlit. Upstream has
+             * `spotlightPortraitLayoutMedia$` for exactly that, with the rail
+             * below instead of beside.
+             */
+            return spotlightExpanded$.pipe(
+              switchMap((expanded) =>
+                expanded
+                  ? spotlightExpandedLayoutMedia$
+                  : windowMode === "narrow"
+                    ? spotlightPortraitLayoutMedia$
+                    : spotlightLandscapeLayoutMedia$,
+              ),
+            );
+        }
+      }),
+    );
 
   const layoutMedia$ = scope.behavior<LayoutMedia>(
     windowMode$.pipe(
       switchMap((windowMode) => {
         if (options.orisoDesign === true && windowMode !== "pip")
-          return orisoArrangement$;
+          return orisoArrangement(windowMode);
         switch (windowMode) {
           case "normal":
-            return orisoArrangement$;
+            return orisoArrangement("normal");
           case "narrow":
             return oneOnOneLayoutMedia$.pipe(
               switchMap((oneOnOne) =>

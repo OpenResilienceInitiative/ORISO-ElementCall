@@ -335,12 +335,16 @@ unconditionally select the container so we can use cqmin units */
    the same `focusX` the artwork and the camera get — where this half's middle
    actually is.
 
-   It moves the whole chrome LAYER. The first version listed `.nameTag` and
+   It SIZES the chrome layer to the half rather than shifting it. Two earlier
+   versions were wrong in different ways. The first listed `.nameTag` and
    `> button`, and the button is not a child of the tile — it is rendered
-   inside `.fg` — so that selector never matched and the options button stayed
-   at the shared box's corner, clipped into the other half. Shifting `.fg`
-   carries the capsule, the status glyphs and the button together, which is
-   what belonging to a half means. */
+   inside `.fg` — so that selector never matched at all. The second translated
+   `.fg`, which spans 84% of the whole box: moving it sideways carries its
+   left-aligned capsule and its right-aligned button the same distance, so the
+   left tile's button stayed past the seam and was still clipped away. The
+   bounds are computed from `focusX` in `MediaView`, which is the middle of
+   the half this tile was given. */
 .media.oriso[data-oriso-half="true"] > .fg {
-  translate: var(--oriso-focus-shift, 0) 0;
+  inset-inline: var(--oriso-half-inset-start, 8%)
+    var(--oriso-half-inset-end, 8%);
 }

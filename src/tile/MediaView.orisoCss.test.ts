@@ -75,27 +75,43 @@ describe("only the visible form takes the pointer", () => {
 });
 
 describe("the chrome belongs to its half", () => {
-  it("shifts the layer the chrome is actually in", () => {
+  it("sizes the chrome layer to the half rather than moving it", () => {
     /*
-     * The options button is rendered inside `.fg`, not as a child of the
-     * tile, so a `> button` selector never matched it and it stayed at the
-     * shared box's corner — clipped into the other half, taking the tile's
-     * only menu control with it.
+     * Two earlier versions were wrong in different ways, and neither could
+     * be seen from here.
+     *
+     * The first targeted `… > button`, and the options button is rendered
+     * inside `.fg` rather than as a child of the tile, so the selector never
+     * matched: the button stayed at the shared box's corner, clipped away by
+     * the seam with the tile's only menu control in it.
+     *
+     * The second translated `.fg`, which spans 84% of the WHOLE box — so
+     * moving it carried its left-aligned capsule and its right-aligned
+     * button the same distance, and the left tile's button was still past
+     * the seam. The layer has to be SIZED to the half; the bounds are
+     * computed from `focusX` in `MediaView`.
      */
-    const shifted = bodiesWhere(
+    const rules = bodiesWhere(
       (selector) =>
         selector.includes('[data-oriso-half="true"]') &&
         selector.includes(".fg"),
-    ).filter((body) => /translate:\s*var\(--oriso-focus-shift/.test(body));
-    expect(shifted.length).toBe(1);
+    );
+    expect(rules.length).toBe(1);
+    expect(rules[0]).toMatch(/inset-inline:/);
+    expect(rules[0]).toMatch(/--oriso-half-inset-start/);
+    expect(rules[0]).toMatch(/--oriso-half-inset-end/);
+    // Translating it is the version that did not work.
+    expect(rules[0]).not.toMatch(/translate:/);
+  });
 
+  it("never targets a button that is not a child of the tile", () => {
     const selectors: string[] = [];
     const pattern = /([^{}]+)\{([^{}]*)\}/g;
     let rule: RegExpExecArray | null;
     while ((rule = pattern.exec(css)) !== null) {
-      if (/translate:\s*var\(--oriso-focus-shift/.test(rule[2]))
-        selectors.push(rule[1]);
+      if (rule[1].includes('[data-oriso-half="true"]')) selectors.push(rule[1]);
     }
+    expect(selectors.length).toBeGreaterThan(0);
     for (const selector of selectors) {
       expect(selector).not.toMatch(/>\s*button/);
     }
