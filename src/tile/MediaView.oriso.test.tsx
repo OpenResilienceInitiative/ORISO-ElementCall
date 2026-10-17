@@ -166,6 +166,66 @@ describe("with an identity, the tile is a form", () => {
     );
   });
 
+  it("keeps the person's own form in a picture-in-picture tile", () => {
+    /*
+     * A DECISION, recorded here so it can be overturned in one place.
+     *
+     * `CallViewModel` deliberately leaves `windowMode === "pip"` to upstream's
+     * layout, because the handoff draws no picture-in-picture ARRANGEMENT.
+     * That is a statement about where tiles go. It is not a statement about
+     * what a person looks like, and identity is deliberately independent of
+     * the layout: the call inherits who somebody is and never decides it.
+     *
+     * Three things say the form should stay:
+     *
+     *   - A review finding earlier in this epic required exactly this for the
+     *     spotlight — upstream's layout, rendering an ORISO participant, had
+     *     to draw a proper circle rather than an ellipse. PiP renders through
+     *     the same `SpotlightTile`. Suppressing identity there would make that
+     *     fix conditional on window size, so the same person would be a circle
+     *     at 341px wide and a rectangle at 340px.
+     *   - An anonymous advice seeker has no avatar behind the form. Falling
+     *     back to upstream's tile shows initials on a plate, which is the
+     *     stand-in this design replaced.
+     *   - The geometry does not degenerate at that size, which is what this
+     *     test pins: 340x400 is the largest PiP and 280x180 the smallest the
+     *     host can produce, since the floating stage's minimum is 280x180.
+     */
+    for (const [width, height] of [
+      [340, 400],
+      [280, 180],
+    ] as const) {
+      const { container, unmount } = render(
+        <MediaView
+          {...base}
+          targetWidth={width}
+          targetHeight={height}
+          orisoIdentity={FOX}
+        />,
+      );
+      const face = container.querySelector<HTMLElement>(
+        '[data-testid="oriso-face"]',
+      )!;
+      const side = shapelessFaceSide(width, height);
+      expect(face.style.inlineSize).toBe(`${side}px`);
+      // Still a circle, still smaller than the box, still room for the halo.
+      expect(face.style.borderRadius).toBe("50%");
+      expect(side).toBeLessThan(Math.min(width, height));
+      expect(side).toBeGreaterThan(0);
+      // And the chrome is inset to the circle rather than off it.
+      const root = container.querySelector<HTMLElement>(
+        '[data-oriso-circle="true"]',
+      )!;
+      expect(
+        Number.parseInt(
+          root.style.getPropertyValue("--oriso-circle-inset-block"),
+          10,
+        ),
+      ).toBeGreaterThan(0);
+      unmount();
+    }
+  });
+
   it("keeps the halo's room inside the box that clips it", () => {
     /*
      * The speaking halo is an OUTER shadow, and every box the design puts a
