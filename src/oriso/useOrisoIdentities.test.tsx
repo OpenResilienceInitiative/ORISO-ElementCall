@@ -55,6 +55,8 @@ interface TimelineRoom {
   push: (sender: string, content: unknown) => void;
   /** The client the room belongs to, for decryption signals. */
   client: EventEmitter;
+  /** Replace the live timeline with a fresh, empty chunk, as a gappy sync does. */
+  resetTimeline: () => void;
 }
 
 /**
@@ -97,7 +99,10 @@ function roomWith(
       getEvents: (): unknown[] => events,
     }),
   }) as unknown as Room;
-  return { room, push, client };
+  const resetTimeline = (): void => {
+    events.length = 0;
+  };
+  return { room, push, client, resetTimeline };
 }
 
 describe("finding out who everybody is", () => {
@@ -258,6 +263,59 @@ describe("finding out who everybody is", () => {
     push("@berater:oriso.test", {});
     act(() => {
       (room as unknown as EventEmitter).emit(RoomEvent.Redaction);
+    });
+    expect(result.current.has("@berater:oriso.test")).toBe(false);
+  });
+
+  it("keeps what it knows when a gappy sync replaces the timeline", () => {
+    /*
+     * The live timeline is a WINDOW on the room, not the room.
+     *
+     * A limited sync throws the window away and hands over a fresh chunk,
+     * which need not contain identity events that are still perfectly valid
+     * in the room's history. Reading the new chunk on its own therefore
+     * dropped everybody who had not published recently, and a roomful of
+     * animals turned back into stand-in letters until each client happened to
+     * announce itself again.
+     *
+     * The replacement here is empty, which is the harshest version of the
+     * case and the one the old code read as "nobody has an identity".
+     */
+    const { room, resetTimeline } = roomWith(FROM_THE_HOST);
+    const { result } = renderHook(() => useOrisoIdentities(room));
+    const before = result.current.size;
+    expect(before).toBeGreaterThan(0);
+
+    act(() => {
+      resetTimeline();
+      (room as unknown as EventEmitter).emit(RoomEvent.TimelineReset);
+    });
+    expect(result.current.size).toBe(before);
+  });
+
+  it("still lets a withdrawal through after a reset", () => {
+    /*
+     * The other side of the rule above, and the reason the removal is
+     * explicit rather than a skipped assignment: absence from the window is
+     * not withdrawal, but an unreadable newest record IS. If keeping known
+     * identities also kept redacted ones, the fix for one bug would have
+     * reintroduced the other.
+     */
+    const { room, push, resetTimeline } = roomWith({});
+    push("@berater:oriso.test", {
+      kind: "motif",
+      file: "owl.svg",
+      bg: "#a5000a",
+      ink: "#ffffff",
+    });
+    const { result } = renderHook(() => useOrisoIdentities(room));
+    expect(result.current.get("@berater:oriso.test")?.file).toBe("owl.svg");
+
+    // A new chunk arrives, and in it the record is redacted: present, empty.
+    act(() => {
+      resetTimeline();
+      push("@berater:oriso.test", {});
+      (room as unknown as EventEmitter).emit(RoomEvent.TimelineReset);
     });
     expect(result.current.has("@berater:oriso.test")).toBe(false);
   });

@@ -45,8 +45,26 @@ export type Identities = ReadonlyMap<string, OrisoIdentity>;
  * the host performs when somebody new joins land as an update rather than a
  * duplicate.
  */
-export function readIdentities(room: Room): Identities {
-  const identities = new Map<string, OrisoIdentity>();
+export function readIdentities(room: Room, known?: Identities): Identities {
+  /*
+   * Starts from what is already known, because the live timeline is a WINDOW
+   * on the room and not the room.
+   *
+   * Absence from it is not withdrawal. A limited sync replaces the live
+   * timeline wholesale, and the replacement chunk need not contain identity
+   * events that are still perfectly valid in the room's history; the same is
+   * true once a long call pushes them out of the window. Building the map
+   * from the window alone therefore dropped everybody who had not spoken
+   * about themselves recently, and they fell back to stand-in letters until
+   * their client happened to publish again. The earlier version of this had
+   * the reasoning exactly backwards — it called that case "identities that
+   * are no longer in it".
+   *
+   * What does remove somebody is their own newest record being unreadable,
+   * which is the redaction case below. That is a thing they said; this is
+   * only a thing we cannot currently see.
+   */
+  const identities = new Map<string, OrisoIdentity>(known ?? []);
   // A mock, or a room whose timeline has not loaded, answers neither.
   const events = room.getLiveTimeline?.()?.getEvents?.();
   if (!Array.isArray(events)) return identities;
@@ -78,7 +96,11 @@ export function readIdentities(room: Room): Identities {
   }
   for (const [sender, content] of newest) {
     const identity = readIdentity(content);
-    if (identity !== null) identities.set(sender, identity);
+    // Explicitly removed rather than merely not set: with the known
+    // identities seeded above, skipping would leave the withdrawn record
+    // standing, which is the redaction bug over again.
+    if (identity === null) identities.delete(sender);
+    else identities.set(sender, identity);
   }
   return identities;
 }
@@ -122,13 +144,17 @@ export function useOrisoIdentities(room: Room): Identities {
   useEffect(() => {
     const update = (): void =>
       setIdentities((prev) => {
-        const next = readIdentities(room);
+        const next = readIdentities(room, prev);
         return same(prev, next) ? prev : next;
       });
     update();
     room.on(RoomEvent.Timeline, update);
-    // A gappy sync replaces the live timeline wholesale; without this the
-    // stage would keep identities that are no longer in it.
+    /*
+     * A gappy sync replaces the live timeline wholesale, so the new chunk has
+     * to be read — but it is read ON TOP of what is known rather than instead
+     * of it, because an identity missing from the new chunk has not been
+     * withdrawn. See `readIdentities`.
+     */
     room.on(RoomEvent.TimelineReset, update);
     /*
      * A redaction is not a timeline event either.
