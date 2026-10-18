@@ -43,8 +43,15 @@ export type Identities = ReadonlyMap<string, OrisoIdentity>;
  *
  * Keyed by SENDER, which is also what closes forgery. A state event let one
  * participant claim another's slot unless the reader checked the sender
- * against the state key by hand; here there is no key to claim. The sender of
- * a decrypted event is attested by the device that encrypted it.
+ * against the state key by hand; here there is no key to claim.
+ *
+ * What this reader cannot check is whether the event WAS encrypted. The host
+ * decrypts and feeds the widget the clear event (`getEffectiveEvent()`), so
+ * `isEncrypted()` is false here for every record, genuine or not, and
+ * filtering on it would drop them all. The guarantee lives on the sending
+ * side — the host refuses to publish into a room that is not encrypted — so a
+ * plaintext record could only come from a client that skipped that, and
+ * keyed by sender it can only ever change that client's own face.
  *
  * The newest record wins. `getEvents()` is ordered oldest first, so a later
  * assignment simply overwrites — which is what makes a person who changes

@@ -228,7 +228,11 @@ class OrisoPond extends HTMLElement {
 			cv.height = Math.round(this.h * dpr);
 			cx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		}
-		if (REDUCED || this.palette.still) this.frame();
+		// Resizing clears the canvases. A running loop repaints on its next
+		// step; anything else — reduced motion (read once at import, so it
+		// can turn on mid-call after `Atmosphere` stopped the loop) or a still
+		// palette — must repaint now, or the backdrop stays blank.
+		if (!this.running) this.frame();
 	}
 
 	stop() {
