@@ -1,0 +1,133 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.fixed,
+.scrolling {
+  block-size: 100%;
+}
+
+/* The grove and the subdivided fields both place their slots absolutely from
+   numbers the engine returns, so the layer is a plain positioning context. */
+.stage {
+  position: relative;
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+/* Beyond eight people the fields stop subdividing and start scrolling, at a
+   fixed tile size, which the handoff asks for by name. */
+.sheet {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  gap: var(--oriso-field-gutter);
+  /*
+   * A FLOOR, not a height — the sheet must reach its last row.
+   *
+   * Review read the previous `block-size: 100%` as cutting the box to one
+   * screenful, leaving the wrapped rows past the fold outside the content box
+   * and the block-end padding at the fold rather than after the last row. I
+   * measured it in Chromium against the real chain — `.inRoom` >
+   * `.scrollingGrid` > this sheet, fourteen 220x165 slots at 900x620 and at
+   * 390x640 — and it did not happen: `.scrollingGrid` is a flex item whose
+   * automatic minimum size is its content, so it grew, and the percentage
+   * resolved against the grown height. Both spellings put the halo's room
+   * after the last row, to the pixel (`docs/evidence/scrollport`).
+   *
+   * It stays as a minimum anyway. The sheet's own rule should say "at least a
+   * screenful, and as much more as the rows need" rather than depend on an
+   * ancestor's automatic minimum size staying `auto` — one `min-height: 0`
+   * added upstairs for an unrelated reason, which is a common flexbox fix,
+   * and the clipped version is what ships.
+   */
+  min-block-size: 100%;
+  inline-size: 100%;
+  /*
+   * Border-box, because the padding below is INSIDE the sheet.
+   *
+   * With content-box sizing, `inline-size: 100%` plus a halo-sized padding
+   * made the sheet `parent + 2 * room` wide: the centred flex rows shifted
+   * right and `.inRoom` clipped the overflow, so at a width where a row
+   * nearly fills the box the rightmost field — or the halo the padding was
+   * added to protect — was cut off. The padding has to come out of the
+   * declared width, not be added to it.
+   */
+  box-sizing: border-box;
+  /*
+   * NOT a scroll container, however much it looks like one should be.
+   *
+   * `Grid` renders the layout — these slots — and the visible `TileWrapper`s
+   * as SIBLINGS, and it positions the tiles from `offsetTop`/`offsetLeft`,
+   * which do not move when a box scrolls inside. An `overflow-y: auto` here
+   * therefore scrolled the invisible measurement slots out from under the
+   * tiles, which stayed exactly where they were: the scrollbar moved and the
+   * picture did not. It was here for one commit and it is written down so
+   * nobody adds it back.
+   *
+   * Upstream's own scrolling grid does not do it either: `GridLayout`'s
+   * `.scrolling` has no overflow of its own, and `.inRoom` — the ancestor
+   * that holds BOTH the slots and the tiles — is what scrolls.
+   */
+  /*
+   * Padded by the halo's room rather than by the gutter — on all four sides.
+   *
+   * A form on the outer edge of the sheet is otherwise one gutter from the
+   * container, while a speaking one paints `HALO_ROOM_PX` past its own tile
+   * and rises further — and this box scrolls, so that overflow is clipped
+   * rather than merely untidy. The subdivided fields reserve the same room
+   * by insetting the rectangle they divide; this variant has no rectangle to
+   * inset, so it pads.
+   *
+   * The first version of this left the gutter at the block-end, as the third
+   * value of a shorthand. That is the one edge where the difference is not
+   * cosmetic: the sheet IS the scroll container, so a form speaking in the
+   * last row had its shadow cut off at maximum scroll with nowhere further
+   * to scroll to. One value, every side.
+   */
+  padding: var(--oriso-halo-room);
+}
+
+.fixed {
+  position: relative;
+}
+
+/*
+ * The shared screen, kept inside the window.
+ *
+ * 404x233 is upstream's size and it is right on a desktop. Upstream's grid can
+ * hard-code it because its narrow branch hands a screen share to the portrait
+ * spotlight instead — this layout now holds at every width except
+ * picture-in-picture, so on a 320-390px phone a fixed 404px slot plus its
+ * inset overflowed, and `.inRoom` hides horizontal overflow, so the shared
+ * content was simply cut off. The aspect ratio is kept rather than the
+ * numbers.
+ */
+.fixed > .slot {
+  position: absolute;
+  inline-size: min(404px, calc(100% - 2 * var(--cpd-space-3x)));
+  block-size: auto;
+  aspect-ratio: 404 / 233;
+  inset-block: 0;
+  inset-inline: var(--cpd-space-3x);
+}
+
+.fixed > .slot[data-block-alignment="start"] {
+  inset-block-end: unset;
+}
+
+.fixed > .slot[data-block-alignment="end"] {
+  inset-block-start: unset;
+}
+
+.fixed > .slot[data-inline-alignment="start"] {
+  inset-inline-end: unset;
+}
+
+.fixed > .slot[data-inline-alignment="end"] {
+  inset-inline-start: unset;
+}

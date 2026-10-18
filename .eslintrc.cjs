@@ -8,6 +8,10 @@ Please see LICENSE in the repository root for full details.
 `;
 
 module.exports = {
+  // `pond.js` is a verbatim port of the design handoff's own file. It is not
+  // TypeScript, it is not in the tsconfig, and "do not rewrite it" is the
+  // instruction attached to it — so it is not linted either.
+  ignorePatterns: ["src/oriso/pond.js"],
   plugins: ["matrix-org", "rxjs"],
   extends: [
     "plugin:matrix-org/react",

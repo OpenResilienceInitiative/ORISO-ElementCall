@@ -1,0 +1,182 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+import * as React from "react";
+
+import { usePrefersReducedMotion } from "../usePrefersReducedMotion";
+
+/*
+ * `pond.js` registers <oriso-pond> at module load, and registering a custom
+ * element means `class ... extends HTMLElement` — which throws outright in a
+ * DOM-less environment. A static side-effect import therefore broke every
+ * node-environment test that transitively imported a stage, with a
+ * ReferenceError thrown before a single assertion ran.
+ *
+ * The port must stay verbatim, so the guard goes here instead: the import is
+ * dynamic and happens from an effect, which only runs where there is a
+ * document. The element upgrades a tick after mount; until then the tag is an
+ * unknown element with the right attributes on it, which is exactly what it
+ * is during the upgrade anyway.
+ */
+let registered = false;
+
+const registerPond = (): void => {
+  if (registered || typeof HTMLElement === "undefined") return;
+  registered = true;
+  void import("./pond.js");
+};
+
+/**
+ * The presets the ported `pond.js` actually defines.
+ *
+ * Ticket 05 says ten — "six animated, two deliberately still ('Ruhe',
+ * 'Düne'), two dark ('Nachtrot', 'Lagerfeuer')". The file ships eleven. The
+ * list here is read off the file rather than off the ticket, because the file
+ * is what renders; the discrepancy is recorded in the test.
+ */
+export const ATMOSPHERE_NAMES = [
+  "teich",
+  "fluss",
+  "nebel",
+  "glut",
+  "lichtung",
+  "strom",
+  "nacht",
+  "spirale",
+  "lagerfeuer",
+  "ruhe",
+  "duene",
+] as const;
+
+export type AtmosphereName = (typeof ATMOSPHERE_NAMES)[number];
+
+/** The handoff's default for a counselling stage. */
+export const DEFAULT_ATMOSPHERE: AtmosphereName = "fluss";
+
+export const isAtmosphereName = (value: string): value is AtmosphereName =>
+  (ATMOSPHERE_NAMES as readonly string[]).includes(value);
+
+export interface AtmosphereProps {
+  palette: AtmosphereName;
+  className?: string;
+}
+
+/**
+ * The living backdrop behind a call stage.
+ *
+ * A thin wrapper, on purpose. All the drawing is the prototype's and is not
+ * ours to second-guess; this only puts the element on the page and keeps the
+ * preset on its attribute.
+ *
+ * The preset changes by ATTRIBUTE, never by remounting. Remounting would tear
+ * down the canvas and restart the clock, which reads as a jump — the element
+ * watches `palette` precisely so it does not have to.
+ *
+ * Hidden from assistive technology: it carries no information whatsoever, and
+ * announcing it would be noise between a counsellor and what they need.
+ */
+export const Atmosphere: React.FC<AtmosphereProps> = ({
+  palette,
+  className,
+}) => {
+  const ref = React.useRef<HTMLElement>(null);
+
+  // Set as an ATTRIBUTE, deliberately. React assigns properties on custom
+  // elements, and `palette` on OrisoPond is a getter derived from the
+  // attribute — assigning it throws. Going through setAttribute is also
+  // what triggers `attributeChangedCallback`, which is how the element
+  // swaps preset without restarting its clock.
+  React.useEffect(() => {
+    registerPond();
+  }, []);
+
+  React.useEffect(() => {
+    ref.current?.setAttribute("palette", palette);
+  }, [palette]);
+
+  /*
+   * Stop drifting if the preference changes WHILE the call is open.
+   *
+   * `pond.js` reads `prefers-reduced-motion` once, into a module-level
+   * constant, so switching the preference on mid-call left its
+   * `requestAnimationFrame` loop running — and remounting would not help
+   * either, since that constant is evaluated at import and not per element.
+   *
+   * The fix belongs here rather than there. That file is ported verbatim and
+   * its ticket says so in as many words — "copy `pond.js`, do not rewrite
+   * it" — but it exposes `stop()`, `loop()` and `frame()`, which is enough
+   * for this layer to drive it: one still frame when the preference goes on,
+   * the drift resumed when it goes off. The drawing stays the prototype's
+   * and the policy stays ours.
+   *
+   * A deliberately still preset — `ruhe`, `duene` — must not be resumed, and
+   * the element will NOT protect itself here. I asserted in an earlier
+   * version of this comment that `loop()` guards on `palette.still`; it does
+   * not. It guards only on `running`, and the still check lives at the
+   * element's own call sites (`connectedCallback`,
+   * `attributeChangedCallback`). Calling `loop()` from outside those
+   * therefore starts a permanent rAF chain on a palette the design wants
+   * motionless: `ruhe` visibly drifts, because its masses depend on the
+   * advancing clock, and `duene` burns frames for nothing.
+   *
+   * So the palette is asked, through the element's own getter rather than a
+   * list copied into this file — one fact, one place.
+   */
+  const prefersReducedMotion = usePrefersReducedMotion();
+  React.useEffect(() => {
+    const pond = ref.current as
+      | (HTMLElement & {
+          stop?: () => void;
+          loop?: () => void;
+          frame?: () => void;
+          palette?: { still?: boolean };
+        })
+      | null;
+    if (!pond) return;
+    if (prefersReducedMotion) {
+      pond.stop?.();
+      // One frame, so the backdrop is a picture rather than a blank. Correct
+      // for a still palette too: that is what the element itself draws.
+      pond.frame?.();
+      return;
+    }
+    // Before the custom element upgrades there is no getter to ask, and
+    // nothing to resume either — its own `connectedCallback` decides, and it
+    // does check `palette.still`.
+    if (pond.palette?.still === true) return;
+    pond.loop?.();
+  }, [prefersReducedMotion, palette]);
+
+  return (
+    <oriso-pond
+      ref={ref}
+      class={className}
+      aria-hidden="true"
+      style={{ position: "absolute", inset: 0 }}
+    />
+  );
+};
+
+/*
+ * React 19 moved the JSX namespace onto the React module, so augmenting the
+ * old global `JSX` no longer reaches the type checker.
+ */
+declare module "react" {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      "oriso-pond": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & {
+        palette?: string;
+        class?: string;
+        ref?: React.Ref<HTMLElement>;
+      };
+    }
+  }
+}

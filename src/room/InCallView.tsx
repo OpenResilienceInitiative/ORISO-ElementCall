@@ -76,6 +76,25 @@ import { makeOneOnOneLayout } from "../grid/OneOnOneLayout";
 import { makeSpotlightExpandedLayout } from "../grid/SpotlightExpandedLayout";
 import { makeSpotlightLandscapeLayout } from "../grid/SpotlightLandscapeLayout";
 import { makeSpotlightPortraitLayout } from "../grid/SpotlightPortraitLayout";
+import { makeOrisoGroveLayout } from "../grid/OrisoGroveLayout";
+import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
+import { ViewSwitcher, type StageView } from "../oriso/ViewSwitcher";
+import {
+  OrisoStageContext,
+  useOrisoIdentities,
+} from "../oriso/useOrisoIdentities";
+import { OrisoShapeStore, OrisoShapesContext } from "../oriso/useOrisoShape";
+import {
+  ORISO_VIEW_STORAGE_KEY,
+  OrisoViewContext,
+  type OrisoView,
+} from "../oriso/useOrisoView";
+import { useLocalStorage } from "../useLocalStorage";
+import {
+  Atmosphere,
+  DEFAULT_ATMOSPHERE,
+  isAtmosphereName,
+} from "../oriso/Atmosphere";
 import { GridTileViewModel, type TileViewModel } from "../state/TileViewModel";
 import {
   ReactionsSenderProvider,
@@ -133,8 +152,12 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
     logger.info("START CALL VIEW SCOPE");
     const scope = new ObservableScope();
     const reactionsReader = new ReactionsReader(scope, props.rtcSession);
-    const { autoLeaveWhenOthersLeft, waitForCallPickup, sendNotificationType } =
-      urlParams;
+    const {
+      autoLeaveWhenOthersLeft,
+      waitForCallPickup,
+      sendNotificationType,
+      orisoDesign,
+    } = urlParams;
     const vm = createCallViewModel$(
       scope,
       props.rtcSession,
@@ -145,6 +168,8 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
         encryptionSystem: props.e2eeSystem,
         autoLeaveWhenOthersLeft,
         waitForCallPickup: waitForCallPickup && sendNotificationType === "ring",
+        // Which arrangement each window size gets; see `CallViewModelOptions`.
+        orisoDesign,
         matrixRTCMode$: matrixRTCModeSetting.value$,
       },
       reactionsReader.raisedHands$,
@@ -401,16 +426,33 @@ export const InCallView: FC<InCallViewProps> = ({
     [setSettingsTab, setSettingsModalOpen],
   );
 
+  /*
+   * Read before the bounds below, because they depend on it: see the ORISO
+   * section further down for what the gate means.
+   */
+  const { parentUrl, orisoAtmosphere, orisoDesign } = useUrlParams();
+  const orisoEnabled = orisoDesign;
+
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
 
   const gridBounds = useMemo(
     () => ({
       width: bounds.width,
+      /*
+       * The footer's height comes off the stage — for ORISO even in `flat`.
+       *
+       * Upstream gives a flat window the whole height and floats the footer
+       * over it, which suits a spotlight whose subject sits in the middle.
+       * An ORISO arrangement puts people at the edges: a landscape phone,
+       * where the footer takes two rows below 660px, had the controls and
+       * the view rail sitting on top of the bottom of the circle, the outer
+       * participants, or a bottom-aligned screen share.
+       */
       height:
         bounds.height -
         headerBounds.height -
-        (windowMode === "flat" ? 0 : footerBounds.height),
+        (windowMode === "flat" && !orisoEnabled ? 0 : footerBounds.height),
     }),
     [
       bounds.width,
@@ -418,6 +460,7 @@ export const InCallView: FC<InCallViewProps> = ({
       headerBounds.height,
       footerBounds.height,
       windowMode,
+      orisoEnabled,
     ],
   );
   const gridBoundsObservable$ = useObservable(
@@ -435,6 +478,100 @@ export const InCallView: FC<InCallViewProps> = ({
   const setGridMode = useCallback(
     (mode: GridMode) => vm.setGridMode(mode),
     [vm],
+  );
+
+  /* ---------------------------------------------------------------------- *
+   * ORISO
+   *
+   * The design is on when the embedding host ASKED for it, which is what
+   * `orisoDesign` says. Not `parentUrl`: that is the generic widget parameter
+   * every embedded Element Call carries, so gating on it would have handed the
+   * grove, the backdrop and the animals to any Element Web embedding of this
+   * build. Standalone and every other host keep upstream's rectangles — one
+   * tile implementation serving both, rather than a fork in the tree.
+   *
+   * `parentUrl` is still where the artwork is inherited FROM, which is a
+   * different question and only asked once the design is on.
+   * ---------------------------------------------------------------------- */
+  const orisoIdentities = useOrisoIdentities(matrixRoom);
+  const orisoStage = useMemo(
+    () => ({
+      identities: orisoIdentities,
+      parentUrl,
+      enabled: orisoEnabled,
+    }),
+    [orisoIdentities, parentUrl, orisoEnabled],
+  );
+  const orisoShapes = useInitial(() => new OrisoShapeStore());
+
+  // The backdrop world. Configured centrally by the counselling centre, so it
+  // arrives on the URL rather than being chosen in the call; an unknown name
+  // falls back to the handoff's default rather than rendering nothing.
+  const atmosphere =
+    orisoAtmosphere !== null && isAtmosphereName(orisoAtmosphere)
+      ? orisoAtmosphere
+      : DEFAULT_ATMOSPHERE;
+
+  // The arrangement is remembered, because it is a preference about how
+  // somebody likes to see a room rather than a property of this call.
+  const [storedView, setStoredView] = useLocalStorage(ORISO_VIEW_STORAGE_KEY);
+  const orisoView: OrisoView = storedView === "felder" ? "felder" : "hain";
+
+  /*
+   * What the rail offers, and what it says is on.
+   *
+   * The machinery underneath holds two orthogonal settings: Kreis and Kacheln
+   * are both grid mode with a different arrangement, Spotlight is the other
+   * mode. See `useOrisoView.ts` for why they are not one enum.
+   *
+   * But at exactly two people `layoutMedia$` reaches for the one-on-one
+   * layout first and it matches, so the stage is the Einzelgespräch whichever
+   * arrangement is selected — and Kreis and Kacheln were BOTH no-ops there:
+   * the radio moved and nothing else did. The rail now names the arrangement
+   * that is actually on and offers the one real alternative, which is the
+   * spotlight. Choosing the Einzelgespräch means grid mode, exactly as Kreis
+   * does; the stored arrangement is left alone so that it comes back when a
+   * third person arrives.
+   */
+  /*
+   * Two people, as the VIEW MODEL counts them rather than as the stage
+   * happens to look.
+   *
+   * This read `layout.type === "one-on-one"`, which is the same thing only
+   * in grid mode: pick the spotlight at two people and the layout becomes a
+   * spotlight, so the rail decided it was no longer a two-person call and
+   * offered the grove and the fields again — both of which land straight
+   * back on the Einzelgespräch. The control went back to naming arrangements
+   * it cannot honour, which is the thing it was fixed to stop doing.
+   */
+  const alone = useBehavior(vm.orisoOneOnOne$);
+  // A stable array, so the rail can memoise its entries on it and its
+  // keyboard handler cannot close over a list that has moved on.
+  const orisoOffer: readonly StageView[] = useMemo(
+    () =>
+      alone
+        ? ["einzelgespraech", "spotlight"]
+        : ["hain", "felder", "spotlight"],
+    [alone],
+  );
+  const stageView: StageView =
+    gridMode === "spotlight"
+      ? "spotlight"
+      : alone
+        ? "einzelgespraech"
+        : orisoView;
+  const setStageView = useCallback(
+    (view: StageView) => {
+      if (view === "spotlight") {
+        setGridMode("spotlight");
+        return;
+      }
+      // The Einzelgespräch is not a stored arrangement — it is what two
+      // people get — so picking it only says "not the spotlight".
+      if (view !== "einzelgespraech") setStoredView(view);
+      setGridMode("grid");
+    },
+    [setGridMode, setStoredView],
   );
 
   useEffect(() => {
@@ -633,13 +770,20 @@ export const InCallView: FC<InCallViewProps> = ({
       pipAlignment$,
     };
     return {
-      grid: makeGridLayout(inputs),
+      // Two entries swap for ORISO's; the other three are upstream's
+      // unchanged, because a screen share and an expanded speaker are the
+      // same thing in both designs.
+      grid: orisoEnabled
+        ? makeOrisoGroveLayout(inputs)
+        : makeGridLayout(inputs),
       "spotlight-landscape": makeSpotlightLandscapeLayout(inputs),
       "spotlight-portrait": makeSpotlightPortraitLayout(inputs),
       "spotlight-expanded": makeSpotlightExpandedLayout(inputs),
-      "one-on-one": makeOneOnOneLayout(inputs),
+      "one-on-one": orisoEnabled
+        ? makeEinzelgespraechLayout(inputs)
+        : makeOneOnOneLayout(inputs),
     };
-  }, [gridBoundsObservable$, spotlightAlignment$, pipAlignment$]);
+  }, [gridBoundsObservable$, spotlightAlignment$, pipAlignment$, orisoEnabled]);
 
   const renderContent = (): JSX.Element => {
     if (layout.type === "pip") {
@@ -773,6 +917,8 @@ export const InCallView: FC<InCallViewProps> = ({
     <div
       ref={footerRef}
       className={classNames(styles.footer, {
+        // Gives the view rail a row of its own on a phone; see the CSS.
+        [styles.orisoFooter]: orisoEnabled,
         [styles.overlay]: windowMode === "flat",
         [styles.hidden]:
           !showFooter || (!showControls && headerStyle === "none"),
@@ -782,75 +928,106 @@ export const InCallView: FC<InCallViewProps> = ({
         ? `Tiles generation: ${tileStoreGeneration}`
         : undefined}
       {showControls && <div className={styles.buttons}>{buttons}</div>}
-      {showControls && (
-        <LayoutToggle
-          className={styles.layout}
-          layout={gridMode}
-          setLayout={setGridMode}
-          onTouchEnd={onControlsTouchEnd}
-        />
-      )}
+      {showControls &&
+        (orisoEnabled ? (
+          <ViewSwitcher
+            className={styles.orisoLayout}
+            active={stageView}
+            offer={orisoOffer}
+            onChange={setStageView}
+            onTouchEnd={onControlsTouchEnd}
+          />
+        ) : (
+          <LayoutToggle
+            className={styles.layout}
+            layout={gridMode}
+            setLayout={setGridMode}
+            onTouchEnd={onControlsTouchEnd}
+          />
+        ))}
     </div>
   );
 
   return (
-    <div
-      className={styles.inRoom}
-      ref={containerRef}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchCancel}
-      onPointerMove={onPointerMove}
-      onPointerOut={onPointerOut}
-    >
-      {header}
-      {mediaError !== null && (
-        <div className={styles.mediaError} role="alert">
-          <div>
-            <Text as="h2" size="sm" weight="semibold">
-              {mediaError.localisedTitle}
-            </Text>
-            {mediaError.localisedMessage && (
-              <Text size="sm">{mediaError.localisedMessage}</Text>
+    // Three contexts rather than props threaded through Grid: the tiles need
+    // to know who somebody is and what form they are standing in, and Grid
+    // deliberately hands a tile nothing but its rectangle. Going through it
+    // would have meant teaching every upstream layout about a field it does
+    // not use.
+    <OrisoStageContext value={orisoStage}>
+      <OrisoShapesContext value={orisoShapes}>
+        <OrisoViewContext value={orisoView}>
+          <div
+            className={styles.inRoom}
+            ref={containerRef}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchCancel}
+            onPointerMove={onPointerMove}
+            onPointerOut={onPointerOut}
+            data-oriso={orisoEnabled ? "true" : undefined}
+          >
+            {/* The living backdrop. Behind everything, announced to
+                nobody: it carries no information, and reading it out would be
+                noise between a counsellor and what they need. The preset is
+                the counselling centre's choice and travels on the URL — an
+                advice seeker never picks it. */}
+            {orisoEnabled && (
+              <div className={styles.orisoBackdrop} aria-hidden="true">
+                <Atmosphere palette={atmosphere} />
+              </div>
+            )}
+            {header}
+            {mediaError !== null && (
+              <div className={styles.mediaError} role="alert">
+                <div>
+                  <Text as="h2" size="sm" weight="semibold">
+                    {mediaError.localisedTitle}
+                  </Text>
+                  {mediaError.localisedMessage && (
+                    <Text size="sm">{mediaError.localisedMessage}</Text>
+                  )}
+                </div>
+                <Button kind="secondary" size="sm" onClick={vm.retryMedia}>
+                  {t("action.try_again")}
+                </Button>
+              </div>
+            )}
+            {audioParticipants.map(({ livekitRoom, url, participants }) => (
+              <LivekitRoomAudioRenderer
+                key={url}
+                url={url}
+                livekitRoom={livekitRoom}
+                validIdentities={participants}
+                muted={muteAllAudio}
+              />
+            ))}
+            {renderContent()}
+            <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
+            <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
+            {reconnectingToast}
+            {earpieceOverlay}
+            <ReactionsOverlay vm={vm} />
+            {waitingOverlay}
+            {footer}
+            {!isPopupMode && (
+              <>
+                <RageshakeRequestModal {...rageshakeRequestModalProps} />
+                <SettingsModal
+                  client={client}
+                  roomId={matrixRoom.roomId}
+                  open={settingsModalOpen}
+                  onDismiss={closeSettings}
+                  tab={settingsTab}
+                  onTabChange={setSettingsTab}
+                  // TODO expose correct data to setttings modal
+                  livekitRooms={[]}
+                />
+              </>
             )}
           </div>
-          <Button kind="secondary" size="sm" onClick={vm.retryMedia}>
-            {t("action.try_again")}
-          </Button>
-        </div>
-      )}
-      {audioParticipants.map(({ livekitRoom, url, participants }) => (
-        <LivekitRoomAudioRenderer
-          key={url}
-          url={url}
-          livekitRoom={livekitRoom}
-          validIdentities={participants}
-          muted={muteAllAudio}
-        />
-      ))}
-      {renderContent()}
-      <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
-      <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
-      {reconnectingToast}
-      {earpieceOverlay}
-      <ReactionsOverlay vm={vm} />
-      {waitingOverlay}
-      {footer}
-      {!isPopupMode && (
-        <>
-          <RageshakeRequestModal {...rageshakeRequestModalProps} />
-          <SettingsModal
-            client={client}
-            roomId={matrixRoom.roomId}
-            open={settingsModalOpen}
-            onDismiss={closeSettings}
-            tab={settingsTab}
-            onTabChange={setSettingsTab}
-            // TODO expose correct data to setttings modal
-            livekitRooms={[]}
-          />
-        </>
-      )}
-    </div>
+        </OrisoViewContext>
+      </OrisoShapesContext>
+    </OrisoStageContext>
   );
 };
