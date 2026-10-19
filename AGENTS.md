@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Agent entry point for this repository. Integration branch: `pre-dev`.
+Agent entry point for this repository. Integration branch: `dev`.
 
 ## AI agent delivery rules
 
