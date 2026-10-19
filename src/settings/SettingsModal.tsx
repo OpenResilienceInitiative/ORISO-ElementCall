@@ -221,11 +221,16 @@ export const SettingsModal: FC<Props> = ({
   if (widget === null) tabs.push(profileTab);
   tabs.push(preferencesTab);
   // Feedback tab hidden by requirement (keep definition for easy re-enable)
-  if (false && (isRageshakeAvailable || import.meta.env.VITE_PACKAGE === "full")) {
+  const feedbackTabEnabled = false as boolean;
+  if (
+    feedbackTabEnabled &&
+    (isRageshakeAvailable || import.meta.env.VITE_PACKAGE === "full")
+  ) {
     tabs.push(feedbackTab);
   }
   // Developer tab hidden by requirement (keep definition for easy re-enable)
-  if (false && showDeveloperSettingsTab) tabs.push(developerTab);
+  const developerTabEnabled = false as boolean;
+  if (developerTabEnabled && showDeveloperSettingsTab) tabs.push(developerTab);
 
   return (
     <Modal

@@ -55,7 +55,7 @@ export const Header: FC<HeaderProps> = ({
 Header.displayName = "Header";
 
 interface LeftNavProps extends HTMLAttributes<HTMLElement> {
-  children: ReactNode;
+  children?: ReactNode;
   className?: string;
   hideMobile?: boolean;
 }

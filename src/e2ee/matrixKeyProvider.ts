@@ -45,7 +45,7 @@ export class MatrixKeyProvider extends BaseKeyProvider {
     participantId: string,
   ): void => {
     crypto.subtle
-      .importKey("raw", encryptionKey, "HKDF", false, [
+      .importKey("raw", new Uint8Array(encryptionKey), "HKDF", false, [
         "deriveBits",
         "deriveKey",
       ])

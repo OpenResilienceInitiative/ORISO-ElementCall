@@ -21,7 +21,7 @@ import { type WidgetHelpers } from "./widget.ts";
 
 interface FullScreenViewProps {
   className?: string;
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 export const FullScreenView: FC<FullScreenViewProps> = ({

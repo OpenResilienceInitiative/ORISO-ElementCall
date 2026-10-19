@@ -18,6 +18,7 @@ import { widget } from "../widget.ts";
 export const HomePage: FC = () => {
   const { t } = useTranslation();
   usePageTitle(t("common.home"));
+  const clientState = useClientState();
   const isEmbedded = window.self !== window.top;
 
   // In embedded integrations, we never want to show standalone
@@ -25,8 +26,6 @@ export const HomePage: FC = () => {
   if (isEmbedded) {
     return <FullScreenView />;
   }
-
-  const clientState = useClientState();
 
   if (!clientState) {
     return <LoadingPage />;
