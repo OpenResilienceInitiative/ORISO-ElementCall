@@ -210,19 +210,19 @@ export function recolorSvg(svgText: string, iconColor: string): string {
  * ------------------------------------------------------------------------- */
 
 /**
- * The room state event that carries one person's ORISO identity.
+ * The encrypted timeline event that carries one person's ORISO identity.
  *
- * State key is the user id, so it is written once per person per room rather
- * than once per call or per device. A reconnect, a second device and a second
- * call all read the same record.
+ * Not room state: state events are not encrypted, and this record says which
+ * animal a person chose. It is keyed by sender, the newest one wins, and the
+ * host re-sends it whenever somebody joins — see `useOrisoIdentities`.
  *
- * Why a state event of our own and not the MatrixRTC membership, which was
+ * Why an event of our own and not the MatrixRTC membership, which was
  * the first plan: `MembershipManager.makeMyMembership` in matrix-js-sdk is
  * `protected` and builds its content from a fixed literal, and
  * `joinRoomSession` constructs the manager itself. There is no supported hook
  * for an extra field, so riding along in the membership would mean patching
- * the SDK. This costs one small state event instead, and the widget contract
- * already allows reading room state.
+ * the SDK. This costs one small event instead, which the widget is allowed to
+ * receive.
  */
 export const ORISO_IDENTITY_EVENT_TYPE = "org.oriso.call.identity";
 
