@@ -33,7 +33,7 @@ Please see LICENSE in the repository root for full details.
  * Writes numbers to stdout and plates to docs/evidence/scrollport.
  */
 import { readFileSync, mkdirSync } from "node:fs";
-import { chromium } from "playwright";
+import { chromium } from "@playwright/test";
 
 // Run from the repository root, as the other measurement scripts are.
 const repo = process.cwd();

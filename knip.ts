@@ -23,6 +23,7 @@ export default {
     "scripts/shootOrisoStage.mjs",
     "scripts/measureVideoInShape.mjs",
     "scripts/measureHainOverlap.mjs",
+    "scripts/measureScrollport.mjs",
     "scripts/verifyLiveCall.mjs",
   ],
   ignoreBinaries: [
