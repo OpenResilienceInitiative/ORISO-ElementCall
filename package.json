@@ -134,7 +134,7 @@
     "vite-plugin-generate-file": "^0.3.0",
     "vite-plugin-html": "^3.2.2",
     "vite-plugin-svgr": "^4.0.0",
-    "vitest": "^3.0.0",
+    "vitest": "^4.1.11",
     "vitest-axe": "^1.0.0-pre.3"
   },
   "resolutions": {
