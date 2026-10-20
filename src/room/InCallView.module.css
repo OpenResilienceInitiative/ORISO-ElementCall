@@ -106,6 +106,39 @@ Please see LICENSE in the repository root for full details.
   justify-self: end;
 }
 
+/*
+ * ORISO's rail is not upstream's toggle, and it stays on a phone.
+ *
+ * `.layout` is hidden below 660px further down, because a two-way
+ * grid/spotlight toggle is not worth the width there. The ORISO rail is a
+ * different control: the handoff draws every arrangement at phone size
+ * (`Hain-Handy`, `Felder-Handy`, `Einzel-handy`), so choosing one is part of
+ * the design at phone width rather than a desktop extra. Sharing the class
+ * left a portrait phone with no way to leave the stored arrangement — and no
+ * unit test could see it, because jsdom applies no media queries.
+ *
+ * It takes a row of its own rather than a slice of the buttons' row: at 390px
+ * the call buttons already fill two thirds of that row.
+ */
+.orisoLayout {
+  grid-area: layout;
+  justify-self: end;
+}
+
+@media (max-width: 660px) {
+  .footer.orisoFooter {
+    grid-template-areas:
+      ". oriso oriso oriso ."
+      ". buttons buttons buttons .";
+    row-gap: var(--cpd-space-2x);
+  }
+
+  .orisoFooter .orisoLayout {
+    grid-area: oriso;
+    justify-self: center;
+  }
+}
+
 @media (max-width: 660px) {
   .footer {
     grid-template-areas: ". buttons buttons buttons .";
@@ -190,4 +223,51 @@ Please see LICENSE in the repository root for full details.
 .tile.maximised {
   position: relative;
   flex-grow: 1;
+}
+
+/* The living backdrop behind the whole call: behind every tile, the header
+   and the footer, and behind every row of a stage that scrolls. */
+.orisoBackdrop {
+  /*
+   * Pinned to the scrollport, not to the first screenful.
+   *
+   * `.inRoom` is the scroll container, and `position: absolute; inset: 0`
+   * inside it sizes the backdrop to the padding box — one screen — and
+   * scrolls it away with the content. Above eight people the fields scroll,
+   * and every row below the fold came out from under the pond onto bare
+   * background.
+   *
+   * Fixed rather than sticky, because sticky needs the element to stay in
+   * flow: as a flex item of this column it would then take a row's worth of
+   * height, and the usual way out — `block-size: 100%; margin-block-end:
+   * -100%` — does not work here, since a PERCENTAGE BLOCK MARGIN resolves
+   * against the containing block's INLINE size. In a landscape window that
+   * subtracts more than the backdrop's height and drags the header and the
+   * stage up out of the box.
+   *
+   * `.inRoom` fills the viewport (100%/100%, and nothing on it establishes a
+   * containing block for fixed descendants), so the viewport IS this
+   * scrollport: the first screenful looks exactly as it did, and the rows
+   * below it now have the pond behind them too.
+   */
+  position: fixed;
+  inset: 0;
+  /* Behind the call's own content, and WITHOUT reaching into it.
+     The first version lifted every sibling instead, with
+     `.inRoom[data-oriso] > *:not(.orisoBackdrop) { position: relative }` —
+     which also overrode `position: absolute` on the fixed grid layer and
+     `position: sticky` on the header and the footer, so the controls scrolled
+     away with the stage. A negative z-index on the backdrop asks nothing of
+     anything else. */
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.inRoom[data-oriso="true"] {
+  position: relative;
+  /* So that -1 means "behind the call" and not "behind the page". Without a
+     stacking context here the backdrop would slide under the host document
+     and vanish. */
+  isolation: isolate;
 }

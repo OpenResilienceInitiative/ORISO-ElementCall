@@ -13,7 +13,7 @@ import { logger } from "matrix-js-sdk/lib/logger";
 import { useNavigate } from "react-router-dom";
 
 import { useClient } from "../ClientContext";
-import { Header, LeftNav, RightNav } from "../Header";
+import { Header, RightNav } from "../Header";
 import { UserMenuContainer } from "../UserMenuContainer";
 import { FieldRow, InputField, ErrorMessage } from "../input/Input";
 import {
@@ -30,10 +30,9 @@ import styles from "./UnauthenticatedView.module.css";
 import commonStyles from "./common.module.css";
 import { generateRandomName } from "../auth/generateRandomName";
 import { AnalyticsNotice } from "../analytics/AnalyticsNotice";
-import { Config } from "../config/Config";
 import { E2eeType } from "../e2ee/e2eeType";
 import { useOptInAnalytics } from "../settings/settings";
-import { ExternalLink, Link } from "../button/Link";
+import { Link } from "../button/Link";
 import { useUrlParams } from "../UrlParams";
 
 export const UnauthenticatedView: FC = () => {

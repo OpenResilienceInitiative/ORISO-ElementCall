@@ -1,0 +1,96 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.face {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  flex-shrink: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* The artwork, or the initials, or the camera. Counter-rotated so the form
+   leans and its contents do not. */
+.content {
+  position: absolute;
+  display: block;
+  /* The drawing is an `<img>`, whose default `object-fit: fill` would stretch
+     a non-square animal to a square box. `contain` is what the inlined SVG's
+     own `preserveAspectRatio="xMidYMid meet"` did, so the shape is unchanged
+     for the square set we have and correct for one that is not. */
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.initials {
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+/* The camera fills the whole form rather than sitting inside the padding the
+   artwork needs. */
+.video {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video video {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.video[data-fit="contain"] video {
+  object-fit: contain;
+}
+
+/* The body of the form: a highlight from the upper left and a wash from the
+   lower right, verbatim from the handoff's prototype. It lies over the
+   artwork, because the shading is of the whole shape including what is
+   painted on it — underneath, the form stays a flat disc. */
+.sphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      78% 78% at 33% 24%,
+      rgb(255 255 255 / 50%),
+      rgb(255 255 255 / 14%) 38%,
+      rgb(255 255 255 / 0%) 62%
+    ),
+    radial-gradient(
+      88% 88% at 70% 86%,
+      rgb(28 24 18 / 30%),
+      rgb(28 24 18 / 8%) 44%,
+      rgb(28 24 18 / 0%) 70%
+    );
+  box-shadow:
+    inset 0 -14px 26px -12px rgb(28 24 18 / 40%),
+    inset 0 12px 22px -14px rgb(255 255 255 / 60%);
+}
+
+/* The rim light on whoever is speaking, where the form is one half of a
+   shared circle. The handoff's values, in the carrier's red: a tight inner
+   ring and a wide inward glow. */
+.rim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 3px rgb(165 0 10 / 44%),
+    inset 0 0 44px 10px rgb(165 0 10 / 32%);
+}

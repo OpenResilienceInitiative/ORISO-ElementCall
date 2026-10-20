@@ -155,6 +155,20 @@ export interface CallViewModelOptions {
   connectionState$?: Behavior<ConnectionState>;
   /** Optional behavior overriding the computed window size, mainly for testing purposes. */
   windowSize$?: Behavior<{ width: number; height: number }>;
+  /**
+   * Whether the embedding host asked for ORISO's design.
+   *
+   * It changes exactly one thing in here: which arrangement each window size
+   * gets. Upstream's responsive policy falls back to a spotlight on anything
+   * small, which is right for rectangles; ORISO's handoff draws all three of
+   * its arrangements at phone width, so the arrangement follows the grid mode
+   * and the number of people at every size instead.
+   *
+   * Passed in rather than read from the URL in here, because a view model that
+   * reaches for `window.location` cannot be reasoned about from its arguments
+   * — and `InCallView`, which constructs this, already has the parameters.
+   */
+  orisoDesign?: boolean;
   /** The version & compatibility mode of MatrixRTC that we should use. */
   matrixRTCMode$: Behavior<MatrixRTCMode>;
 }
@@ -318,6 +332,11 @@ export interface CallViewModel {
    * The layout of tiles in the call interface.
    */
   layout$: Behavior<Layout>;
+  /**
+   * Whether grid mode would choose the design's two-person arrangement,
+   * whatever mode is on. See the comment where it is built.
+   */
+  orisoOneOnOne$: Behavior<boolean>;
   /**
    * The current generation of the tile store, exposed for debugging purposes.
    */
@@ -1068,31 +1087,75 @@ export function createCallViewModel$(
   /**
    * The media to be used to produce a layout.
    */
+  /*
+   * The arrangement by window, when ORISO's design is in use.
+   *
+   * Upstream's responsive policy is to fall back to a spotlight on anything
+   * small: a phone in portrait gets `spotlight-expanded` at two people and
+   * `spotlight-portrait` past a handful, and a phone in landscape gets a
+   * spotlight either way. That is a sound policy for rectangles, and it is
+   * the wrong one here — ORISO's handoff draws all three of its arrangements
+   * at phone width (`Einzel-handy`, `Hain-Handy`, `Felder-Handy`), and the
+   * fork only substitutes the `grid` and `one-on-one` entries. So the most
+   * common call this platform has — one advice seeker, one counsellor, on a
+   * phone — rendered upstream's rectangular tiles with no seam and no
+   * backdrop, and the view rail reported an arrangement that was not on
+   * screen.
+   *
+   * The design is the same at every width, so the choice is made the same way
+   * at every width: the arrangement follows the grid mode and the number of
+   * people, not the size of the window. Screen sharing is unaffected —
+   * `gridLayoutMedia$` puts a share in the spotlight slot and the ORISO grove
+   * renders that slot in its fixed layer, exactly as upstream's grid does.
+   *
+   * `pip` keeps upstream's: it is a thumbnail of a call happening elsewhere,
+   * and the handoff draws nothing for it.
+   */
+  const orisoArrangement = (windowMode: WindowMode): Observable<LayoutMedia> =>
+    gridMode$.pipe(
+      switchMap((gridMode) => {
+        switch (gridMode) {
+          case "grid":
+            return oneOnOneLayoutMedia$.pipe(
+              switchMap((oneOnOne) =>
+                oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
+              ),
+            );
+          case "spotlight":
+            /*
+             * The spotlight is upstream's layout, so it still respects the
+             * window.
+             *
+             * The grove, the fields and the Einzelgespräch are ORISO's own and
+             * hold at every size — that is the point of routing the design
+             * through here. The spotlight is not: `spotlight-landscape`
+             * reserves a 180px participant rail and 60px of padding, which on
+             * a 390px phone in portrait leaves about 150px for the person who
+             * is supposed to be spotlit. Upstream has
+             * `spotlightPortraitLayoutMedia$` for exactly that, with the rail
+             * below instead of beside.
+             */
+            return spotlightExpanded$.pipe(
+              switchMap((expanded) =>
+                expanded
+                  ? spotlightExpandedLayoutMedia$
+                  : windowMode === "narrow"
+                    ? spotlightPortraitLayoutMedia$
+                    : spotlightLandscapeLayoutMedia$,
+              ),
+            );
+        }
+      }),
+    );
+
   const layoutMedia$ = scope.behavior<LayoutMedia>(
     windowMode$.pipe(
       switchMap((windowMode) => {
+        if (options.orisoDesign === true && windowMode !== "pip")
+          return orisoArrangement(windowMode);
         switch (windowMode) {
           case "normal":
-            return gridMode$.pipe(
-              switchMap((gridMode) => {
-                switch (gridMode) {
-                  case "grid":
-                    return oneOnOneLayoutMedia$.pipe(
-                      switchMap((oneOnOne) =>
-                        oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
-                      ),
-                    );
-                  case "spotlight":
-                    return spotlightExpanded$.pipe(
-                      switchMap((expanded) =>
-                        expanded
-                          ? spotlightExpandedLayoutMedia$
-                          : spotlightLandscapeLayoutMedia$,
-                      ),
-                    );
-                }
-              }),
-            );
+            return orisoArrangement("normal");
           case "narrow":
             return oneOnOneLayoutMedia$.pipe(
               switchMap((oneOnOne) =>
@@ -1522,6 +1585,24 @@ export function createCallViewModel$(
     spotlight$: spotlight$,
     pip$: pip$,
     layout$: layout$,
+    /*
+     * Whether the design's two-person arrangement is the one GRID mode would
+     * choose — whatever mode is actually on.
+     *
+     * The view rail needs this rather than the current layout's type. In
+     * spotlight mode at two people the layout is a spotlight, so a rail that
+     * read `layout.type` saw "not one-on-one" and started offering the grove
+     * and the fields again — and both of those land straight back on the
+     * Einzelgespräch, which is the same lie the rail exists to stop telling.
+     *
+     * Derived from `oneOnOneLayoutMedia$` so it cannot drift from the real
+     * condition: exactly two media items, one local and one remote. A screen
+     * share makes a third, which is why a count of people would not do.
+     */
+    orisoOneOnOne$: scope.behavior(
+      oneOnOneLayoutMedia$.pipe(map((media) => media !== null)),
+      false,
+    ),
     tileStoreGeneration$: tileStoreGeneration$,
     showSpotlightIndicators$: showSpotlightIndicators$,
     showSpeakingIndicators$: showSpeakingIndicators$,
