@@ -205,7 +205,9 @@ export function resetArtworkCache(): void {
  * different hosts is two warnings, and a twenty-person call is still one line
  * per drawing.
  */
+const MAX_MISSING = 32;
 const announcedMissing = new Set<string>();
+let missingSuppressed = false;
 
 function announceMissingArtwork(
   file: string,
@@ -214,6 +216,19 @@ function announceMissingArtwork(
 ): void {
   const url = artworkUrl(file, parentUrl);
   if (announcedMissing.has(url)) return;
+  // Bounded for the same reason the rejection log is: the file name came
+  // from another participant, and a run of distinct ones must not grow a set
+  // or a log file for as long as the call lasts. These names have passed
+  // `ARTWORK_FILE_NAME`, so they cannot shape the line — only its length.
+  if (announcedMissing.size >= MAX_MISSING) {
+    if (!missingSuppressed) {
+      missingSuppressed = true;
+      logger.warn(
+        `[ORISO] more than ${MAX_MISSING} drawings could not be inherited in this call; further ones are not logged`,
+      );
+    }
+    return;
+  }
   announcedMissing.add(url);
   logger.warn(
     `[ORISO] could not inherit the artwork "${file}" from ${url} — the tile falls back to initials`,
@@ -224,6 +239,7 @@ function announceMissingArtwork(
 /** Only for tests: forget what has already been said. */
 export function resetMissingArtworkLog(): void {
   announcedMissing.clear();
+  missingSuppressed = false;
 }
 
 /**

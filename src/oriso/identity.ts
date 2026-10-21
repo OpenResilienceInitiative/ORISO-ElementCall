@@ -282,18 +282,47 @@ export const ARTWORK_FILE_NAME = /^[a-z0-9][a-z0-9_-]*\.svg$/i;
  *
  * Deduplicated by file name, because a twenty-person call would otherwise
  * repeat the same line twenty times and once more on every re-render.
+ *
+ * And bounded, because the name is a STRANGER'S. Anybody in the room can
+ * publish identity events, one after another, each with a different invalid
+ * `file`; every one reaches this function. Deduplication alone does not help
+ * against that — each value is new — so without a cap the set grows for as
+ * long as the call lasts and the log fills with somebody else's text. The
+ * value is also written into a log line, so a name containing newlines could
+ * forge entries of its own.
+ *
+ * Hence: printable characters only, a short cap on the length, and at most
+ * `MAX_REJECTIONS` of them per call, with one closing line so the silence
+ * afterwards is not mistaken for "nothing more went wrong".
  */
+const MAX_REJECTIONS = 32;
+const SHOWN_NAME_LENGTH = 64;
 const announced = new Set<string>();
+let suppressed = false;
 
 function announceRejection(file: string, why: string): void {
-  if (file === "" || announced.has(file)) return;
-  announced.add(file);
-  logger.warn(`[ORISO] identity artwork rejected: "${file}" — ${why}`);
+  if (file === "") return;
+  // Control characters, newlines and anything outside printable ASCII become
+  // a dot: this string goes into a log line and must not be able to shape it.
+  const shown = file.replace(/[^\x20-\x7e]/g, "·").slice(0, SHOWN_NAME_LENGTH);
+  if (announced.has(shown)) return;
+  if (announced.size >= MAX_REJECTIONS) {
+    if (!suppressed) {
+      suppressed = true;
+      logger.warn(
+        `[ORISO] identity artwork rejected: more than ${MAX_REJECTIONS} distinct names in this call; further ones are not logged`,
+      );
+    }
+    return;
+  }
+  announced.add(shown);
+  logger.warn(`[ORISO] identity artwork rejected: "${shown}" — ${why}`);
 }
 
 /** Only for tests: forget what has already been said. */
 export function resetRejectionLog(): void {
   announced.clear();
+  suppressed = false;
 }
 
 /**

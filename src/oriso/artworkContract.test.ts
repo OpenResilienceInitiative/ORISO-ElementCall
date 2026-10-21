@@ -122,3 +122,47 @@ describe("a record the call cannot use", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+describe("a room full of strangers publishing nonsense", () => {
+  /*
+   * The file name in a record is somebody else's text. Anybody in the room
+   * can publish identity events one after another, each with a different
+   * invalid name, and every one of them reaches `readIdentity` — so
+   * "deduplicate by name" on its own is no protection at all, and a name
+   * with newlines in it could write log lines of its own.
+   */
+  it("never lets a name shape the log line", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    readIdentity(
+      animal("fox\n[ORISO] identity artwork accepted: totally-fine.svg\n"),
+    );
+
+    const said = String(warn.mock.calls[0][0]);
+    // One line, so the text cannot pose as a second entry; the newlines are
+    // replaced rather than removed, so what was sent is still readable.
+    expect(said.split("\n")).toHaveLength(1);
+    expect(said.startsWith("[ORISO] identity artwork rejected:")).toBe(true);
+    expect(said).toContain("·");
+  });
+
+  it("keeps the line short however long the name is", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    readIdentity(animal(`${"a".repeat(5000)}.png`));
+
+    expect(String(warn.mock.calls[0][0]).length).toBeLessThan(200);
+  });
+
+  it("stops after a plausible number of them, and says it stopped", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    for (let i = 0; i < 500; i += 1) readIdentity(animal(`junk-${i}.png`));
+
+    // 32 distinct names, then one line saying the rest are not logged.
+    expect(warn).toHaveBeenCalledTimes(33);
+    expect(String(warn.mock.calls[32][0])).toContain(
+      "further ones are not logged",
+    );
+  });
+});
