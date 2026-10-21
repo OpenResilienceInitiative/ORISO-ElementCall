@@ -20,13 +20,17 @@ export const HomePage: FC = () => {
   usePageTitle(t("common.home"));
   const isEmbedded = window.self !== window.top;
 
+  // Above the early return, because a hook after one is a hook that runs in
+  // some renders and not others. `isEmbedded` happens to be constant for the
+  // life of the app, so this never actually misbehaved — but the rule is
+  // there for the day it is not, and reading a context costs nothing.
+  const clientState = useClientState();
+
   // In embedded integrations, we never want to show standalone
   // "Start new call" home surfaces (branding/login/create call).
   if (isEmbedded) {
     return <FullScreenView />;
   }
-
-  const clientState = useClientState();
 
   if (!clientState) {
     return <LoadingPage />;

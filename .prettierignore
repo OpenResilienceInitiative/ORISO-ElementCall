@@ -5,3 +5,10 @@ dist
 # generator owns its bytes; reformatting here would make the two copies
 # differ for no reason.
 src/oriso-theme.css
+
+# Ported VERBATIM from the design handoff (`design/components/pond.js`).
+# Ticket 05 is explicit: "copy pond.js, do not rewrite it", and the file's
+# own header says it is "not linted, not formatted, not modernised".
+# `.eslintrc.cjs` already excludes it; this makes the same true of Prettier,
+# so `prettier --check` stops reporting a file nobody may reformat.
+src/oriso/pond.js

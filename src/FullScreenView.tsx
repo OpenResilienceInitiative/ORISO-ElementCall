@@ -21,7 +21,9 @@ import { type WidgetHelpers } from "./widget.ts";
 
 interface FullScreenViewProps {
   className?: string;
-  children: ReactNode;
+  /* Optional for the same reason as LeftNav's: two call sites render the
+     frame with nothing in it. */
+  children?: ReactNode;
 }
 
 export const FullScreenView: FC<FullScreenViewProps> = ({
