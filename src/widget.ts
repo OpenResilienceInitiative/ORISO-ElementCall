@@ -7,7 +7,11 @@ Please see LICENSE in the repository root for full details.
 
 import { logger } from "matrix-js-sdk/lib/logger";
 import { createRoomWidgetClient } from "matrix-js-sdk";
-import { WidgetApi, WidgetApiToWidgetAction } from "matrix-widget-api";
+import {
+  MatrixCapabilities,
+  WidgetApi,
+  WidgetApiToWidgetAction,
+} from "matrix-widget-api";
 
 import type { MatrixClient } from "matrix-js-sdk";
 import type { IWidgetApiRequest } from "matrix-widget-api";
@@ -69,6 +73,15 @@ export const widget = ((): WidgetHelpers | null => {
       logger.info("Widget API is available");
       const api = new WidgetApi(widgetId, parentOrigin);
 
+      // A widget owns no access token, so it cannot call the authenticated
+      // media endpoints itself. MSC4039 lets us ask the *host* to fetch media
+      // on our behalf and hand back the bytes over postMessage. This is the
+      // only route to participant avatars once the homeserver enforces
+      // authenticated media. Request it here, before `createRoomWidgetClient`
+      // calls `api.start()` — after that the capability set is already
+      // negotiated.
+      api.requestCapability(MatrixCapabilities.MSC4039DownloadFile);
+
       // Set up the lazy action emitter, but only for select actions that we
       // intend for the app to handle
       const lazyActions = new LazyEventEmitter();
@@ -98,6 +111,7 @@ export const widget = ((): WidgetHelpers | null => {
         baseUrl,
         e2eEnabled,
         allowIceFallback,
+        orisoDesign,
       } = getUrlParams();
       if (!roomId) throw new Error("Room ID must be supplied");
       if (!userId) throw new Error("User ID must be supplied");
@@ -106,7 +120,7 @@ export const widget = ((): WidgetHelpers | null => {
 
       const client = createRoomWidgetClient(
         api,
-        buildOrisoWidgetCapabilities(userId, deviceId),
+        buildOrisoWidgetCapabilities(userId, deviceId, orisoDesign),
         roomId,
         {
           baseUrl,

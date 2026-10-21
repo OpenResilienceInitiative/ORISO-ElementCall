@@ -176,6 +176,13 @@
   "microphone_off": "Microphone off",
   "microphone_on": "Microphone on",
   "mute_microphone_button_label": "Mute microphone",
+  "oriso": {
+    "view_grove": "Circle",
+    "view_fields": "Tiles",
+    "view_one_on_one": "Conversation",
+    "view_switcher_label": "Stage view",
+    "notes_title": "Call notes"
+  },
   "participant_count_one": "{{count, number}}",
   "participant_count_other": "{{count, number}}",
   "qr_code": "QR Code",

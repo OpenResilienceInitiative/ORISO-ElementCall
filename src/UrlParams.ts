@@ -51,6 +51,25 @@ export interface UrlProperties {
   widgetId: string | null;
   parentUrl: string | null;
   /**
+   * The ORISO backdrop preset, chosen centrally by the counselling centre.
+   *
+   * On the URL because it is the centre's configuration, not a call setting:
+   * an advice seeker never picks it, and a counsellor only from what the
+   * centre has configured. An unknown value falls back to the default rather
+   * than rendering nothing.
+   */
+  orisoAtmosphere: string | null;
+  /**
+   * Whether the embedding host asked for the ORISO design.
+   *
+   * Explicit, and deliberately not inferred from `parentUrl`. `parentUrl` is
+   * the generic widget parameter every embedded Element Call carries, so
+   * keying the design off it would hand the grove, the backdrop and the
+   * animals to any Element Web embedding of this build. ORISO-Frontend sets
+   * this flag; nobody else does, and without it the call is upstream's.
+   */
+  orisoDesign: boolean;
+  /**
    * Anything about what room we're pointed to should be from useRoomIdentifier which
    * parses the path and resolves alias with respect to the default server name, however
    * roomId is an exception as we need the room ID in embedded (matroyska) mode, and not
@@ -382,6 +401,8 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
 
   const widgetId = parser.getParam("widgetId");
   const parentUrl = parser.getParam("parentUrl");
+  const orisoAtmosphere = parser.getParam("orisoAtmosphere");
+  const orisoDesign = parser.getFlagParam("orisoDesign");
   const isWidget = !!widgetId && !!parentUrl;
 
   /**
@@ -498,6 +519,8 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const properties: UrlProperties = {
     widgetId,
     parentUrl,
+    orisoAtmosphere,
+    orisoDesign,
     // NB. we don't validate roomId here as we do in getRoomIdentifierFromUrl:
     // what would we do if it were invalid? If the widget API says that's what
     // the room ID is, then that's what it is.

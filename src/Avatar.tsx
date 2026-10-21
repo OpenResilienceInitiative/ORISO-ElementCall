@@ -13,7 +13,7 @@ import {
   useEffect,
 } from "react";
 import { Avatar as CompoundAvatar } from "@vector-im/compound-web";
-import { type MatrixClient } from "matrix-js-sdk";
+import { logger } from "matrix-js-sdk/lib/logger";
 
 import { useClientState } from "./ClientContext";
 
@@ -42,28 +42,6 @@ export interface Props {
   style?: CSSProperties;
 }
 
-export function getAvatarUrl(
-  client: MatrixClient,
-  mxcUrl: string | null,
-  avatarSize = 96,
-): string | null {
-  const width = Math.floor(avatarSize * window.devicePixelRatio);
-  const height = Math.floor(avatarSize * window.devicePixelRatio);
-  // scale is more suitable for larger sizes
-  const resizeMethod = avatarSize <= 96 ? "crop" : "scale";
-  return mxcUrl
-    ? client.mxcUrlToHttp(
-        mxcUrl,
-        width,
-        height,
-        resizeMethod,
-        false,
-        true,
-        true,
-      )
-    : null;
-}
-
 export const Avatar: FC<Props> = ({
   className,
   id,
@@ -89,39 +67,35 @@ export const Avatar: FC<Props> = ({
     if (clientState?.state !== "valid") {
       return;
     }
-    const { authenticated, supportedFeatures } = clientState;
-    const client = authenticated?.client;
+    // `fetchMedia` abstracts over the two routes to authenticated media: our
+    // own token in SPA mode, and MSC4039 through the host in widget mode. It
+    // is null only when neither is available.
+    const { fetchMedia } = clientState;
 
-    if (!client || !src || !sizePx || !supportedFeatures.thumbnails) {
-      return;
-    }
-
-    const token = client.getAccessToken();
-    if (!token) {
-      return;
-    }
-    const resolveSrc = getAvatarUrl(client, src, sizePx);
-    if (!resolveSrc) {
-      setAvatarUrl(undefined);
+    if (!fetchMedia || !src || !sizePx) {
       return;
     }
 
     let objectUrl: string | undefined;
-    fetch(resolveSrc, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then(async (req) => req.blob())
+    let cancelled = false;
+
+    fetchMedia(src, sizePx)
       .then((blob) => {
+        if (cancelled) return;
+        if (!blob) {
+          setAvatarUrl(undefined);
+          return;
+        }
         objectUrl = URL.createObjectURL(blob);
         setAvatarUrl(objectUrl);
       })
-      .catch((ex) => {
-        setAvatarUrl(undefined);
+      .catch((error) => {
+        logger.debug(`Could not load avatar ${src}`, error);
+        if (!cancelled) setAvatarUrl(undefined);
       });
 
     return (): void => {
+      cancelled = true;
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
       }

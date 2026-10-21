@@ -1,0 +1,41 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.fixed,
+.layer {
+  block-size: 100%;
+}
+
+.layer {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* Both halves occupy this same box, each clipped to its own side, so the two
+   reassemble into one circle rather than sitting beside each other. */
+.circle {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+/* The circle's lift, drawn once and behind both halves. A clip path clips a
+   box shadow, so a lift on each half would be cut along the seam — and that
+   seam is the one line in this view that must read as a boundary inside a
+   body rather than an edge. */
+.lift {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.circle > .slot {
+  position: absolute;
+  inset: 0;
+}

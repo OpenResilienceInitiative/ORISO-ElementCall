@@ -9,8 +9,8 @@ import type * as Matrix from "matrix-js-sdk";
 
 declare global {
   interface Window {
-    mxMatrixClientPeg: {
-      get(): Matrix.MatrixClient;
+    mxMatrixClientPeg?: {
+      get(): Matrix.MatrixClient | null;
     };
     mxSettingsStore: {
       setValue: (
