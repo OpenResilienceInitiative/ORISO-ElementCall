@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
+import { logger } from "matrix-js-sdk/lib/logger";
+
 /**
  * ORISO identity, as the call receives it.
  *
@@ -251,6 +253,50 @@ export interface OrisoIdentity {
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 /**
+ * The shape of an artwork file name, and the one place it is written down.
+ *
+ * A bare name and nothing else: no slashes, no scheme, no second dot. The
+ * loader joins it onto `ARTWORK_PATH` in `artwork.ts`, so a name that could
+ * walk out of that folder would be a way to aim the fetch at any path on the
+ * host. ORISO-Frontend's `src/utils/anonName/data.ts` is the other end of
+ * this contract — every `svg:` entry there has to match this, and
+ * `callIdentity.contract.test.ts` over there asserts it from its side.
+ *
+ * When a second icon set arrives, this is the line that decides whether it
+ * can live in a subfolder. Widen it deliberately and change `ARTWORK_PATH`
+ * with it; do not widen it by accident.
+ */
+export const ARTWORK_FILE_NAME = /^[a-z0-9][a-z0-9_-]*\.svg$/i;
+
+/**
+ * Said once per file, and said at all.
+ *
+ * A record we cannot use ends as initials, which is the right PICTURE — the
+ * call never guesses an animal — but it used to be the right picture with no
+ * explanation. Somebody adds an icon set, the chat shows the new animal, the
+ * call shows two letters, and every test stays green. The silence is the bug.
+ *
+ * A record that carries no file at all is not this case: that is a person who
+ * published nothing, and initials are the whole answer. Only a record that
+ * HAS a file we could not accept says something is wrong with the deployment.
+ *
+ * Deduplicated by file name, because a twenty-person call would otherwise
+ * repeat the same line twenty times and once more on every re-render.
+ */
+const announced = new Set<string>();
+
+function announceRejection(file: string, why: string): void {
+  if (file === "" || announced.has(file)) return;
+  announced.add(file);
+  logger.warn(`[ORISO] identity artwork rejected: "${file}" — ${why}`);
+}
+
+/** Only for tests: forget what has already been said. */
+export function resetRejectionLog(): void {
+  announced.clear();
+}
+
+/**
  * An identity record out of untrusted event content.
  *
  * Every field is checked, because this arrives from another client over the
@@ -301,7 +347,13 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
   // A bare file name and nothing else: no slashes, no dots beyond the
   // extension, no scheme. The fetch that uses it joins it onto a base path.
   const file = typeof raw.file === "string" ? raw.file.trim() : "";
-  if (!/^[a-z0-9][a-z0-9_-]*\.svg$/i.test(file)) return null;
+  if (!ARTWORK_FILE_NAME.test(file)) {
+    announceRejection(
+      file,
+      "the file name is not a bare <name>.svg; artwork lives flat in one folder, see artwork.ts",
+    );
+    return null;
+  }
 
   return { kind, file, bg, ink };
 }

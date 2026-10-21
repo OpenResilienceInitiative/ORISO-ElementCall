@@ -193,6 +193,40 @@ export function resetArtworkCache(): void {
 }
 
 /**
+ * Said once per drawing, and with the address it was looked for at.
+ *
+ * The face falls back to initials when the artwork does not arrive, which is
+ * right, and used to be all that happened: one line naming the file, without
+ * saying WHERE the call had looked. That is the difference between "the call
+ * shows letters" and "the set is not deployed under `/static/anon-animals` on
+ * that host" — the second one can be acted on.
+ *
+ * Deduplicated by URL rather than by file, so the same drawing missing on two
+ * different hosts is two warnings, and a twenty-person call is still one line
+ * per drawing.
+ */
+const announcedMissing = new Set<string>();
+
+function announceMissingArtwork(
+  file: string,
+  parentUrl: string | null,
+  error: unknown,
+): void {
+  const url = artworkUrl(file, parentUrl);
+  if (announcedMissing.has(url)) return;
+  announcedMissing.add(url);
+  logger.warn(
+    `[ORISO] could not inherit the artwork "${file}" from ${url} — the tile falls back to initials`,
+    error,
+  );
+}
+
+/** Only for tests: forget what has already been said. */
+export function resetMissingArtworkLog(): void {
+  announcedMissing.clear();
+}
+
+/**
  * The drawing as something the browser renders but cannot run.
  *
  * An SVG referenced by an `<img>` is loaded in IMAGE context: scripts do not
@@ -265,7 +299,7 @@ export function useArtwork(
       .catch((error) => {
         if (!cancelled) {
           setHeld({ of: wanted, svg: null });
-          logger.warn(`[ORISO] could not inherit the artwork ${file}`, error);
+          announceMissingArtwork(file, parentUrl, error);
         }
       });
     return (): void => {
