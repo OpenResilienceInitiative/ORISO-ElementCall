@@ -19,6 +19,12 @@ Please see LICENSE in the repository root for full details.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import {
+  SPOTLIGHT_ASPECT_RATIO,
+  SPOTLIGHT_INLINE_INSET_PX,
+  SPOTLIGHT_MAX_INLINE_PX,
+} from "../oriso/spotlightRoom";
+
 // Comments are stripped first: this rule's comment names the number it
 // replaced, which a naive parse would read as part of the declaration.
 const css = readFileSync(
@@ -119,5 +125,54 @@ describe("the fixed screen-share slot", () => {
   it("keeps the proportions it had", () => {
     // Clamping the width must not squash the shared screen.
     expect(bodyOf(".fixed > .slot")).toMatch(/aspect-ratio:\s*404\s*\/\s*233/);
+  });
+
+  /*
+   * The two copies of this box's size, held to each other.
+   *
+   * `spotlightRoom.ts` reserves the band the forms must keep clear, and it
+   * cannot read this stylesheet — nor measure the box, because the box's
+   * position depends on the very calculation that would be doing the
+   * measuring. So it carries the numbers a second time, and the only thing
+   * stopping the two from drifting is this test: change the slot's width,
+   * its inset or its ratio here and the band goes wrong silently, which
+   * shows up as the overlap this was built to remove.
+   */
+  it("is the box `spotlightRoom.ts` reserves room for", () => {
+    const body = bodyOf(".fixed > .slot");
+    expect(body).toContain(`min(${SPOTLIGHT_MAX_INLINE_PX}px`);
+    expect(SPOTLIGHT_ASPECT_RATIO).toBe(404 / 233);
+    // `--cpd-space-3x`, which the slot is inset by on both inline sides.
+    expect(body).toMatch(/inset-inline:\s*var\(--cpd-space-3x\)/);
+    expect(SPOTLIGHT_INLINE_INSET_PX).toBe(12);
+  });
+});
+
+describe("the scrolling sheet, while a screen is shared", () => {
+  /*
+   * This branch has no rectangle to take the band out of — it is a flex wrap
+   * that scrolls — so the room is added as padding on the edge the box is
+   * pinned to. The halo's own room has to survive underneath it: these are
+   * the same four sides the shorthand sets, and a longhand that replaced
+   * rather than added would clip a speaking form in the first or last row.
+   */
+  it("adds the band to the halo's room rather than replacing it", () => {
+    const body = bodyOf(".sheet");
+    for (const edge of ["start", "end"]) {
+      // Up to the semicolon: `[^)]*` inside the `calc()` stopped at the
+      // first `)`, which belongs to the `var()` this is looking for.
+      const rule = new RegExp(`padding-block-${edge}:([^;]*);`).exec(body)?.[1];
+      expect(rule).toBeDefined();
+      expect(rule).toContain("calc(");
+      expect(rule).toContain("var(--oriso-halo-room)");
+      expect(rule).toContain(`var(--oriso-spotlight-room-${edge}, 0px)`);
+    }
+  });
+
+  it("reserves nothing when the layout sets no band", () => {
+    // The fallback in the `var()` is what keeps a call with no shared screen
+    // on the whole stage; without it the sheet would lose the padding
+    // entirely and the halo room with it.
+    expect(bodyOf(".sheet")).toContain("--oriso-spotlight-room-start, 0px");
   });
 });

@@ -19,6 +19,13 @@ import { join } from "node:path";
 
 const BASE = process.env.HARNESS_URL ?? "http://127.0.0.1:6007";
 const OUT = process.env.SHOT_DIR ?? "_shots";
+/*
+ * Which stage to draw: `desktop`, `tablet`, `mobile`, or nothing for the
+ * 960x640 every committed plate was shot at. The harness owns the numbers —
+ * see `STAGES` there — so a size added for review does not have to be added
+ * in two places.
+ */
+const STAGE = process.env.STAGE ?? "";
 
 const problems = [];
 const note = (what) => problems.push(what);
@@ -28,18 +35,28 @@ const note = (what) => problems.push(what);
  * by name, so point at it rather than downloading a second one.
  */
 const browser = await chromium.launch(
-  process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
+  process.env.CHROMIUM_PATH
+    ? { executablePath: process.env.CHROMIUM_PATH }
+    : {},
 );
+// Wide enough that the widest plate is not laid out against a narrower
+// window than it asks for; the screenshots are of the plates, not of this.
 const page = await browser.newPage({
-  viewport: { width: 1040, height: 900 },
+  viewport: { width: 1400, height: 900 },
   deviceScaleFactor: 2,
 });
-await page.goto(`${BASE}/harness/orisoStage.html`, { waitUntil: "load" });
+await page.goto(
+  `${BASE}/harness/orisoStage.html${STAGE ? `?stage=${STAGE}` : ""}`,
+  { waitUntil: "load" },
+);
 
 // The artwork arrives over the network and the backdrop paints on a clock.
-await page.waitForSelector('[data-shot="hain-9"] [data-testid="oriso-artwork"]', {
-  timeout: 15000,
-});
+await page.waitForSelector(
+  '[data-shot="hain-9"] [data-testid="oriso-artwork"]',
+  {
+    timeout: 15000,
+  },
+);
 await page.waitForTimeout(1200);
 
 await mkdir(OUT, { recursive: true });
@@ -93,9 +110,7 @@ const measured = await page.evaluate(() => {
           return shorter === 0
             ? null
             : Number(
-                (
-                  drawing.getBoundingClientRect().width / shorter
-                ).toFixed(3),
+                (drawing.getBoundingClientRect().width / shorter).toFixed(3),
               );
         })
         .filter((value) => value !== null),
@@ -113,24 +128,24 @@ const measured = await page.evaluate(() => {
       }).length,
     };
   };
-  const switcher = [...document.querySelectorAll('[data-testid="view-switcher"]')].map(
-    (rail) => {
-      const style = getComputedStyle(rail);
-      const active = rail.querySelector('[aria-checked="true"]');
-      return {
-        height: Math.round(rail.getBoundingClientRect().height),
-        radius: style.borderRadius,
-        active: active?.getAttribute("data-view"),
-        activeLabelled: (active?.textContent ?? "").trim().length > 0,
-        others: [...rail.querySelectorAll('[aria-checked="false"]')].map((button) =>
-          (button.textContent ?? "").trim(),
-        ),
-        buttonHeight: Math.round(
-          rail.querySelector("button").getBoundingClientRect().height,
-        ),
-      };
-    },
-  );
+  const switcher = [
+    ...document.querySelectorAll('[data-testid="view-switcher"]'),
+  ].map((rail) => {
+    const style = getComputedStyle(rail);
+    const active = rail.querySelector('[aria-checked="true"]');
+    return {
+      height: Math.round(rail.getBoundingClientRect().height),
+      radius: style.borderRadius,
+      active: active?.getAttribute("data-view"),
+      activeLabelled: (active?.textContent ?? "").trim().length > 0,
+      others: [...rail.querySelectorAll('[aria-checked="false"]')].map(
+        (button) => (button.textContent ?? "").trim(),
+      ),
+      buttonHeight: Math.round(
+        rail.querySelector("button").getBoundingClientRect().height,
+      ),
+    };
+  });
   return {
     hain2: read("hain-2"),
     hain3: read("hain-3"),
@@ -202,13 +217,16 @@ for (const [name, target] of [
 // no two people alike. A round bubble here means the engine was rewritten.
 {
   const radii = new Set(measured.hain9.faces.map((face) => face.radius));
-  if (radii.size < 9) note(`hain9: only ${radii.size} distinct radii among 9 shapes`);
+  if (radii.size < 9)
+    note(`hain9: only ${radii.size} distinct radii among 9 shapes`);
   const plain = measured.hain9.faces.filter(
     (face) => face.radius === "50%" || !face.radius.includes("/"),
   );
   if (plain.length > 0)
     note(`hain9: ${plain.length} shapes are plain circles, not blobs`);
-  const upright = measured.hain9.faces.filter((face) => face.transform === "none");
+  const upright = measured.hain9.faces.filter(
+    (face) => face.transform === "none",
+  );
   if (upright.length > 2)
     note(`hain9: ${upright.length} shapes have no lean at all`);
 }
@@ -221,7 +239,9 @@ for (const name of ["hain3", "hain5", "hain9"]) {
     continue;
   }
   if (!/rgba?\([^)]*\)[^,]*0 0 0 6px|0px 0px 0px 6px/.test(speaker.shadow))
-    note(`${name}: the speaker has no tight ring (${speaker.shadow.slice(0, 60)})`);
+    note(
+      `${name}: the speaker has no tight ring (${speaker.shadow.slice(0, 60)})`,
+    );
   if (speaker.shadow.includes("rgb(0, 0, 0) 0px 0px"))
     note(`${name}: the speaker's halo is black, not their own colour`);
 }
@@ -230,8 +250,10 @@ for (const name of ["hain3", "hain5", "hain9"]) {
 // shading — with it they read as glossy plastic buttons rather than surfaces.
 for (const name of ["felder4", "felder8"]) {
   for (const face of measured[name].faces) {
-    if (face.radius !== "22px") note(`${name}: field radius ${face.radius}, expected 22px`);
-    if (face.transform !== "none") note(`${name}: a field is leaning (${face.transform})`);
+    if (face.radius !== "22px")
+      note(`${name}: field radius ${face.radius}, expected 22px`);
+    if (face.transform !== "none")
+      note(`${name}: a field is leaning (${face.transform})`);
   }
   if (measured[name].spheres !== 0)
     note(`${name}: ${measured[name].spheres} fields are shaded like bodies`);
@@ -254,11 +276,15 @@ for (const [name, rims] of [
 ]) {
   const plate = measured[name];
   if (plate.count !== 2) note(`${name}: ${plate.count} halves, expected 2`);
-  if (plate.rims !== rims) note(`${name}: ${plate.rims} rim lights, expected ${rims}`);
+  if (plate.rims !== rims)
+    note(`${name}: ${plate.rims} rim lights, expected ${rims}`);
   const [a, b] = plate.faces;
   if (a.width !== b.width || a.height !== b.height)
-    note(`${name}: the halves do not share one box (${a.width}×${a.height} vs ${b.width}×${b.height})`);
-  if (a.width !== a.height) note(`${name}: the circle is an ellipse (${a.width}×${a.height})`);
+    note(
+      `${name}: the halves do not share one box (${a.width}×${a.height} vs ${b.width}×${b.height})`,
+    );
+  if (a.width !== a.height)
+    note(`${name}: the circle is an ellipse (${a.width}×${a.height})`);
   if (plate.faces.some((face) => face.clip === "none"))
     note(`${name}: a half is not clipped by the seam`);
   if (plate.faces.some((face) => face.shadow !== "none"))
@@ -269,17 +295,23 @@ for (const [name, rims] of [
 // spells out its name.
 for (const rail of measured.switcher) {
   if (rail.height !== 44) note(`switcher: rail ${rail.height}px, expected 44`);
-  if (rail.buttonHeight !== 36) note(`switcher: button ${rail.buttonHeight}px, expected 36`);
-  if (rail.radius !== "22px") note(`switcher: radius ${rail.radius}, expected 22px`);
+  if (rail.buttonHeight !== 36)
+    note(`switcher: button ${rail.buttonHeight}px, expected 36`);
+  if (rail.radius !== "22px")
+    note(`switcher: radius ${rail.radius}, expected 22px`);
   if (!rail.activeLabelled) note(`switcher: the active view carries no word`);
   if (rail.others.some((text) => text.length > 0))
     note(`switcher: an inactive view is spelling out its name`);
 }
 
 // The backdrop is a real rendered surface, not a gradient.
-if (measured.hain9.pond !== 1) note(`hain9: ${measured.hain9.pond} pond canvases, expected 1`);
+if (measured.hain9.pond !== 1)
+  note(`hain9: ${measured.hain9.pond} pond canvases, expected 1`);
 
-await writeFile(join(OUT, "measurements.json"), JSON.stringify(measured, null, 2));
+await writeFile(
+  join(OUT, "measurements.json"),
+  JSON.stringify(measured, null, 2),
+);
 await browser.close();
 
 if (problems.length > 0) {
@@ -287,4 +319,6 @@ if (problems.length > 0) {
   for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
 }
-console.log(`${plates.length} plates shot into ${OUT}, every measurement holds.`);
+console.log(
+  `${plates.length} plates shot into ${OUT}, every measurement holds.`,
+);

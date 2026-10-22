@@ -406,8 +406,19 @@ export function useOrisoIdentity(
   return useMemo(() => {
     if (!enabled) return undefined;
     if (published === undefined) return fallbackIdentity(userId, displayName);
+    /*
+     * Seeded from the name the record CARRIES, where it carries one.
+     *
+     * Otherwise a counsellor published as "Beratung Nord" with no letters of
+     * their own got the initials of `@cyrus:oriso.org` — the identifier the
+     * `name` field exists to stop showing, reappearing two letters at a time
+     * on the very form that was supposed to be rid of it.
+     */
     return published.initials === undefined
-      ? { ...published, initials: initialsFor(userId, displayName) }
+      ? {
+          ...published,
+          initials: initialsFor(userId, published.name ?? displayName),
+        }
       : published;
   }, [enabled, published, userId, displayName]);
 }
