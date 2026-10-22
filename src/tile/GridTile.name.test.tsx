@@ -46,7 +46,7 @@ const renderTile = (identity: OrisoIdentity | undefined): void => {
     mockRtcMembership(USER, "AAAA"),
     // What the homeserver holds for an ORISO account: nothing, so the SDK
     // hands the tile the user id as the member's name.
-    { rawDisplayName: USER, getMxcAvatarUrl: () => null },
+    { rawDisplayName: USER, getMxcAvatarUrl: () => undefined },
     mockRemoteParticipant({
       setVolume() {},
       getTrackPublication: () =>
@@ -87,6 +87,8 @@ const renderTile = (identity: OrisoIdentity | undefined): void => {
           onOpenProfile={() => {}}
           targetWidth={300}
           targetHeight={200}
+          showSpeakingIndicators={false}
+          focusable
         />
       </ReactionsSenderProvider>
     </OrisoStageContext>,

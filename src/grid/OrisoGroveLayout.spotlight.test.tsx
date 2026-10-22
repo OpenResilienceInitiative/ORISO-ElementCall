@@ -85,7 +85,19 @@ const placedRects = (
     spotlightAlignment$: new BehaviorSubject({ block, inline: "end" }),
     pipAlignment$: new BehaviorSubject({ block: "end", inline: "end" }),
   } as never);
-  const Scrolling = layout.scrolling as (props: unknown) => ReactNode;
+  /*
+   * Typed by the props this test actually hands it, not as `unknown`.
+   *
+   * `(props: unknown) => ReactNode` compiles as a value and then fails in
+   * JSX, because an `unknown` prop bag gives the element no props to accept
+   * — `tsc` reported exactly that while `vitest`, which does not typecheck,
+   * ran the file green.
+   */
+  const Scrolling = layout.scrolling as unknown as (props: {
+    ref: null;
+    model: unknown;
+    Slot: typeof Slot;
+  }) => ReactNode;
   render(
     <OrisoViewContext value={view}>
       <Scrolling
