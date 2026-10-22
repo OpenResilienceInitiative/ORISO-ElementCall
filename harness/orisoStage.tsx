@@ -375,24 +375,78 @@ function Sharing({
   );
 }
 
+/**
+ * The stage sizes the design is reviewed at.
+ *
+ * A call is not a page: what the arrangements see is the stage inside the
+ * host's floating window, not the browser. These are the three that decide
+ * something. The desktop one is a counsellor with the window opened out; the
+ * tablet one is the portrait case, where the grove's square leaves bands
+ * above and below rather than stretching into ellipses; the phone is the
+ * width the shared screen's box stops being 404px wide at, and the width
+ * `.inRoom` clips horizontally.
+ */
+const STAGES: Record<string, { width: number; height: number }> = {
+  desktop: { width: 1280, height: 720 },
+  tablet: { width: 834, height: 1000 },
+  mobile: { width: 390, height: 680 },
+};
+
+/**
+ * Which one this run draws.
+ *
+ * Defaulted to the size every committed plate was shot at, so a shooter that
+ * passes nothing gets exactly what it got before and the existing evidence
+ * stays comparable.
+ */
+function stageFromUrl(): { width: number; height: number } {
+  const params = new URLSearchParams(window.location.search);
+  const named = params.get("stage");
+  if (named !== null && named in STAGES) return STAGES[named];
+  const width = Number(params.get("w"));
+  const height = Number(params.get("h"));
+  if (width > 0 && height > 0) return { width, height };
+  return { width: 960, height: 640 };
+}
+
 function Harness(): React.ReactNode {
-  const stage = { width: 960, height: 640 };
-  const box = Math.min(stage.width, stage.height);
-  const offset = Math.round((stage.width - box) / 2);
-  // Two people take the whole stage rather than the grove's square: there is
-  // no packing to keep square, and the division is the fields'.
+  const stage = stageFromUrl();
+  /*
+   * Placed the way `OrisoGroveLayout` places it, on BOTH axes.
+   *
+   * The square was centred horizontally and pinned to the top, which is
+   * invisible at 960x640 — the square is the height, so there is no vertical
+   * slack to get wrong — and badly wrong in portrait: at 390x680 the grove
+   * sat in the top 390px with 290px of empty stage under it, which reads as
+   * the design failing on a phone rather than as the harness lying. The
+   * layout uses `groveBox`, which centres both ways; so does this now.
+   */
+  const { box, offsetX, offsetY } = groveBox(stage.width, stage.height);
+  // Two people are not a packing problem — the layout divides a rectangle
+  // instead — but it divides the stage INSET by the halo's room, the same
+  // way, so the forms at the edge keep the space their speaking halo paints
+  // into.
+  const room = Math.round(haloRoomFor(stage.width, stage.height));
   const pair = (speaker: number | null) => (
-    <div style={{ position: "absolute", inset: 0 }}>
+    <div style={{ position: "absolute", inset: room }}>
       <Hain
         count={2}
         speaker={speaker}
-        box={stage.height}
-        width={stage.width}
+        box={Math.max(0, stage.height - 2 * room)}
+        width={Math.max(0, stage.width - 2 * room)}
       />
     </div>
   );
   const grove = (count: number, speaker: number | null) => (
-    <div style={{ position: "absolute", inset: 0, left: offset, width: box }}>
+    <div
+      style={{
+        position: "absolute",
+        left: offsetX,
+        top: offsetY,
+        width: box,
+        height: box,
+      }}
+    >
       <Hain count={count} speaker={speaker} box={box} />
     </div>
   );
@@ -466,7 +520,7 @@ function Harness(): React.ReactNode {
       <Plate
         id="switcher"
         caption="Ansichtswähler"
-        width={960}
+        width={stage.width}
         height={120}
         atmosphere={false}
       >
