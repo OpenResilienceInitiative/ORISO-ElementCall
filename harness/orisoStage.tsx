@@ -25,6 +25,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { OrisoFace } from "../src/oriso/OrisoFace";
+import { MediaView } from "../src/tile/MediaView";
+import {
+  OrisoStageContext,
+  useOrisoIdentity,
+} from "../src/oriso/useOrisoIdentities";
+import { shownNameFor } from "../src/oriso/identity";
 import { Atmosphere } from "../src/oriso/Atmosphere";
 import { ViewSwitcher } from "../src/oriso/ViewSwitcher";
 import { type OrisoIdentity } from "../src/oriso/identity";
@@ -409,6 +415,121 @@ function stageFromUrl(): { width: number; height: number } {
   return { width: 960, height: 640 };
 }
 
+/**
+ * A real tile, drawn by the real `MediaView`.
+ *
+ * Every other plate here draws `OrisoFace` directly, which is the form but
+ * not the furniture: the NAME TAG lives in `MediaView`, so no plate in this
+ * directory has ever shown one — and the name tag is exactly what the live
+ * test of 22 October photographed reading `@cyrus:oriso.org`.
+ *
+ * So this mounts the component the call mounts, and applies the same two
+ * lines `UserMediaTile` applies above it: look the identity up by user id,
+ * then put `shownNameFor` on the tag. What is missing against a real call is
+ * the view models and the video track — there is no LiveKit here — which is
+ * why `video` is undefined and the camera is off.
+ */
+function Tile({
+  userId,
+  displayName,
+  size,
+}: {
+  userId: string;
+  displayName: string;
+  size: number;
+}): React.ReactNode {
+  const identity = useOrisoIdentity(userId, displayName);
+  /*
+   * The box `Grid` would have given it.
+   *
+   * `.media` is a `container-type: size`, and the tile's chrome — the name
+   * capsule among it — is positioned against it in container units. Mounted
+   * without a sized, positioned parent the container resolves to nothing: the
+   * capsules escaped to the plate's own corner and stacked on each other, and
+   * `OrisoFace` computed its initials at `NaN` pixels. In the call that box
+   * comes from `Grid`'s spring; here it is a plain div of the same shape.
+   */
+  return (
+    <div style={{ position: "relative", inlineSize: size, blockSize: size }}>
+      <MediaView
+        targetWidth={size}
+        targetHeight={size}
+        video={undefined}
+        videoFit="cover"
+        mirror={false}
+        userId={userId}
+        videoEnabled={false}
+        unencryptedWarning={false}
+        encryptionStatus={"Okay" as never}
+        displayName={shownNameFor(displayName, identity)}
+        mxcAvatarUrl={undefined}
+        focusable={false}
+        orisoIdentity={identity}
+        orisoShape={{ radius: "42% 58% 46% 54%", tilt: -3 }}
+        orisoParentUrl={null}
+        style={{ inlineSize: "100%", blockSize: "100%" }}
+      />
+    </div>
+  );
+}
+
+/** Two tiles side by side, under one published set of identities. */
+function Tiles({ size }: { size: number }): React.ReactNode {
+  return (
+    <OrisoStageContext
+      value={{
+        enabled: true,
+        parentUrl: null,
+        identities: new Map([
+          [
+            "@anon:oriso.org",
+            {
+              kind: "animal" as const,
+              file: "fox.svg",
+              bg: "#165E83",
+              ink: "#ffffff",
+              name: "ruhiger Fuchs 432",
+            },
+          ],
+          // Published by a host that does not send names yet — the floor, not
+          // the fix: the local part instead of the whole Matrix id.
+          [
+            "@cyrus:oriso.org",
+            {
+              kind: "animal" as const,
+              file: "deer.svg",
+              bg: "#FCE7E6",
+              ink: "#1a1a1a",
+            },
+          ],
+        ]),
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 24,
+        }}
+      >
+        <Tile
+          userId="@anon:oriso.org"
+          displayName="@anon:oriso.org"
+          size={size}
+        />
+        <Tile
+          userId="@cyrus:oriso.org"
+          displayName="@cyrus:oriso.org"
+          size={size}
+        />
+      </div>
+    </OrisoStageContext>
+  );
+}
+
 function Harness(): React.ReactNode {
   const stage = stageFromUrl();
   /*
@@ -455,6 +576,19 @@ function Harness(): React.ReactNode {
     <div
       style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}
     >
+      <Plate
+        id="namensschild"
+        caption="Namensschild · echte MediaView · links mit, rechts ohne veröffentlichten Namen"
+        width={stage.width}
+        height={Math.min(stage.height, Math.round(stage.width * 0.55) + 80)}
+      >
+        <Tiles
+          size={Math.min(
+            260,
+            Math.round(Math.min(stage.width / 2 - 36, stage.height / 2)),
+          )}
+        />
+      </Plate>
       <Plate id="hain-2" caption="Hain · 2 · niemand spricht" {...stage}>
         {pair(null)}
       </Plate>

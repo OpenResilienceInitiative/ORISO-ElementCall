@@ -27,6 +27,27 @@ a 200-colour palette — about 80 KB each rather than 1.2 MB, with no visible
 banding in the backdrop. The originals are reproducible from the command
 above.
 
+## `namensschild` is the one real component
+
+Every other plate draws `OrisoFace` directly — the form, but not the
+furniture. The NAME TAG lives in `MediaView`, so until this plate no picture
+in this repository had ever shown one, and the name tag is exactly what the
+live test of 22 October photographed reading `@cyrus:oriso.org`.
+
+So that plate mounts `MediaView` itself, inside an `OrisoStageContext`, and
+applies the same two lines `UserMediaTile` applies above it: look the
+identity up by user id, then put `shownNameFor` on the tag. The left tile is
+a host that publishes a name; the right one is a host that does not yet, and
+shows the floor — the local part, `cyrus`, rather than the whole Matrix id.
+
+It needs a sized, positioned parent, which `Grid` supplies in the call and a
+plain div supplies here: `.media` is a `container-type: size`, and without a
+resolved size the tile's chrome escaped to the plate's corner and
+`OrisoFace` computed its initials at `NaN` pixels.
+
+Still not a call: no view models, no LiveKit, no video track, so the camera
+is off and nothing here exercises the springs.
+
 ## What these are not
 
 The real `OrisoFace`, the real `packShapes` / `splitCells` / `shareFor` /
@@ -43,6 +64,11 @@ Two things to read them with:
   proof that no form lands under the shared screen is
   `src/grid/OrisoGroveLayout.spotlight.test.tsx`, which renders the real
   layout and reads back every rectangle it asks for.
+- **One `NaN` font-size warning** appears in the console on first render,
+  from an `OrisoFace` that is briefly handed no size before its artwork
+  arrives. It predates this directory — it reproduces with these plates
+  removed — and no element carrying it survives into the DOM. Written down
+  so the next person does not mistake it for something these plates brought.
 - **The grove is a square at every size.** In portrait that leaves bands
   above and below. That is `groveBox` centring it rather than stretching it,
   and it is the design's answer, not a gap — but it is the thing to look at
