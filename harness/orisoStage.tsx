@@ -28,7 +28,17 @@ import { OrisoFace } from "../src/oriso/OrisoFace";
 import { Atmosphere } from "../src/oriso/Atmosphere";
 import { ViewSwitcher } from "../src/oriso/ViewSwitcher";
 import { type OrisoIdentity } from "../src/oriso/identity";
-import { packShapes, pairShapes, splitCells } from "../src/oriso/layout";
+import {
+  groveBox,
+  haloRoomFor,
+  packShapes,
+  pairShapes,
+  splitCells,
+} from "../src/oriso/layout";
+import {
+  spotlightBlockSize,
+  stageBesideSpotlight,
+} from "../src/oriso/spotlightRoom";
 import { shareFor, seamFor, type Speaking } from "../src/oriso/einzelgespraech";
 import { FIELD_RADIUS } from "../src/oriso/shape";
 import { liftFor } from "../src/oriso/lift";
@@ -287,6 +297,84 @@ function Einzelgespraech({
   );
 }
 
+/**
+ * Two people and a shared screen, with and without the room reserved.
+ *
+ * The arithmetic is `OrisoGroveLayout`'s own two-person branch, line for
+ * line, against the same `stageBesideSpotlight`: the picture is what the
+ * layout asks for. It is still a drawing and not a photograph of a call —
+ * the proof that no rectangle lands under the box is the component test,
+ * `OrisoGroveLayout.spotlight.test.tsx`, which renders the real layout and
+ * reads the rectangles back.
+ */
+function Sharing({
+  width,
+  height,
+  reserve,
+}: {
+  width: number;
+  height: number;
+  reserve: boolean;
+}): React.ReactNode {
+  const stage = stageBesideSpotlight(width, height, reserve ? "start" : null);
+  const room = Math.round(haloRoomFor(stage.width, stage.height));
+  const cast = CAST.slice(0, 2);
+  const spots = pairShapes(
+    cast.map((person) => person.name),
+    {
+      x: room,
+      y: stage.offsetY + room,
+      w: Math.max(0, stage.width - 2 * room),
+      h: Math.max(0, stage.height - 2 * room),
+    },
+    cast.map(() => 1),
+  );
+  // The shared screen's slot, at the size and inset the stylesheet gives it.
+  const shareInline = Math.min(404, width - 24);
+  return (
+    <>
+      {spots.map((spot, i) => (
+        <div
+          key={cast[i].name}
+          style={{
+            position: "absolute",
+            left: spot.x,
+            top: spot.y,
+            width: spot.size,
+            height: spot.size,
+          }}
+        >
+          <OrisoFace
+            identity={cast[i].identity}
+            parentUrl=""
+            radius={spot.blob}
+            tilt={Number(spot.tilt)}
+          />
+        </div>
+      ))}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 12,
+          width: shareInline,
+          height: spotlightBlockSize(width),
+          borderRadius: 16,
+          background: "#101014",
+          border: "1px solid rgba(255,255,255,.22)",
+          display: "grid",
+          placeItems: "center",
+          color: "rgba(255,255,255,.72)",
+          font: "500 14px/1.2 system-ui, sans-serif",
+          zIndex: 4,
+        }}
+      >
+        geteilter Bildschirm
+      </div>
+    </>
+  );
+}
+
 function Harness(): React.ReactNode {
   const stage = { width: 960, height: 640 };
   const box = Math.min(stage.width, stage.height);
@@ -318,6 +406,20 @@ function Harness(): React.ReactNode {
       </Plate>
       <Plate id="hain-2-spricht" caption="Hain · 2 · eine spricht" {...stage}>
         {pair(0)}
+      </Plate>
+      <Plate
+        id="teilen-vorher"
+        caption="Geteilter Bildschirm · vorher · der Kasten steht auf der Form"
+        {...stage}
+      >
+        <Sharing {...stage} reserve={false} />
+      </Plate>
+      <Plate
+        id="teilen-nachher"
+        caption="Geteilter Bildschirm · nachher · die Leiste bleibt frei"
+        {...stage}
+      >
+        <Sharing {...stage} reserve />
       </Plate>
       <Plate id="hain-3" caption="Hain · 3 · einer spricht" {...stage}>
         {grove(3, 1)}
