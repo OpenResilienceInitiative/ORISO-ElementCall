@@ -43,6 +43,7 @@ import {
 import { useInitial } from "../useInitial";
 import { useMergedRefs } from "../useMergedRefs";
 import { useOrisoIdentity, useOrisoStage } from "../oriso/useOrisoIdentities";
+import { shownNameFor } from "../oriso/identity";
 import { type OrisoIdentity } from "../oriso/identity";
 import { useReactiveState } from "../useReactiveState";
 import { useLatest } from "../useLatest";
@@ -139,6 +140,9 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
     orisoSpeaking: speaking,
     orisoParentUrl: parentUrl,
     ...props,
+    // After the spread, deliberately: it replaces the name that came in.
+    // See `shownNameFor` — the spotlight shows the same person as the rail.
+    displayName: shownNameFor(props.displayName, orisoIdentity),
   };
 
   return vm instanceof LocalUserMediaViewModel ? (
