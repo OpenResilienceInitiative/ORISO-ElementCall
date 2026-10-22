@@ -18,8 +18,13 @@ Please see LICENSE in the repository root for full details.
  */
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { logger } from "matrix-js-sdk/lib/logger";
 
-import { resetArtworkCache, useArtwork } from "./artwork";
+import {
+  resetArtworkCache,
+  resetMissingArtworkLog,
+  useArtwork,
+} from "./artwork";
 import type { OrisoIdentity } from "./identity";
 
 const animal = (file: string, ink: string): OrisoIdentity => ({
@@ -73,6 +78,7 @@ const serveByName = (): void => {
 afterEach(() => {
   vi.restoreAllMocks();
   resetArtworkCache();
+  resetMissingArtworkLog();
   seen = [];
 });
 
@@ -133,5 +139,35 @@ describe("the artwork a changed identity is handed", () => {
     expect(
       seen.filter((entry) => entry.file === undefined && entry.svg === fox),
     ).toEqual([]);
+  });
+});
+
+describe("a drawing that does not arrive", () => {
+  it("says where it looked, once, and falls back to the letters", async () => {
+    /*
+     * The fallback is right — the call never invents an animal — but on its
+     * own it is unreadable: "the call shows letters" could be a person who
+     * published nothing, a renamed file, or a set deployed to a folder the
+     * call does not read. The URL in the message is what tells those apart.
+     */
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("not found", { status: 404 }),
+    );
+
+    const { rerender } = render(
+      <Probe identity={animal("forest-fox.svg", "#111")} />,
+    );
+    await waitFor(() => expect(warn).toHaveBeenCalled());
+
+    const said = String(warn.mock.calls[0][0]);
+    expect(said).toContain("forest-fox.svg");
+    expect(said).toContain("/static/anon-animals/forest-fox.svg");
+    expect(seen.at(-1)?.svg).toBeNull();
+
+    // Every tile in the call asks for the same drawing; one line is enough.
+    rerender(<Probe identity={animal("forest-fox.svg", "#222")} />);
+    await waitFor(() => expect(seen.at(-1)?.ink).toBe("#222"));
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });
