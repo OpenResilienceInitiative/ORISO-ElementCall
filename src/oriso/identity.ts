@@ -383,8 +383,22 @@ const MAX_NAME_LENGTH = 64;
 function readName(raw: unknown): string | undefined {
   if (typeof raw !== "string") return undefined;
   const cleaned = raw
+    /*
+     * Every format character, not a hand-picked list of them.
+     *
+     * The first version named the bidi marks and overrides it knew about and
+     * missed the isolates (U+2066-2069) and the zero-width characters
+     * (U+200B-200D, U+FEFF) — review caught it. `\p{Cf}` is the category all
+     * of them are in, so the rule is now "no invisible formatting" rather
+     * than a list that is one Unicode revision from being incomplete.
+     *
+     * They are REMOVED rather than replaced by a space: a space would make a
+     * name of nothing but zero-width characters non-empty, which is the
+     * blank tag the emptiness check below exists to refuse.
+     */
+    .replace(/\p{Cf}/gu, "")
     // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f\u007f\u200e\u200f\u202a-\u202e]/g, " ")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_NAME_LENGTH)
@@ -412,9 +426,30 @@ export function shownNameFor(
   identity: OrisoIdentity | undefined,
 ): string {
   if (identity === undefined) return displayName;
-  if (identity.name !== undefined) return identity.name;
+  /*
+   * The published name is only consulted where the room has NO name of its
+   * own — review's answer to impersonation, and the right one.
+   *
+   * Identities are keyed on the event's sender (`readIdentities`), so nobody
+   * can publish a record onto somebody else's tile. What was left is a
+   * person relabelling their OWN tile: an advice seeker publishing "Beratung
+   * Nord" and sitting in a group session next to the counsellor it names.
+   * Keying cannot stop that, because it is their own tile.
+   *
+   * So the homeserver's answer wins whenever it is a real one, and the
+   * published name is taken only for the case it was added for — a profile
+   * with no display name, which on this platform is every pseudonymous
+   * account, because the pseudonym lives in the userservice and is never
+   * written to Matrix. It costs nothing where it matters and closes the hole
+   * where a name already exists.
+   *
+   * It also leaves matrix-js-sdk's disambiguation ("Alex (@alex:example.org)")
+   * standing, which is a deliberate answer to two people called Alex and not
+   * ours to overrule.
+   */
   const bare = MATRIX_ID_ONLY.exec(displayName.trim());
-  return bare === null ? displayName : bare[1];
+  if (bare === null) return displayName;
+  return identity.name ?? bare[1];
 }
 
 /**

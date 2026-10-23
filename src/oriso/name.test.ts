@@ -54,6 +54,31 @@ describe("the name a tile shows", () => {
   });
 
   /*
+   * Impersonation, and the half that keying does not cover.
+   *
+   * `readIdentities` keys on the event's sender, so nobody can publish a
+   * record onto somebody else's tile. What is left is relabelling your OWN
+   * tile — an advice seeker publishing the counselling service's name and
+   * sitting next to it in a group session. The homeserver's answer wins
+   * wherever it has one, so a published name cannot overrule a room that
+   * already knows who somebody is.
+   */
+  it("does not let a published name overrule a name the room knows", () => {
+    expect(shownNameFor("Alice", record({ name: "Beratung Nord" }))).toBe(
+      "Alice",
+    );
+  });
+
+  it("still keeps a disambiguated name whole against a published one", () => {
+    expect(
+      shownNameFor(
+        "Alex (@alex:example.org)",
+        record({ name: "Beratung Nord" }),
+      ),
+    ).toBe("Alex (@alex:example.org)");
+  });
+
+  /*
    * matrix-js-sdk appends the id when two people share a name. That string
    * is a deliberate answer to the ambiguity, not the fallback this guards
    * against, and cutting it down to `alex` would re-create the collision it
@@ -95,6 +120,27 @@ describe("a published name, which arrives from a stranger", () => {
 
   it("strips bidi overrides, which can make one name render as another", () => {
     expect(record({ name: "ruhiger ‮Fuchs" }).name).toBe("ruhiger Fuchs");
+  });
+
+  /*
+   * The first version named the bidi marks it knew about and missed these.
+   * A name of nothing but invisible formatting passed the emptiness check
+   * and rendered a blank capsule on the form.
+   */
+  it.each([
+    ["bidi isolates", "\u2066ruhiger\u2069 Fuchs", "ruhiger Fuchs"],
+    [
+      "zero-width characters",
+      "ruhiger\u200b\u200c\u200d Fuchs",
+      "ruhiger Fuchs",
+    ],
+    ["a byte order mark", "\ufeffruhiger Fuchs", "ruhiger Fuchs"],
+  ])("strips %s", (_what, given, want) => {
+    expect(record({ name: given }).name).toBe(want);
+  });
+
+  it("refuses a name made of nothing but invisible formatting", () => {
+    expect(record({ name: "\u200b\u2066\ufeff\u200d" }).name).toBeUndefined();
   });
 
   it("cuts a name nobody sized a tile for", () => {

@@ -182,6 +182,23 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
   const ref = useMergedRefs(ourRef, theirRef);
   const focusUrl = useBehavior(vm.focusUrl$);
   const displayName = useBehavior(vm.displayName$);
+  /*
+   * The shared screen is labelled with its sharer's name, so it needs this
+   * too — and it was the one tile that did not have it.
+   *
+   * `SpotlightUserMediaItem` below substitutes the name for a person's tile,
+   * but a `ScreenShareViewModel` never reaches it: the branch at the bottom
+   * hands `baseProps` straight to `MediaView`, carrying whatever
+   * `displayName$` held. In a call where a counsellor shared their screen,
+   * every face read "ruhiger Fuchs 432" and the shared screen above them
+   * read `@cyrus:oriso.org`. Review suspected exactly this surface; it was
+   * right.
+   *
+   * The identity is looked up for the NAME only. A shared screen stays a
+   * rectangle — it is not given `orisoIdentity`, because a screen is not a
+   * person and the design does not pretend otherwise.
+   */
+  const spotlightIdentity = useOrisoIdentity(vm.userId, displayName);
   const mxcAvatarUrl = useBehavior(vm.mxcAvatarUrl$);
   const video = useBehavior(vm.video$);
   const videoEnabled = useBehavior(vm.videoEnabled$);
@@ -214,7 +231,7 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
     userId: vm.userId,
     unencryptedWarning,
     focusUrl,
-    displayName,
+    displayName: shownNameFor(displayName, spotlightIdentity),
     mxcAvatarUrl,
     focusable,
     encryptionStatus,
