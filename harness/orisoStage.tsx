@@ -25,10 +25,26 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { OrisoFace } from "../src/oriso/OrisoFace";
+import { MediaView } from "../src/tile/MediaView";
+import {
+  OrisoStageContext,
+  useOrisoIdentity,
+} from "../src/oriso/useOrisoIdentities";
+import { shownNameFor } from "../src/oriso/identity";
 import { Atmosphere } from "../src/oriso/Atmosphere";
 import { ViewSwitcher } from "../src/oriso/ViewSwitcher";
 import { type OrisoIdentity } from "../src/oriso/identity";
-import { packShapes, pairShapes, splitCells } from "../src/oriso/layout";
+import {
+  groveBox,
+  haloRoomFor,
+  packShapes,
+  pairShapes,
+  splitCells,
+} from "../src/oriso/layout";
+import {
+  spotlightBlockSize,
+  stageBesideSpotlight,
+} from "../src/oriso/spotlightRoom";
 import { shareFor, seamFor, type Speaking } from "../src/oriso/einzelgespraech";
 import { FIELD_RADIUS } from "../src/oriso/shape";
 import { liftFor } from "../src/oriso/lift";
@@ -287,24 +303,271 @@ function Einzelgespraech({
   );
 }
 
+/**
+ * Two people and a shared screen, with and without the room reserved.
+ *
+ * The arithmetic is `OrisoGroveLayout`'s own two-person branch, line for
+ * line, against the same `stageBesideSpotlight`: the picture is what the
+ * layout asks for. It is still a drawing and not a photograph of a call —
+ * the proof that no rectangle lands under the box is the component test,
+ * `OrisoGroveLayout.spotlight.test.tsx`, which renders the real layout and
+ * reads the rectangles back.
+ */
+function Sharing({
+  width,
+  height,
+  reserve,
+}: {
+  width: number;
+  height: number;
+  reserve: boolean;
+}): React.ReactNode {
+  const stage = stageBesideSpotlight(width, height, reserve ? "start" : null);
+  const room = Math.round(haloRoomFor(stage.width, stage.height));
+  const cast = CAST.slice(0, 2);
+  const spots = pairShapes(
+    cast.map((person) => person.name),
+    {
+      x: room,
+      y: stage.offsetY + room,
+      w: Math.max(0, stage.width - 2 * room),
+      h: Math.max(0, stage.height - 2 * room),
+    },
+    cast.map(() => 1),
+  );
+  // The shared screen's slot, at the size and inset the stylesheet gives it.
+  const shareInline = Math.min(404, width - 24);
+  return (
+    <>
+      {spots.map((spot, i) => (
+        <div
+          key={cast[i].name}
+          style={{
+            position: "absolute",
+            left: spot.x,
+            top: spot.y,
+            width: spot.size,
+            height: spot.size,
+          }}
+        >
+          <OrisoFace
+            identity={cast[i].identity}
+            parentUrl=""
+            radius={spot.blob}
+            tilt={Number(spot.tilt)}
+          />
+        </div>
+      ))}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 12,
+          width: shareInline,
+          height: spotlightBlockSize(width),
+          borderRadius: 16,
+          background: "#101014",
+          border: "1px solid rgba(255,255,255,.22)",
+          display: "grid",
+          placeItems: "center",
+          color: "rgba(255,255,255,.72)",
+          font: "500 14px/1.2 system-ui, sans-serif",
+          zIndex: 4,
+        }}
+      >
+        geteilter Bildschirm
+      </div>
+    </>
+  );
+}
+
+/**
+ * The stage sizes the design is reviewed at.
+ *
+ * A call is not a page: what the arrangements see is the stage inside the
+ * host's floating window, not the browser. These are the three that decide
+ * something. The desktop one is a counsellor with the window opened out; the
+ * tablet one is the portrait case, where the grove's square leaves bands
+ * above and below rather than stretching into ellipses; the phone is the
+ * width the shared screen's box stops being 404px wide at, and the width
+ * `.inRoom` clips horizontally.
+ */
+const STAGES: Record<string, { width: number; height: number }> = {
+  desktop: { width: 1280, height: 720 },
+  tablet: { width: 834, height: 1000 },
+  mobile: { width: 390, height: 680 },
+};
+
+/**
+ * Which one this run draws.
+ *
+ * Defaulted to the size every committed plate was shot at, so a shooter that
+ * passes nothing gets exactly what it got before and the existing evidence
+ * stays comparable.
+ */
+function stageFromUrl(): { width: number; height: number } {
+  const params = new URLSearchParams(window.location.search);
+  const named = params.get("stage");
+  if (named !== null && named in STAGES) return STAGES[named];
+  const width = Number(params.get("w"));
+  const height = Number(params.get("h"));
+  if (width > 0 && height > 0) return { width, height };
+  return { width: 960, height: 640 };
+}
+
+/**
+ * A real tile, drawn by the real `MediaView`.
+ *
+ * Every other plate here draws `OrisoFace` directly, which is the form but
+ * not the furniture: the NAME TAG lives in `MediaView`, so no plate in this
+ * directory has ever shown one — and the name tag is exactly what the live
+ * test of 22 October photographed reading `@cyrus:oriso.org`.
+ *
+ * So this mounts the component the call mounts, and applies the same two
+ * lines `UserMediaTile` applies above it: look the identity up by user id,
+ * then put `shownNameFor` on the tag. What is missing against a real call is
+ * the view models and the video track — there is no LiveKit here — which is
+ * why `video` is undefined and the camera is off.
+ */
+function Tile({
+  userId,
+  displayName,
+  size,
+}: {
+  userId: string;
+  displayName: string;
+  size: number;
+}): React.ReactNode {
+  const identity = useOrisoIdentity(userId, displayName);
+  /*
+   * The box `Grid` would have given it.
+   *
+   * `.media` is a `container-type: size`, and the tile's chrome — the name
+   * capsule among it — is positioned against it in container units. Mounted
+   * without a sized, positioned parent the container resolves to nothing: the
+   * capsules escaped to the plate's own corner and stacked on each other, and
+   * `OrisoFace` computed its initials at `NaN` pixels. In the call that box
+   * comes from `Grid`'s spring; here it is a plain div of the same shape.
+   */
+  return (
+    <div style={{ position: "relative", inlineSize: size, blockSize: size }}>
+      <MediaView
+        targetWidth={size}
+        targetHeight={size}
+        video={undefined}
+        videoFit="cover"
+        mirror={false}
+        userId={userId}
+        videoEnabled={false}
+        unencryptedWarning={false}
+        encryptionStatus={"Okay" as never}
+        displayName={shownNameFor(displayName, identity)}
+        mxcAvatarUrl={undefined}
+        focusable={false}
+        orisoIdentity={identity}
+        orisoShape={{ radius: "42% 58% 46% 54%", tilt: -3 }}
+        orisoParentUrl={null}
+        style={{ inlineSize: "100%", blockSize: "100%" }}
+      />
+    </div>
+  );
+}
+
+/** Two tiles side by side, under one published set of identities. */
+function Tiles({ size }: { size: number }): React.ReactNode {
+  return (
+    <OrisoStageContext
+      value={{
+        enabled: true,
+        parentUrl: null,
+        identities: new Map([
+          [
+            "@anon:oriso.org",
+            {
+              kind: "animal" as const,
+              file: "fox.svg",
+              bg: "#165E83",
+              ink: "#ffffff",
+              name: "ruhiger Fuchs 432",
+            },
+          ],
+          // Published by a host that does not send names yet — the floor, not
+          // the fix: the local part instead of the whole Matrix id.
+          [
+            "@cyrus:oriso.org",
+            {
+              kind: "animal" as const,
+              file: "deer.svg",
+              bg: "#FCE7E6",
+              ink: "#1a1a1a",
+            },
+          ],
+        ]),
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 24,
+        }}
+      >
+        <Tile
+          userId="@anon:oriso.org"
+          displayName="@anon:oriso.org"
+          size={size}
+        />
+        <Tile
+          userId="@cyrus:oriso.org"
+          displayName="@cyrus:oriso.org"
+          size={size}
+        />
+      </div>
+    </OrisoStageContext>
+  );
+}
+
 function Harness(): React.ReactNode {
-  const stage = { width: 960, height: 640 };
-  const box = Math.min(stage.width, stage.height);
-  const offset = Math.round((stage.width - box) / 2);
-  // Two people take the whole stage rather than the grove's square: there is
-  // no packing to keep square, and the division is the fields'.
+  const stage = stageFromUrl();
+  /*
+   * Placed the way `OrisoGroveLayout` places it, on BOTH axes.
+   *
+   * The square was centred horizontally and pinned to the top, which is
+   * invisible at 960x640 — the square is the height, so there is no vertical
+   * slack to get wrong — and badly wrong in portrait: at 390x680 the grove
+   * sat in the top 390px with 290px of empty stage under it, which reads as
+   * the design failing on a phone rather than as the harness lying. The
+   * layout uses `groveBox`, which centres both ways; so does this now.
+   */
+  const { box, offsetX, offsetY } = groveBox(stage.width, stage.height);
+  // Two people are not a packing problem — the layout divides a rectangle
+  // instead — but it divides the stage INSET by the halo's room, the same
+  // way, so the forms at the edge keep the space their speaking halo paints
+  // into.
+  const room = Math.round(haloRoomFor(stage.width, stage.height));
   const pair = (speaker: number | null) => (
-    <div style={{ position: "absolute", inset: 0 }}>
+    <div style={{ position: "absolute", inset: room }}>
       <Hain
         count={2}
         speaker={speaker}
-        box={stage.height}
-        width={stage.width}
+        box={Math.max(0, stage.height - 2 * room)}
+        width={Math.max(0, stage.width - 2 * room)}
       />
     </div>
   );
   const grove = (count: number, speaker: number | null) => (
-    <div style={{ position: "absolute", inset: 0, left: offset, width: box }}>
+    <div
+      style={{
+        position: "absolute",
+        left: offsetX,
+        top: offsetY,
+        width: box,
+        height: box,
+      }}
+    >
       <Hain count={count} speaker={speaker} box={box} />
     </div>
   );
@@ -313,11 +576,38 @@ function Harness(): React.ReactNode {
     <div
       style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}
     >
+      <Plate
+        id="namensschild"
+        caption="Namensschild · echte MediaView · links mit, rechts ohne veröffentlichten Namen"
+        width={stage.width}
+        height={Math.min(stage.height, Math.round(stage.width * 0.55) + 80)}
+      >
+        <Tiles
+          size={Math.min(
+            260,
+            Math.round(Math.min(stage.width / 2 - 36, stage.height / 2)),
+          )}
+        />
+      </Plate>
       <Plate id="hain-2" caption="Hain · 2 · niemand spricht" {...stage}>
         {pair(null)}
       </Plate>
       <Plate id="hain-2-spricht" caption="Hain · 2 · eine spricht" {...stage}>
         {pair(0)}
+      </Plate>
+      <Plate
+        id="teilen-vorher"
+        caption="Geteilter Bildschirm · vorher · der Kasten steht auf der Form"
+        {...stage}
+      >
+        <Sharing {...stage} reserve={false} />
+      </Plate>
+      <Plate
+        id="teilen-nachher"
+        caption="Geteilter Bildschirm · nachher · die Leiste bleibt frei"
+        {...stage}
+      >
+        <Sharing {...stage} reserve />
       </Plate>
       <Plate id="hain-3" caption="Hain · 3 · einer spricht" {...stage}>
         {grove(3, 1)}
@@ -364,7 +654,7 @@ function Harness(): React.ReactNode {
       <Plate
         id="switcher"
         caption="Ansichtswähler"
-        width={960}
+        width={stage.width}
         height={120}
         atmosphere={false}
       >
