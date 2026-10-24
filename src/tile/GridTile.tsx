@@ -51,6 +51,9 @@ import { type GridTileViewModel } from "../state/TileViewModel";
 import { useMergedRefs } from "../useMergedRefs";
 import { useReactionsSender } from "../reactions/useReactionsSender";
 import { useBehavior } from "../useBehavior";
+import { useOrisoIdentity, useOrisoStage } from "../oriso/useOrisoIdentities";
+import { shownNameFor } from "../oriso/identity";
+import { useOrisoShape } from "../oriso/useOrisoShape";
 
 interface TileProps {
   ref?: Ref<HTMLDivElement>;
@@ -147,6 +150,29 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
 
   const showSpeaking = showSpeakingIndicators && speaking;
 
+  // The ORISO form, when the call has an identity for this person. Undefined
+  // means upstream's rectangle, which is still what the lobby and the
+  // standalone build get.
+  //
+  // The identity is per PERSON and looked up by user id; the form is per TILE
+  // and looked up by this media's own id. They differ when somebody is in the
+  // call from two devices: one identity, two forms.
+  const { parentUrl } = useOrisoStage();
+  const orisoIdentity = useOrisoIdentity(vm.userId, displayName);
+  const orisoShape = useOrisoShape(vm.id);
+  /*
+   * The name the ROOM uses, not the one the homeserver happens to hold.
+   *
+   * `displayName` comes from `RoomMember.name`, which matrix-js-sdk answers
+   * with the user id for a profile that has none — the normal state of an
+   * ORISO account, whose pseudonym lives in the userservice. So every tag,
+   * every menu title and every accessible name here said
+   * `@cyrus:oriso.org`. One substitution at the top rather than four at the
+   * use sites: the id must not survive in the menu after being taken off
+   * the tag, which is the half a reviewer would not see in a screenshot.
+   */
+  const shownName = shownNameFor(displayName, orisoIdentity);
+
   const tile = (
     <MediaView
       ref={ref}
@@ -157,8 +183,14 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
       videoEnabled={videoEnabled}
       videoFit={cropVideo ? "cover" : "contain"}
       className={classNames(className, styles.tile, {
-        [styles.speaking]: showSpeaking,
-        [styles.handRaised]: !showSpeaking && handRaised,
+        // Upstream draws speaking and a raised hand as a black gradient ring
+        // around the tile. ORISO draws speaking as the person's own colour
+        // brightening, which `OrisoFace` does, so the ring must not also
+        // appear — two indicators for one state, one of them the exact
+        // treatment the handoff rejects.
+        [styles.speaking]: orisoIdentity === undefined && showSpeaking,
+        [styles.handRaised]:
+          orisoIdentity === undefined && !showSpeaking && handRaised,
       })}
       nameTagLeadingIcon={
         <AudioIcon
@@ -169,7 +201,7 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
           className={styles.muteIcon}
         />
       }
-      displayName={displayName}
+      displayName={shownName}
       mxcAvatarUrl={mxcAvatarUrl}
       focusable={focusable}
       primaryButton={
@@ -177,7 +209,7 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
           <Menu
             open={menuOpen}
             onOpenChange={setMenuOpen}
-            title={displayName}
+            title={shownName}
             trigger={
               <button
                 aria-label={t("common.options")}
@@ -200,12 +232,27 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
       focusUrl={focusUrl}
       audioStreamStats={audioStreamStats}
       videoStreamStats={videoStreamStats}
+      orisoIdentity={orisoIdentity}
+      orisoShape={orisoShape}
+      /*
+       * The raw speaking state, not the filtered `showSpeaking`.
+       *
+       * Upstream turns its indicator off in the one-on-one layout because
+       * "there's no question as to who is speaking" — but ORISO's
+       * Einzelgespräch answers exactly that question with the seam and the
+       * rim light, and feeding it the filtered flag meant the rim never
+       * appeared at all. Whether and how speaking is drawn is the shape's
+       * `speakingAs`, which the layout sets; it is not upstream's indicator
+       * policy. The ring that policy governs is still gated above.
+       */
+      orisoSpeaking={speaking}
+      orisoParentUrl={parentUrl}
       {...props}
     />
   );
 
   return (
-    <ContextMenu title={displayName} trigger={tile} hasAccessibleAlternative>
+    <ContextMenu title={shownName} trigger={tile} hasAccessibleAlternative>
       {menu}
     </ContextMenu>
   );

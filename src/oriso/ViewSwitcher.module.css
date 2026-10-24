@@ -1,0 +1,73 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* A 44px rail of 36px round buttons — the handoff's measured numbers. */
+.rail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  block-size: 44px;
+  padding-inline: 4px;
+  border-radius: 22px;
+  background: rgb(45 44 40 / 72%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 7%);
+  backdrop-filter: blur(6px);
+}
+
+/* The dark rail is derived, not given. The handoff specifies the fill for a
+   control sitting ON a stage; this one sits on the footer over the stage, and
+   two earlier attempts were wrong in opposite directions: rgb(0 0 0 / 28%)
+   read as a smudge, and no fill at all left the icons illegible where the
+   stage behind them is the carrier's yellow. This mirrors the light rail's
+   construction instead of inventing a third thing. */
+
+.view {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  block-size: 36px;
+  min-inline-size: 36px;
+  padding-inline: 0;
+  border: none;
+  border-radius: 18px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+  justify-content: center;
+}
+
+/* Only the active view spells out its name. That is the design's answer to a
+   rail that must not grow, and it does the accessibility work for free: the
+   current view is the only one carrying a word, so it survives greyscale, a
+   colour-blind reader and a bad projector, and nothing here depends on
+   telling one fill from another. */
+.view[aria-checked="true"] {
+  background: rgb(251 244 211);
+  color: #2d2c28;
+  padding-inline: 12px;
+}
+
+.view:focus-visible {
+  outline: 2px solid var(--cpd-color-border-focused);
+  outline-offset: 2px;
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.icon svg {
+  display: block;
+}
+
+.label {
+  white-space: nowrap;
+}
