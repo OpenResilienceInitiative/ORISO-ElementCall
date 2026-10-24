@@ -1400,7 +1400,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.13.9, @babel/runtime@npm:^7.23.2, @babel/runtime@npm:^7.25.0, @babel/runtime@npm:^7.26.10, @babel/runtime@npm:^7.27.6":
+"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.13.9, @babel/runtime@npm:^7.23.2, @babel/runtime@npm:^7.25.0, @babel/runtime@npm:^7.26.10":
   version: 7.28.4
   resolution: "@babel/runtime@npm:7.28.4"
   checksum: 10c0/792ce7af9750fb9b93879cc9d1db175701c4689da890e6ced242ea0207c9da411ccf16dc04e689cc01158b28d7898c40d75598f4559109f761c12ce01e959bf7
@@ -5070,9 +5070,9 @@ __metadata:
   linkType: hard
 
 "@types/dom-webcodecs@npm:*":
-  version: 0.1.18
-  resolution: "@types/dom-webcodecs@npm:0.1.18"
-  checksum: 10c0/dcf0a36869bddb6ec1534039911bd5517985c03503da6d6cfea4ef26480c763f91b2ef4f03dcc7b3c8a68740efc1ed93b0f63a865823877eb8675f98a772f67d
+  version: 0.1.19
+  resolution: "@types/dom-webcodecs@npm:0.1.19"
+  checksum: 10c0/bb6e04daf5c22eda547db38ddc000d978b5af6203a519962859439a14c3455ce89edeea33d9464f698872a3540971c20c7cda354a5535b1a3bc18cbdddcdf843
   languageName: node
   linkType: hard
 
@@ -7278,7 +7278,7 @@ __metadata:
     qrcode: "npm:^1.5.4"
     react: "npm:19"
     react-dom: "npm:19"
-    react-i18next: "npm:^15.0.0"
+    react-i18next: "npm:~15.4.1"
     react-router-dom: "npm:^7.0.0"
     react-use-measure: "npm:^2.1.1"
     rxjs: "npm:^7.8.1"
@@ -11461,24 +11461,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-i18next@npm:^15.0.0":
-  version: 15.7.4
-  resolution: "react-i18next@npm:15.7.4"
+"react-i18next@npm:~15.4.1":
+  version: 15.4.1
+  resolution: "react-i18next@npm:15.4.1"
   dependencies:
-    "@babel/runtime": "npm:^7.27.6"
+    "@babel/runtime": "npm:^7.25.0"
     html-parse-stringify: "npm:^3.0.1"
   peerDependencies:
-    i18next: ">= 23.4.0"
+    i18next: ">= 23.2.3"
     react: ">= 16.8.0"
-    typescript: ^5
   peerDependenciesMeta:
     react-dom:
       optional: true
     react-native:
       optional: true
-    typescript:
-      optional: true
-  checksum: 10c0/643c5d3ced4b44084c871a55e876159561c14f378f90bf53286c1291082703e293573da18ad692b43b357b60d2f7251bc417feb0b522de8cec5c414e5ebdf6c1
+  checksum: 10c0/4f421a4db8255766bdbc8cc262b03c75bed4d92e5f7cc79dee99236c3239eb86a4d100fcbc6c2c735fa0207de23c09516450c8d970d193b0f7c2a3daaa51e261
   languageName: node
   linkType: hard
 

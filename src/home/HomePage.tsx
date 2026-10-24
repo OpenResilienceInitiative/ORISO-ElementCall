@@ -18,6 +18,7 @@ import { widget } from "../widget.ts";
 export const HomePage: FC = () => {
   const { t } = useTranslation();
   usePageTitle(t("common.home"));
+  const clientState = useClientState();
   const isEmbedded = window.self !== window.top;
 
   // Above the early return, because a hook after one is a hook that runs in
