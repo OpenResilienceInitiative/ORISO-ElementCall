@@ -55,6 +55,9 @@ export const Header: FC<HeaderProps> = ({
 Header.displayName = "Header";
 
 interface LeftNavProps extends HTMLAttributes<HTMLElement> {
+  /* Optional: the nav is rendered empty wherever the header is only a
+     spacer. Older @types/react made every FC's children optional, which is
+     why four call sites pass none. */
   children?: ReactNode;
   className?: string;
   hideMobile?: boolean;

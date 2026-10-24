@@ -52,6 +52,8 @@ interface Tile<Model> {
   id: string;
   model: Model;
   onDrag: DragCallback | undefined;
+  /** Which stacking layer this tile asked for. See `BASE_LAYER`. */
+  layer: number | undefined;
 }
 
 type PlacedTile<Model> = Tile<Model> & Rect;
@@ -85,9 +87,36 @@ interface SlotProps<Model> extends Omit<ComponentProps<"div">, "onDrag"> {
   id: string;
   model: Model;
   onDrag?: DragCallback;
+  /**
+   * A stacking layer for this tile, when the plain one will not do.
+   *
+   * The slots a layout renders are invisible measuring boxes; the real tile
+   * is sprung into place by this grid, and its `z-index` comes from the
+   * spring. So a layout that needs one tile in front of the others — the
+   * grove's speaker, whose halo and four-pixel rise paint outside its own box
+   * and into its neighbours' — cannot do it from the slot's own style and has
+   * to ask here.
+   */
+  layer?: number;
   style?: CSSProperties;
   className?: string;
 }
+
+/**
+ * The three stacking layers a tile can be on.
+ *
+ * Every tile sits on `BASE_LAYER`, where DOM order decides — which is fine
+ * while tiles do not overlap, and is exactly what went wrong when one of them
+ * started painting outside its box. A dragged tile has to be above a
+ * speaking one, hence three values rather than two.
+ *
+ * ORISO-Frontend's `HainStage` numbers these differently (its speaker is on
+ * 3) because its stage has no dragging and a separate layer for the name
+ * capsules, which here ride inside the tile they belong to.
+ */
+export const BASE_LAYER = 1;
+export const SPEAKING_LAYER = 2;
+const DRAG_LAYER = 3;
 
 interface Offset {
   x: number;
@@ -200,8 +229,11 @@ interface Drag {
 
 export type DragCallback = (drag: Drag) => void;
 
-interface LayoutMemoProps<LayoutModel, TileModel, R extends HTMLElement>
-  extends LayoutProps<LayoutModel, TileModel, R> {
+interface LayoutMemoProps<
+  LayoutModel,
+  TileModel,
+  R extends HTMLElement,
+> extends LayoutProps<LayoutModel, TileModel, R> {
   Layout: ComponentType<LayoutProps<LayoutModel, TileModel, R>>;
 }
 
@@ -272,13 +304,13 @@ export function Grid<
 
   const Slot: FC<SlotProps<TileModel>> = useMemo(
     () =>
-      function Slot({ id, model, onDrag, style, className, ...props }) {
+      function Slot({ id, model, onDrag, layer, style, className, ...props }) {
         const ref = useRef<HTMLDivElement | null>(null);
 
         useEffect(() => {
-          tiles.set(id, { id, model, onDrag });
+          tiles.set(id, { id, model, onDrag, layer });
           return (): void => void tiles.delete(id);
-        }, [id, model, onDrag]);
+        }, [id, model, onDrag, layer]);
 
         return (
           <div
@@ -364,10 +396,11 @@ export function Grid<
         y,
         width,
         height,
+        layer,
       }: PlacedTile<TileModel>): TileSpringUpdate => ({
         opacity: 0,
         scale: 0,
-        zIndex: 1,
+        zIndex: layer ?? BASE_LAYER,
         x,
         y,
         width,
@@ -381,6 +414,7 @@ export function Grid<
         y,
         width,
         height,
+        layer,
       }: PlacedTile<TileModel>): TileSpringUpdate | null =>
         id === dragState.current?.tileId
           ? null
@@ -389,7 +423,12 @@ export function Grid<
               y,
               width,
               height,
-              immediate: prefersReducedMotion,
+              zIndex: layer ?? BASE_LAYER,
+              // The layer jumps; it does not travel. A spring over a z-index
+              // hands the browser fractional values on the way, which is the
+              // reason the drag code below marks it immediate too.
+              immediate:
+                prefersReducedMotion || ((key): boolean => key === "zIndex"),
             },
       leave: { opacity: 0, scale: 0, immediate: prefersReducedMotion },
       config: { mass: 0.7, tension: 252, friction: 25 },
@@ -419,7 +458,10 @@ export function Grid<
         endOfGesture
           ? {
               scale: 1,
-              zIndex: 1,
+              // Back to whatever layer it was on, which is not always the
+              // plain one: dropping the speaker used to push them under their
+              // neighbours.
+              zIndex: tile.layer ?? BASE_LAYER,
               x: tile.x,
               y: tile.y,
               width: tile.width,
@@ -432,7 +474,7 @@ export function Grid<
             }
           : {
               scale: 1.1,
-              zIndex: 2,
+              zIndex: DRAG_LAYER,
               x: tileX,
               y: tileY,
               immediate:

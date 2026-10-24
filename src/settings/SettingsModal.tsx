@@ -35,6 +35,14 @@ import { useSubmitRageshake } from "./submit-rageshake";
 import { useUrlParams } from "../UrlParams";
 import { useBehavior } from "../useBehavior";
 
+/*
+ * Hidden by requirement. Constants rather than a literal `false &&`, so the
+ * intent is named, the definitions below stay compiled, and re-enabling
+ * either is one word.
+ */
+const SHOW_FEEDBACK_TAB = false;
+const SHOW_DEVELOPER_TAB = false;
+
 type SettingsTab =
   | "audio"
   | "video"
@@ -220,17 +228,16 @@ export const SettingsModal: FC<Props> = ({
   const tabs = [audioTab, videoTab];
   if (widget === null) tabs.push(profileTab);
   tabs.push(preferencesTab);
-  // Feedback tab hidden by requirement (keep definition for easy re-enable)
-  const feedbackTabEnabled = false as boolean;
+  // Hidden by requirement, with the definitions kept so re-enabling is one
+  // word each. Named constants rather than a literal `false &&`, which the
+  // linter reads — correctly — as a condition that cannot vary.
   if (
-    feedbackTabEnabled &&
+    SHOW_FEEDBACK_TAB &&
     (isRageshakeAvailable || import.meta.env.VITE_PACKAGE === "full")
   ) {
     tabs.push(feedbackTab);
   }
-  // Developer tab hidden by requirement (keep definition for easy re-enable)
-  const developerTabEnabled = false as boolean;
-  if (developerTabEnabled && showDeveloperSettingsTab) tabs.push(developerTab);
+  if (SHOW_DEVELOPER_TAB && showDeveloperSettingsTab) tabs.push(developerTab);
 
   return (
     <Modal
