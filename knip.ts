@@ -18,6 +18,7 @@ export default {
     // reached by a developer running them, not by the bundle, so Knip is
     // right that nothing imports them and wrong that they are unused.
     "harness/orisoStage.tsx",
+    "harness/einzelCall.tsx",
     "harness/videoSpike.ts",
     "harness/vite.harness.config.ts",
     "scripts/shootOrisoStage.mjs",

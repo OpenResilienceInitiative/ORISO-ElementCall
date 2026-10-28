@@ -235,4 +235,11 @@ Please see LICENSE in the repository root for full details.
     block-size: 48px;
     border-radius: 24px;
   }
+
+  /* Wider than the bar here, so centred on it to keep both gutters. */
+  .menu {
+    inset-inline-end: auto;
+    inset-inline-start: 50%;
+    translate: -50% 0;
+  }
 }

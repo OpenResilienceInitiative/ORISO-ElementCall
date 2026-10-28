@@ -379,13 +379,20 @@ unconditionally select the container so we can use cqmin units */
   flex-direction: column;
   gap: 2px;
   min-inline-size: 0;
+  overflow: hidden;
+  /* Upstream holds every `span` in the tag at its size; this one gives way. */
+  flex-shrink: 1;
 }
 
 .media.oriso[data-oriso-side="end"] .orisoLabel {
   align-items: flex-end;
 }
 
+/* The same cut as the capsule's — the head gives way, the number at the
+   end never does — one level further down. */
 .media.oriso[data-oriso-half="true"] .nameTag > .orisoLabel > .name {
+  display: flex;
+  min-inline-size: 0;
   font:
     500 14px / 18px Inter,
     sans-serif;
