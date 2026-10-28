@@ -80,6 +80,7 @@ import { makeOrisoGroveLayout } from "../grid/OrisoGroveLayout";
 import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
 import { type StageView } from "../oriso/ViewSwitcher";
 import { OrisoToolbar } from "../oriso/OrisoToolbar";
+import { useOrisoKnock } from "../oriso/useOrisoKnock";
 import {
   OrisoStageContext,
   useOrisoIdentities,
@@ -439,6 +440,9 @@ export const InCallView: FC<InCallViewProps> = ({
           },
     [],
   );
+
+  // Who knocks on this call's link, and its switch: both from the host (#108).
+  const orisoKnock = useOrisoKnock();
 
   const openProfile = useMemo(
     () =>
@@ -968,6 +972,9 @@ export const InCallView: FC<InCallViewProps> = ({
                 : null
             }
             onToggleNotes={toggleNotes}
+            waitingCount={orisoKnock.waiting}
+            knock={orisoKnock.knock}
+            onKnockChange={orisoKnock.setKnock}
             onHangup={() => vm.hangup()}
             participantCount={participantCount}
             view={stageView}

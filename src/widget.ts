@@ -50,6 +50,13 @@ export enum OrisoWidgetActions {
   // fromWidget: the person pressed "Meine Notiz". The notepad belongs to the
   // host, so the call only asks it to open or close.
   ToggleNotes = "org.oriso.call.toggle_notes",
+  // toWidget: who knocks on this call's link, and its "Anklopfen" setting
+  //   { waiting: number, knock: boolean | null } — null: no link to switch.
+  //   The host sends it whenever either changes (#108).
+  KnockState = "org.oriso.call.knock_state",
+  // fromWidget: the person flipped "Anklopfen" in the call menu. The link
+  //   belongs to the host, so the call only asks: { knock: boolean }.
+  SetKnock = "org.oriso.call.set_knock",
 }
 
 export interface JoinCallData {
@@ -99,6 +106,7 @@ export const widget = ((): WidgetHelpers | null => {
         ElementWidgetActions.TileLayout,
         ElementWidgetActions.SpotlightLayout,
         ElementWidgetActions.DeviceMute,
+        OrisoWidgetActions.KnockState,
       ].forEach((action) => {
         api.on(`action:${action}`, (ev: CustomEvent<IWidgetApiRequest>) => {
           ev.preventDefault();
