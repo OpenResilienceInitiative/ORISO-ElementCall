@@ -232,11 +232,13 @@ unconditionally select the container so we can use cqmin units */
  * pointer lands on the form and on the chrome rather than on empty corners.
  * Handlers stay where they were: pointer events still bubble to the root.
  *
- * The Einzelgespräch is excluded on purpose. There the root carries a
- * `clip-path` for the seam, and a clipped-away region is already not
- * hit-testable — so its halves already behave.
+ * The Einzelgespräch is included. Its halves are given the same box and used
+ * to rely on a `clip-path` on the root for this; that clip also cut off the
+ * names, which stand under the circle, so the clip is now the face's alone.
+ * A clipped face is hit-tested along its clip, so the seam still decides
+ * which half a click belongs to.
  */
-.media.oriso:not([data-oriso-half="true"]) {
+.media.oriso {
   pointer-events: none;
 }
 
@@ -250,10 +252,10 @@ unconditionally select the container so we can use cqmin units */
  * `--media-view-fg-inset` insets the chrome by the corner rather than by the
  * rectangle's padding.
  */
-.media.oriso:not([data-oriso-half="true"]) > .bg,
-.media.oriso:not([data-oriso-half="true"]) .nameTag,
-.media.oriso:not([data-oriso-half="true"]) .status,
-.media.oriso:not([data-oriso-half="true"]) button {
+.media.oriso > .bg,
+.media.oriso .nameTag,
+.media.oriso .status,
+.media.oriso button {
   pointer-events: auto;
 }
 
@@ -329,24 +331,133 @@ unconditionally select the container so we can use cqmin units */
   white-space: pre;
 }
 
-/* The chrome belongs to the half, not to the shared box.
-   Both Einzelgespräch tiles are given the whole circle, so without this both
-   name capsules sat at the same corner of it, one over the other. The shift is
-   the same `focusX` the artwork and the camera get — where this half's middle
-   actually is.
-
-   It SIZES the chrome layer to the half rather than shifting it. Two earlier
-   versions were wrong in different ways. The first listed `.nameTag` and
-   `> button`, and the button is not a child of the tile — it is rendered
-   inside `.fg` — so that selector never matched at all. The second translated
-   `.fg`, which spans 84% of the whole box: moving it sideways carries its
-   left-aligned capsule and its right-aligned button the same distance, so the
-   left tile's button stayed past the seam and was still clipped away. The
-   bounds are computed from `focusX` in `MediaView`, which is the middle of
-   the half this tile was given. */
+/*
+ * The Einzelgespräch's names stand UNDER the circle (section 2b).
+ *
+ * Plain text, not the capsule: the name of the left half at the circle's
+ * left edge, the right half's at its right edge, each with a status line
+ * ("spricht" in the primary colour, "hört zu" in grey) and its `⋮` on the
+ * outside. Both tiles are given the whole circle, so `.fg` is moved out of
+ * the box rather than into a half: under it, half its width, on its side.
+ *
+ * z 6 inside the stage: above every shape, as the stacking order asks.
+ */
 .media.oriso[data-oriso-half="true"] > .fg {
-  inset-inline: var(--oriso-half-inset-start, 8%)
-    var(--oriso-half-inset-end, 8%);
+  inset: auto;
+  inset-block-start: calc(100% + 12px);
+  inline-size: 50%;
+  z-index: var(--oriso-z-names, 6);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.media.oriso[data-oriso-side="start"] > .fg {
+  inset-inline-start: 0;
+}
+
+.media.oriso[data-oriso-side="end"] > .fg {
+  inset-inline-end: 0;
+  flex-direction: row-reverse;
+}
+
+.media.oriso[data-oriso-half="true"] .nameTag,
+.media.oriso[data-oriso-half="true"][data-oriso-speaking="true"] .nameTag {
+  block-size: auto;
+  min-inline-size: 0;
+  max-inline-size: none;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  color: rgb(45 44 40);
+  letter-spacing: normal;
+}
+
+.media.oriso[data-oriso-half="true"] .orisoLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.media.oriso[data-oriso-side="end"] .orisoLabel {
+  align-items: flex-end;
+}
+
+.media.oriso[data-oriso-half="true"] .nameTag > .orisoLabel > .name {
+  font:
+    500 14px / 18px Inter,
+    sans-serif;
+  max-inline-size: 100%;
+}
+
+.media.oriso[data-oriso-side="end"] .nameTag > .orisoLabel > .name {
+  justify-content: flex-end;
+}
+
+.media.oriso .orisoStatus {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font:
+    400 12px / 16px Inter,
+    sans-serif;
+  color: rgb(120 118 125);
+  white-space: nowrap;
+}
+
+.media.oriso .orisoStatus[data-speaking="true"] {
+  color: var(--oriso-primary, #a5000a);
+}
+
+/* The microphone icon says one thing here: that it is off. */
+.media.oriso .orisoStatus > svg {
+  inline-size: 14px;
+  block-size: 14px;
+  color: currentcolor;
+}
+
+.media.oriso .orisoStatus > svg:not([data-muted="true"]) {
+  display: none;
+}
+
+/* The `⋮` stands beside the name and is always there, quietly — not
+   upstream's button that appears on hover inside the tile. */
+.media.oriso[data-oriso-half="true"] > .fg > button {
+  flex: none;
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: none;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.media.oriso[data-oriso-half="true"] > .fg > button > svg {
+  color: rgb(73 69 79);
+}
+
+@media (hover) {
+  .media.oriso[data-oriso-half="true"] > .fg > button:hover {
+    opacity: 1;
+    background: rgb(0 0 0 / 6%);
+  }
+}
+
+.media.oriso[data-oriso-half="true"] > .fg > button[data-state="open"] {
+  opacity: 1;
+  background: rgb(230 239 252);
+}
+
+/* A raised hand or a reaction stays inside the circle, on its half. */
+.media.oriso[data-oriso-half="true"] .reactions {
+  position: absolute;
+  inset-block-end: calc(100% + 24px);
 }
 
 /* And the same for a form with no shape of its own: `OrisoFace` centres a

@@ -119,9 +119,11 @@ export const MediaView: FC<Props> = ({
    * and both name capsules sat at the same corner of the same circle, one on
    * top of the other.
    *
-   * The clip goes on the tile ROOT, so hit-testing follows the seam — a
-   * clipped-away region is not hit-testable — and the chrome is moved into
-   * the half by the same `focusX` the artwork uses.
+   * The clip is the FACE's (`OrisoFace` applies the shape's clip path), not
+   * the root's: a clipped root also clipped the names, which stand outside
+   * the circle. The root is made transparent to the pointer in CSS instead,
+   * and the clipped face is the hit target, so hit-testing still follows the
+   * seam.
    */
   const orisoFocusShift =
     orisoShape?.focusX === undefined
@@ -131,30 +133,19 @@ export const MediaView: FC<Props> = ({
         );
 
   /*
-   * Where this tile's half of the shared box actually is.
+   * Which half of the shared box this tile is, for where its name goes.
    *
-   * Translating the chrome layer by the focus shift was not enough, and the
-   * reason is arithmetic: `.fg` spans 84% of the WHOLE box, so moving it
-   * sideways carries its left-aligned name capsule and its right-aligned
-   * options button the same distance — the button of the left-hand tile
-   * stayed past the seam and was clipped away, taking the tile's only menu
-   * control with it. The chrome has to be sized to the half, not shifted
-   * within the pair.
-   *
-   * The bounds follow exactly from `focusX`, which `EinzelgespraechLayout`
-   * sets to the middle of the half it gave this tile: `share / 2` for the
-   * left one and `share + (1 - share) / 2` for the right. So the seam is at
-   * `2 * focusX` on the left and `2 * focusX - 1` on the right, and the 8%
-   * chrome inset is taken from the half's own width rather than the pair's.
+   * The names stand UNDER the circle (section 2b), the left half's at the
+   * circle's left edge and the right half's at its right edge. `focusX` is
+   * the middle of the half `EinzelgespraechLayout` gave this tile, so it says
+   * which side that is.
    */
-  const orisoHalf = ((): { start: string; end: string } | undefined => {
-    const focusX = orisoShape?.focusX;
-    if (focusX === undefined) return undefined;
-    const [start, end] = focusX < 0.5 ? [0, 2 * focusX] : [2 * focusX - 1, 1];
-    const inset = 0.08 * (end - start);
-    const percent = (value: number): string => `${(value * 100).toFixed(3)}%`;
-    return { start: percent(start + inset), end: percent(1 - end + inset) };
-  })();
+  const orisoHalfSide =
+    orisoShape?.focusX === undefined
+      ? undefined
+      : orisoShape.focusX < 0.5
+        ? "start"
+        : "end";
 
   /*
    * How big the form is, and where its chrome goes.
@@ -190,6 +181,34 @@ export const MediaView: FC<Props> = ({
     };
   })();
 
+  const nameText = (
+    <Text
+      as="span"
+      size="sm"
+      weight="medium"
+      className={styles.name}
+      data-testid="name_tag"
+    >
+      {orisoIdentity === undefined ? (
+        displayName
+      ) : (
+        /*
+         * Cut in the middle, not at the end.
+         *
+         * An ORISO pseudonym is "ruhiger Fuchs 432" and the number is
+         * what tells two foxes apart; a plain ellipsis takes exactly
+         * that off and leaves two people looking identical. The head
+         * shrinks and ellipsises, the tail never does — no measuring,
+         * no JavaScript, and it reflows with the capsule.
+         */
+        <>
+          <span className={styles.nameHead}>{splitName(displayName).head}</span>
+          <span className={styles.nameTail}>{splitName(displayName).tail}</span>
+        </>
+      )}
+    </Text>
+  );
+
   return (
     <animated.div
       className={classNames(styles.media, className, {
@@ -197,22 +216,13 @@ export const MediaView: FC<Props> = ({
         [styles.oriso]: orisoIdentity !== undefined,
       })}
       style={
-        orisoShape?.clipPath === undefined &&
-        orisoFocusShift === undefined &&
-        orisoCircle === undefined
+        orisoFocusShift === undefined && orisoCircle === undefined
           ? style
           : {
               ...style,
-              clipPath: orisoShape?.clipPath,
               ...(orisoFocusShift === undefined
                 ? {}
                 : { "--oriso-focus-shift": `${orisoFocusShift}px` }),
-              ...(orisoHalf === undefined
-                ? {}
-                : {
-                    "--oriso-half-inset-start": orisoHalf.start,
-                    "--oriso-half-inset-end": orisoHalf.end,
-                  }),
               ...(orisoCircle === undefined
                 ? {}
                 : {
@@ -227,6 +237,7 @@ export const MediaView: FC<Props> = ({
       data-oriso={orisoIdentity === undefined ? undefined : "true"}
       data-oriso-speaking={orisoSpeaking ? "true" : undefined}
       data-oriso-half={orisoFocusShift === undefined ? undefined : "true"}
+      data-oriso-side={orisoHalfSide}
       data-oriso-circle={orisoCircle === undefined ? undefined : "true"}
       {...props}
     >
@@ -327,36 +338,25 @@ export const MediaView: FC<Props> = ({
             </div>
           )*/}
         <div className={styles.nameTag}>
-          {nameTagLeadingIcon}
-          <Text
-            as="span"
-            size="sm"
-            weight="medium"
-            className={styles.name}
-            data-testid="name_tag"
-          >
-            {orisoIdentity === undefined ? (
-              displayName
-            ) : (
-              /*
-               * Cut in the middle, not at the end.
-               *
-               * An ORISO pseudonym is "ruhiger Fuchs 432" and the number is
-               * what tells two foxes apart; a plain ellipsis takes exactly
-               * that off and leaves two people looking identical. The head
-               * shrinks and ellipsises, the tail never does — no measuring,
-               * no JavaScript, and it reflows with the capsule.
-               */
-              <>
-                <span className={styles.nameHead}>
-                  {splitName(displayName).head}
-                </span>
-                <span className={styles.nameTail}>
-                  {splitName(displayName).tail}
-                </span>
-              </>
-            )}
-          </Text>
+          {orisoHalfSide === undefined && nameTagLeadingIcon}
+          {orisoHalfSide === undefined ? (
+            nameText
+          ) : (
+            // Under the circle: the name, and under it who is talking. The
+            // microphone icon moves into that line, where it only shows when
+            // the microphone is off.
+            <span className={styles.orisoLabel}>
+              {nameText}
+              <span
+                className={styles.orisoStatus}
+                data-speaking={orisoSpeaking}
+                data-testid="oriso_status"
+              >
+                {nameTagLeadingIcon}
+                {orisoSpeaking ? t("oriso.speaking") : t("oriso.listening")}
+              </span>
+            </span>
+          )}
           {unencryptedWarning && (
             <Tooltip
               label={t("common.unencrypted")}

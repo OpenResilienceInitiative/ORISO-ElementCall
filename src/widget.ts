@@ -45,6 +45,13 @@ export enum ElementWidgetActions {
   DeviceMute = "io.element.device_mute",
 }
 
+/** ORISO's own actions between the call and the host app around it. */
+export enum OrisoWidgetActions {
+  // fromWidget: the person pressed "Meine Notiz". The notepad belongs to the
+  // host, so the call only asks it to open or close.
+  ToggleNotes = "org.oriso.call.toggle_notes",
+}
+
 export interface JoinCallData {
   audioInput: string | null;
   videoInput: string | null;

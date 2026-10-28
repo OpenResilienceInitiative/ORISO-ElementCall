@@ -1,0 +1,238 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* The numbers are section 2b's (white bar, round hang-up) and 1c's (the
+   call menu). The call is themed dark, but this bar stands on the light
+   stage, so its colours are the handoff's own rather than Compound's. */
+
+/* The toolbar carries the z-index itself, and the menu lives inside it: the
+   stacking order puts the toolbar AND its menu at z 20, and a menu in its
+   own stacking context would be compared with nothing. */
+.toolbar {
+  position: relative;
+  z-index: var(--oriso-z-toolbar, 20);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  block-size: 64px;
+  padding: 12px 10px;
+  box-sizing: border-box;
+  border-radius: 32px;
+  background: #fff;
+  box-shadow:
+    0 4px 8px 3px rgb(0 0 0 / 12%),
+    0 1px 3px rgb(0 0 0 / 20%);
+}
+
+.button {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 48px;
+  block-size: 48px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgb(73 69 79);
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.fill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 20px;
+  transition: background-color 0.15s;
+}
+
+.fill svg {
+  display: block;
+  inline-size: 24px;
+  block-size: 24px;
+}
+
+/* A device that is on gets the tonal grey, as the microphone in 2b. */
+.button[data-state="live"] .fill {
+  background: rgb(216 213 214);
+  color: rgb(45 44 40);
+}
+
+.button[data-state="raised"] .fill {
+  background: rgb(100 109 120);
+  color: rgb(251 244 211);
+}
+
+.button[data-state="open"] .fill {
+  background: rgb(230 239 252);
+  color: rgb(35 59 99);
+}
+
+@media (hover) {
+  .button:not(:disabled):hover .fill {
+    background-color: rgb(0 0 0 / 6%);
+  }
+
+  .button[data-state="live"]:not(:disabled):hover .fill {
+    background-color: rgb(204 201 202);
+  }
+}
+
+.button:focus-visible,
+.hangup:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
+  border-radius: 24px;
+}
+
+.hangup {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: 56px;
+  block-size: 56px;
+  padding: 0;
+  border: none;
+  border-radius: 28px;
+  background: var(--oriso-primary, #a5000a);
+  color: #fff;
+  cursor: pointer;
+  box-shadow:
+    0 4px 8px 3px rgb(0 0 0 / 14%),
+    0 1px 3px rgb(0 0 0 / 20%);
+}
+
+@media (hover) {
+  .hangup:hover {
+    background: var(--oriso-primary-hover, #820006);
+  }
+}
+
+/* The call menu, 1c. Opens upward from the bar. */
+.menu {
+  position: absolute;
+  inset-block-end: calc(100% + 12px);
+  inset-inline-end: 0;
+  inline-size: min(304px, calc(100vw - 32px));
+  max-block-size: calc(100vh - 140px);
+  overflow: auto;
+  border-radius: 28px;
+  background: rgb(250 249 249);
+  color: rgb(45 44 40);
+  box-shadow:
+    inset 0 0 0 2px var(--oriso-primary, #a5000a),
+    0 14px 32px rgb(0 0 0 / 20%);
+}
+
+.section {
+  padding-block: 4px;
+}
+
+.section + .section {
+  border-block-start: 1px solid rgb(0 0 0 / 9%);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-block-size: 52px;
+  padding-inline: 20px;
+  box-sizing: border-box;
+  color: rgb(45 44 40);
+}
+
+.row[data-entry="view"] {
+  flex-wrap: wrap;
+  row-gap: 4px;
+  padding-block: 8px;
+}
+
+.rowLabel {
+  flex: 1;
+  font:
+    400 17px / 22px Inter,
+    sans-serif;
+  letter-spacing: -0.2px;
+  text-align: start;
+}
+
+.rowHint {
+  font:
+    400 15px / 20px Inter,
+    sans-serif;
+  color: rgb(150 148 152);
+}
+
+.entry {
+  appearance: none;
+  inline-size: 100%;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+@media (hover) {
+  .entry:hover {
+    background: rgb(0 0 0 / 5%);
+  }
+}
+
+.entry:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: -4px;
+}
+
+.danger {
+  color: var(--oriso-primary, #a5000a);
+}
+
+/* A phone: five buttons and the hang-up must fit 320px with the gutters. */
+@media (max-width: 400px) {
+  .toolbar {
+    gap: 8px;
+  }
+
+  .bar {
+    block-size: 56px;
+    padding: 8px 6px;
+    gap: 2px;
+  }
+
+  .button {
+    inline-size: 40px;
+    block-size: 40px;
+  }
+
+  .fill {
+    inline-size: 36px;
+    block-size: 36px;
+    border-radius: 18px;
+  }
+
+  .hangup {
+    inline-size: 48px;
+    block-size: 48px;
+    border-radius: 24px;
+  }
+}

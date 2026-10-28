@@ -39,3 +39,59 @@ Please see LICENSE in the repository root for full details.
   position: absolute;
   inset: 0;
 }
+
+/* The microphone on the seam, section 2b. Above both halves: the halves are
+   tiles at z 1 in the same stage, the seam stands with the names at z 6. */
+.seam {
+  position: absolute;
+  inset-block-start: 50%;
+  translate: -50% -50%;
+  z-index: var(--oriso-z-names, 6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  inline-size: 46px;
+  block-size: min(176px, 63%);
+  border-radius: 23px;
+  background: rgb(252 249 249 / 94%);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 6%);
+  pointer-events: none;
+}
+
+/* At rest a bar is a short dash. */
+.bar {
+  flex: none;
+  block-size: 4px;
+  border-radius: 3px;
+  background: var(--oriso-primary, #a5000a);
+  transform: scaleX(0.22);
+  transform-origin: center;
+}
+
+/* They move only while somebody speaks. Duration and delay come per bar
+   from the element, so the column never moves in step. */
+.seam[data-active="true"] .bar {
+  animation: oriso-barh 0.62s ease-in-out infinite;
+}
+
+@keyframes oriso-barh {
+  0%,
+  100% {
+    transform: scaleX(0.22);
+  }
+
+  50% {
+    transform: scaleX(1);
+  }
+}
+
+/* Still, but not silent: with reduced motion a speaker's bars stand longer
+   instead of moving. */
+@media (prefers-reduced-motion: reduce) {
+  .seam[data-active="true"] .bar {
+    animation: none;
+    transform: scaleX(0.6);
+  }
+}

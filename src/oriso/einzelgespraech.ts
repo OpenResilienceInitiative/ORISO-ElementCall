@@ -113,3 +113,31 @@ export function shareFor(speaking: Speaking): number {
 export function seamFor(share: number): number {
   return ((share - EVEN_SHARE) / (MAX_SHARE - EVEN_SHARE)) * MAX_BOW;
 }
+
+/**
+ * The microphone on the seam, section 2b: nine short bars in a white capsule.
+ *
+ * The prototype's numbers, kept as data so the component and the test read
+ * the same thing. Each bar breathes on `oriso-barh` at its own speed and a
+ * little after the one above it, so the column never moves in step.
+ */
+export const SEAM_BARS: readonly {
+  width: number;
+  duration: number;
+  delay: number;
+}[] = [14, 34, 22, 44, 28, 38, 18, 32, 12].map((width, i) => ({
+  width,
+  duration: [0.62, 0.88, 1.14, 0.75, 1.01][i % 5],
+  delay: Math.round(i * 0.09 * 100) / 100,
+}));
+
+/**
+ * Where the seam crosses the middle of the circle, as a share of its width.
+ *
+ * The seam is a quadratic curve from (share, 0) through the control point
+ * (share + bow, 0.5) to (share, 1); at its midpoint it sits half the bow
+ * away from the straight line. The capsule rides there, on the seam.
+ */
+export function seamMiddleFor(share: number): number {
+  return share + seamFor(share) / 2;
+}

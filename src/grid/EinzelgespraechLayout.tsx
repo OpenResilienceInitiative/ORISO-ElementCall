@@ -14,9 +14,11 @@ import styles from "./EinzelgespraechLayout.module.css";
 import { type CallLayout } from "./CallLayout";
 import { useUpdateLayout } from "./Grid";
 import {
+  SEAM_BARS,
   SEAM_TWEEN,
   type Speaking,
   seamFor,
+  seamMiddleFor,
   shareFor,
 } from "../oriso/einzelgespraech";
 import { liftFor } from "../oriso/lift";
@@ -42,6 +44,17 @@ const FACE_SHARE_OF_CIRCLE = 0.22 / 0.86;
  * and the circle came out a flat ellipse — two to one.
  */
 const CIRCLE_SHARE = 0.86;
+
+/**
+ * The room kept free under the circle for the two names, and above it so
+ * the circle stays centred.
+ *
+ * The names stand under the circle (section 2b), two lines of 18px and 16px
+ * after a 12px gap. With the circle at 86% of a short stage there was 7% of
+ * the height left below it — 21px on a 300px landscape phone — so the names
+ * ran off the stage or under the toolbar.
+ */
+const NAME_ROOM = 40;
 
 /**
  * Einzelgespräch — one circle, two halves, a bowing seam.
@@ -152,7 +165,7 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
     // all, which looks like the call failing rather than like a frame.
     const circle = Math.max(
       0,
-      Math.round(Math.min(width, height) * CIRCLE_SHARE),
+      Math.round(Math.min(width, height - 2 * NAME_ROOM) * CIRCLE_SHARE),
     );
 
     const shapes = useMemo(() => {
@@ -232,6 +245,32 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
               `share` above. */}
           <Slot id={first.id} model={first} className={styles.slot} />
           <Slot id={second.id} model={second} className={styles.slot} />
+          {/* The microphone on the seam. It rides the same spring as the
+              clip paths, so it never parts from the line it sits on, and its
+              bars move only while somebody is actually speaking. */}
+          <animated.div
+            className={styles.seam}
+            style={{
+              insetInlineStart: eased.to(
+                (at) => `${(seamMiddleFor(at) * 100).toFixed(3)}%`,
+              ),
+            }}
+            data-testid="oriso-seam"
+            data-active={speaking !== "none"}
+            aria-hidden="true"
+          >
+            {SEAM_BARS.map((bar, i) => (
+              <span
+                key={i}
+                className={styles.bar}
+                style={{
+                  inlineSize: bar.width,
+                  animationDuration: `${bar.duration}s`,
+                  animationDelay: `${bar.delay}s`,
+                }}
+              />
+            ))}
+          </animated.div>
         </div>
       </div>
     );

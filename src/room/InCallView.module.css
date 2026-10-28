@@ -107,36 +107,18 @@ Please see LICENSE in the repository root for full details.
 }
 
 /*
- * ORISO's rail is not upstream's toggle, and it stays on a phone.
+ * The ORISO footer holds one thing: the toolbar, centred, on every width.
  *
- * `.layout` is hidden below 660px further down, because a two-way
- * grid/spotlight toggle is not worth the width there. The ORISO rail is a
- * different control: the handoff draws every arrangement at phone size
- * (`Hain-Handy`, `Felder-Handy`, `Einzel-handy`), so choosing one is part of
- * the design at phone width rather than a desktop extra. Sharing the class
- * left a portrait phone with no way to leave the stored arrangement — and no
- * unit test could see it, because jsdom applies no media queries.
- *
- * It takes a row of its own rather than a slice of the buttons' row: at 390px
- * the call buttons already fill two thirds of that row.
+ * The view rail no longer sits here; it moved into the toolbar's `⋮` menu
+ * ("Ansicht"), so a phone keeps the choice without a second row.
  */
-.orisoLayout {
-  grid-area: layout;
-  justify-self: end;
+.footer.orisoFooter {
+  grid-template-areas: ". buttons buttons buttons .";
 }
 
-@media (max-width: 660px) {
-  .footer.orisoFooter {
-    grid-template-areas:
-      ". oriso oriso oriso ."
-      ". buttons buttons buttons .";
-    row-gap: var(--cpd-space-2x);
-  }
-
-  .orisoFooter .orisoLayout {
-    grid-area: oriso;
-    justify-self: center;
-  }
+.orisoToolbar {
+  grid-area: buttons;
+  justify-self: center;
 }
 
 @media (max-width: 660px) {
@@ -264,10 +246,42 @@ Please see LICENSE in the repository root for full details.
   overflow: hidden;
 }
 
+/*
+ * One stacking order for the whole call, bottom to top (28 Oct audit):
+ *
+ *   stage            z 1, isolated: the shapes' own z (1..5) and the names
+ *                    and the seam (6) can never leak out of it
+ *   toolbar + menu   z 20, on the toolbar itself
+ *   header           z 30
+ *
+ * The side panels (z 10) are the host's, around this iframe. The menus
+ * Compound portals to the body (a person's `⋮`) sit above all of this.
+ */
 .inRoom[data-oriso="true"] {
+  --oriso-primary: #a5000a;
+  --oriso-primary-hover: #820006;
+  --oriso-z-stage: 1;
+  --oriso-z-names: 6;
+  --oriso-z-toolbar: 20;
+  --oriso-z-header: 30;
+
   position: relative;
   /* So that -1 means "behind the call" and not "behind the page". Without a
      stacking context here the backdrop would slide under the host document
      and vanish. */
   isolation: isolate;
+}
+
+.inRoom[data-oriso="true"] > .scrollingGrid,
+.inRoom[data-oriso="true"] > .fixedGrid {
+  z-index: var(--oriso-z-stage);
+  isolation: isolate;
+}
+
+.inRoom[data-oriso="true"] > .footer {
+  z-index: var(--oriso-z-toolbar);
+}
+
+.inRoom[data-oriso="true"] > .header {
+  z-index: var(--oriso-z-header);
 }
