@@ -44,20 +44,43 @@ Please see LICENSE in the repository root for full details.
    tiles at z 1 in the same stage, the seam stands with the names at z 6. */
 .seam {
   position: absolute;
-  inset-block-start: 50%;
-  translate: -50% -50%;
+  inset: 0;
   z-index: var(--oriso-z-names, 6);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  inline-size: 46px;
-  block-size: min(176px, 63%);
-  border-radius: 23px;
-  background: rgb(252 249 249 / 94%);
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 6%);
   pointer-events: none;
+}
+
+/* The capsule is a stroke along the seam, as wide as the capsule, with round
+   caps: 46px by 176px when the seam is straight, bent with it when it bows. */
+.capsule {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.capsuleEdge,
+.capsuleBody {
+  fill: none;
+  stroke-linecap: round;
+}
+
+/* The design's 1px ring, as a stroke 2px wider under the body. */
+.capsuleEdge {
+  stroke: rgb(0 0 0 / 6%);
+  stroke-width: 48px;
+}
+
+.capsuleBody {
+  stroke: rgb(252 249 249 / 94%);
+  stroke-width: 46px;
+}
+
+/* Where a bar sits, turned across the seam; the bar inside it breathes. */
+.barSeat {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  inline-size: 44px;
+  block-size: 4px;
 }
 
 /* At rest a bar is a short dash. */

@@ -141,3 +141,50 @@ export const SEAM_BARS: readonly {
 export function seamMiddleFor(share: number): number {
   return share + seamFor(share) / 2;
 }
+
+/**
+ * The seam at height `y` (0 at the top of the circle, 1 at the bottom): where
+ * it is, as a share of the width, and how far a bar must turn to lie across
+ * it, in degrees.
+ *
+ * The clip path's quadratic has its control point at mid-height, so its
+ * parameter IS the height: x = share + 2y(1-y)·bow. The circle is square,
+ * so the slope in shares is the slope on screen.
+ */
+export function seamAt(share: number, y: number): { x: number; angle: number } {
+  const bow = seamFor(share);
+  const slope = 2 * bow * (1 - 2 * y);
+  // `+ 0` turns the -0 of a straight seam into a plain 0.
+  return {
+    x: share + 2 * y * (1 - y) * bow,
+    angle: (-Math.atan(slope) * 180) / Math.PI + 0,
+  };
+}
+
+/** The capsule, section 2b: 46px wide, 176px long or 63% of a small circle. */
+export const SEAM_CAPSULE = {
+  width: 46,
+  length: 176,
+  maxShare: 0.63,
+  /** A 4px bar and the 4px gap under it. */
+  barPitch: 8,
+} as const;
+
+/**
+ * The capsule's centre line in px, for a stroke as wide as the capsule with
+ * round caps: the piece of the seam it covers, so the capsule bends with the
+ * seam instead of standing straight on a curve (Frank, 28 Oct).
+ *
+ * A piece of a quadratic is a quadratic; its control point is where the
+ * tangents at its two ends meet, which by symmetry is at mid-height.
+ */
+export function capsulePathFor(share: number, circle: number): string {
+  if (circle <= 0) return "";
+  const length = Math.min(SEAM_CAPSULE.length, SEAM_CAPSULE.maxShare * circle);
+  const half = Math.max(0, (length - SEAM_CAPSULE.width) / 2) / circle;
+  const top = 0.5 - half;
+  const end = seamAt(share, top).x;
+  const control = end + half * 2 * seamFor(share) * (1 - 2 * top);
+  const px = (n: number): string => (n * circle).toFixed(3);
+  return `M${px(end)},${px(top)} Q${px(control)},${px(0.5)} ${px(end)},${px(1 - top)}`;
+}

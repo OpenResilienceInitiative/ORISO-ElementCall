@@ -31,13 +31,19 @@ function bodiesWhere(
 }
 
 describe("the bars on the seam", () => {
-  it("are the capsule the design measured", () => {
-    const seam = bodiesWhere(css, (s) => s === ".seam").join();
-    expect(seam).toMatch(/inline-size:\s*46px/);
-    expect(seam).toMatch(/block-size:\s*min\(176px, 63%\)/);
-    expect(seam).toMatch(/border-radius:\s*23px/);
-    expect(seam).toMatch(/background:\s*rgb\(252 249 249 \/ 94%\)/);
-    expect(seam).toMatch(/box-shadow:\s*0 0 0 1px rgb\(0 0 0 \/ 6%\)/);
+  it("are the capsule the design measured, drawn as a stroke along the seam", () => {
+    // The capsule bends with the seam (Frank, 28 Oct), so it is a stroke:
+    // its width is the capsule's 46px and its round caps the 23px radius.
+    // Its length (176px) comes from `capsulePathFor`, tested with the geometry.
+    const body = bodiesWhere(css, (s) => s === ".capsuleBody").join();
+    expect(body).toMatch(/stroke-width:\s*46px/);
+    expect(body).toMatch(/stroke:\s*rgb\(252 249 249 \/ 94%\)/);
+    const edge = bodiesWhere(css, (s) => s === ".capsuleEdge").join();
+    expect(edge).toMatch(/stroke-width:\s*48px/);
+    expect(edge).toMatch(/stroke:\s*rgb\(0 0 0 \/ 6%\)/);
+    expect(
+      bodiesWhere(css, (s) => s === ".capsuleEdge,\n.capsuleBody").join(),
+    ).toMatch(/stroke-linecap:\s*round/);
     const bar = bodiesWhere(css, (s) => s === ".bar").join();
     expect(bar).toMatch(/block-size:\s*4px/);
     expect(bar).toMatch(/border-radius:\s*3px/);

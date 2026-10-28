@@ -89,6 +89,9 @@ Please see LICENSE in the repository root for full details.
 .rim {
   position: absolute;
   inset: 0;
+  /* The face's own radius, or the ring sits on a square and the round clip
+     leaves only three red arcs of it. */
+  border-radius: inherit;
   pointer-events: none;
   box-shadow:
     inset 0 0 0 3px rgb(165 0 10 / 44%),

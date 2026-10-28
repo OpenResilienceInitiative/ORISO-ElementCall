@@ -15,10 +15,12 @@ import { type CallLayout } from "./CallLayout";
 import { useUpdateLayout } from "./Grid";
 import {
   SEAM_BARS,
+  SEAM_CAPSULE,
   SEAM_TWEEN,
   type Speaking,
+  capsulePathFor,
+  seamAt,
   seamFor,
-  seamMiddleFor,
   shareFor,
 } from "../oriso/einzelgespraech";
 import { liftFor } from "../oriso/lift";
@@ -247,30 +249,62 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
           <Slot id={second.id} model={second} className={styles.slot} />
           {/* The microphone on the seam. It rides the same spring as the
               clip paths, so it never parts from the line it sits on, and its
-              bars move only while somebody is actually speaking. */}
-          <animated.div
+              bars move only while somebody is actually speaking. The capsule
+              is a stroke along the seam itself, so it bends as the seam
+              bows; each bar turns to stay across it. */}
+          <div
             className={styles.seam}
-            style={{
-              insetInlineStart: eased.to(
-                (at) => `${(seamMiddleFor(at) * 100).toFixed(3)}%`,
-              ),
-            }}
             data-testid="oriso-seam"
             data-active={speaking !== "none"}
             aria-hidden="true"
           >
-            {SEAM_BARS.map((bar, i) => (
-              <span
-                key={i}
-                className={styles.bar}
-                style={{
-                  inlineSize: bar.width,
-                  animationDuration: `${bar.duration}s`,
-                  animationDelay: `${bar.delay}s`,
-                }}
+            <svg
+              className={styles.capsule}
+              width={circle}
+              height={circle}
+              viewBox={`0 0 ${circle} ${circle}`}
+            >
+              <animated.path
+                className={styles.capsuleEdge}
+                d={eased.to((at) => capsulePathFor(at, circle))}
               />
-            ))}
-          </animated.div>
+              <animated.path
+                className={styles.capsuleBody}
+                d={eased.to((at) => capsulePathFor(at, circle))}
+              />
+            </svg>
+            {SEAM_BARS.map((bar, i) => {
+              const offset =
+                (i - (SEAM_BARS.length - 1) / 2) * SEAM_CAPSULE.barPitch;
+              const y = circle > 0 ? 0.5 + offset / circle : 0.5;
+              return (
+                <animated.span
+                  key={i}
+                  className={styles.barSeat}
+                  data-bar
+                  style={{
+                    insetBlockStart: `calc(50% + ${offset}px)`,
+                    insetInlineStart: eased.to(
+                      (at) => `${(seamAt(at, y).x * 100).toFixed(3)}%`,
+                    ),
+                    transform: eased.to(
+                      (at) =>
+                        `translate(-50%, -50%) rotate(${seamAt(at, y).angle.toFixed(3)}deg)`,
+                    ),
+                  }}
+                >
+                  <span
+                    className={styles.bar}
+                    style={{
+                      inlineSize: bar.width,
+                      animationDuration: `${bar.duration}s`,
+                      animationDelay: `${bar.delay}s`,
+                    }}
+                  />
+                </animated.span>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
