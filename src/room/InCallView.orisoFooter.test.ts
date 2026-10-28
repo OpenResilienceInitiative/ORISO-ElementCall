@@ -55,6 +55,19 @@ describe("the ORISO footer", () => {
     ).toMatch(/grid-template-areas:\s*"\. buttons buttons buttons \."/);
   });
 
+  it("offers the settings only where the settings dialog is rendered", () => {
+    // Codex on #107: in flat and pip mode the SettingsModal is not mounted,
+    // so the toolbar must not offer an entry that would open nothing.
+    const view = read("src/room/InCallView.tsx");
+    expect(view).toMatch(/\{!isPopupMode && \(\s*<>\s*<RageshakeRequestModal/);
+    expect(view).toMatch(
+      /onOpenSoundSettings=\{isPopupMode \? null : openSoundSettings\}/,
+    );
+    expect(view).toMatch(
+      /onOpenSettings=\{isPopupMode \? null : openSettings\}/,
+    );
+  });
+
   it("no longer places the view rail in the footer", () => {
     // It moved into the toolbar's `⋮` menu, under "Ansicht".
     expect(room).not.toContain(".orisoLayout");
