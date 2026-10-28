@@ -176,6 +176,17 @@ describe("the call menu behind ⋮", () => {
     expect(p.onOpenSettings).toHaveBeenCalledOnce();
   });
 
+  it("keeps a touch on the menu from reaching the call, as the bar does", () => {
+    // Codex on #107: in flat mode a tap bubbling up to InCallView calls
+    // vm.tapScreen() and hides the footer, the open menu with it.
+    const onTouchEnd = vi.fn();
+    open({ onTouchEnd });
+    const menu = screen.getByTestId("oriso-call-menu");
+    fireEvent.touchEnd(menu.querySelector('[data-entry="settings"]')!);
+    fireEvent.touchEnd(menu);
+    expect(onTouchEnd).toHaveBeenCalledTimes(2);
+  });
+
   it("leaves out the settings where there is no dialog to open", () => {
     // Codex on #107: a call 600px high or less runs in flat mode, where
     // InCallView renders no SettingsModal, so the entries would open nothing.

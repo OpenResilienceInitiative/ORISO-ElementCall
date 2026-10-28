@@ -241,6 +241,9 @@ export const OrisoToolbar: FC<Props> = ({
           role="group"
           data-testid="oriso-call-menu"
           onKeyDown={onMenuKeyDown}
+          // Its entries and its scroll area, or a tap reaches the call and
+          // hides the footer, menu and all.
+          onTouchEnd={onTouchEnd}
         >
           <div className={styles.section}>
             <div className={styles.row} data-entry="participants">
