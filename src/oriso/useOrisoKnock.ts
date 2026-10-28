@@ -14,6 +14,16 @@ import { type KnockState, parseKnockState } from "./knockState";
 
 const logger = rootLogger.getChild("[useOrisoKnock]");
 
+const NO_LINK: KnockState = { waiting: 0, knock: null };
+// The host only sends on change, and leaving to the lobby unmounts the call
+// view: keep its last state for the next mount.
+let lastFromHost: KnockState = NO_LINK;
+
+/** Tests only: start without a state from the host. */
+export const forgetKnockState = (): void => {
+  lastFromHost = NO_LINK;
+};
+
 /**
  * Knocking in the call (#108). The link and its queue belong to the host:
  * the call shows what the host sends and asks it to flip "Anklopfen".
@@ -24,10 +34,10 @@ export const useOrisoKnock = (): {
   knock: boolean | null;
   setKnock: ((knock: boolean) => void) | null;
 } => {
-  const [state, setState] = useState<KnockState>({ waiting: 0, knock: null });
+  const [state, setState] = useState<KnockState>(lastFromHost);
   // What the host last sent: a failed change falls back to this, never to the
   // inverse of the click, which is wrong when changes overlap.
-  const confirmed = useRef<boolean | null>(null);
+  const confirmed = useRef<boolean | null>(lastFromHost.knock);
   // Only the latest change may roll back; older answers are stale.
   const latest = useRef(0);
 
@@ -37,6 +47,7 @@ export const useOrisoKnock = (): {
       ev.preventDefault();
       const next = parseKnockState(ev.detail.data);
       if (next) {
+        lastFromHost = next;
         confirmed.current = next.knock;
         setState(next);
       }

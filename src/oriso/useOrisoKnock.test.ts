@@ -9,7 +9,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EventEmitter } from "events";
-import { useOrisoKnock } from "./useOrisoKnock";
+import { forgetKnockState, useOrisoKnock } from "./useOrisoKnock";
 
 const host = vi.hoisted(() => ({
   lazyActions: null as unknown as EventEmitter,
@@ -43,6 +43,7 @@ describe("knocking between call and host (#108)", () => {
   beforeEach(() => {
     host.send.mockReset();
     host.reply.mockReset();
+    forgetKnockState();
   });
 
   it("has no switch until the host sends its link's state", () => {
@@ -107,5 +108,17 @@ describe("knocking between call and host (#108)", () => {
       await Promise.resolve();
     });
     expect(result.current.knock).toBe(true);
+  });
+
+  it("keeps the host's last state when the call view remounts", () => {
+    // Leaving to the lobby unmounts the call; the host only sends on change.
+    const first = renderHook(() => useOrisoKnock());
+    fromHost({ waiting: 2, knock: true });
+    first.unmount();
+
+    const { result } = renderHook(() => useOrisoKnock());
+    expect(result.current.waiting).toBe(2);
+    expect(result.current.knock).toBe(true);
+    expect(result.current.setKnock).not.toBeNull();
   });
 });
