@@ -89,4 +89,23 @@ describe("knocking between call and host (#108)", () => {
     });
     expect(result.current.knock).toBe(true);
   });
+
+  it("falls back to what the host has when overlapping changes both fail", async () => {
+    const failures: Array<(e: Error) => void> = [];
+    host.send.mockImplementation(
+      async () =>
+        new Promise((_, reject) => {
+          failures.push(reject);
+        }),
+    );
+    const { result } = renderHook(() => useOrisoKnock());
+    fromHost({ waiting: 0, knock: true });
+    act(() => result.current.setKnock!(false));
+    act(() => result.current.setKnock!(true));
+    await act(async () => {
+      failures.forEach((fail) => fail(new Error("no")));
+      await Promise.resolve();
+    });
+    expect(result.current.knock).toBe(true);
+  });
 });

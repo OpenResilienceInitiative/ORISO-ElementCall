@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type IWidgetApiRequest } from "matrix-widget-api";
 import { logger as rootLogger } from "matrix-js-sdk/lib/logger";
 
@@ -25,13 +25,21 @@ export const useOrisoKnock = (): {
   setKnock: ((knock: boolean) => void) | null;
 } => {
   const [state, setState] = useState<KnockState>({ waiting: 0, knock: null });
+  // What the host last sent: a failed change falls back to this, never to the
+  // inverse of the click, which is wrong when changes overlap.
+  const confirmed = useRef<boolean | null>(null);
+  // Only the latest change may roll back; older answers are stale.
+  const latest = useRef(0);
 
   useEffect(() => {
     if (!widget) return;
     const onKnockState = (ev: CustomEvent<IWidgetApiRequest>): void => {
       ev.preventDefault();
       const next = parseKnockState(ev.detail.data);
-      if (next) setState(next);
+      if (next) {
+        confirmed.current = next.knock;
+        setState(next);
+      }
       widget!.api.transport.reply(ev.detail, {});
     };
     widget.lazyActions.on(OrisoWidgetActions.KnockState, onKnockState);
@@ -42,12 +50,14 @@ export const useOrisoKnock = (): {
 
   const setKnock = useCallback((knock: boolean): void => {
     // Flip at once; the host confirms with its next knock state.
+    const request = ++latest.current;
     setState((current) => ({ ...current, knock }));
     widget!.api.transport
       .send(OrisoWidgetActions.SetKnock, { knock })
       .catch((e) => {
         logger.warn("The host did not change Anklopfen", e);
-        setState((current) => ({ ...current, knock: !knock }));
+        if (request !== latest.current) return;
+        setState((current) => ({ ...current, knock: confirmed.current }));
       });
   }, []);
 
