@@ -56,8 +56,9 @@ interface Props {
   /** Null hides it: screen sharing is not available here. */
   onToggleScreenShare: (() => void) | null;
   sharingScreen: boolean;
-  onOpenSoundSettings: () => void;
-  onOpenSettings: () => void;
+  /** Null hides both: this window mode mounts no settings dialog. */
+  onOpenSoundSettings: (() => void) | null;
+  onOpenSettings: (() => void) | null;
   /** People knocking on this call's link, from the host (#108). */
   waitingCount?: number;
   /** "Anklopfen" of this call's link; null hides the switch (no link to switch). */
@@ -336,20 +337,24 @@ export const OrisoToolbar: FC<Props> = ({
                 <ListBulletedIcon aria-hidden width={21} height={21} />
               </MenuEntry>
             )}
-            <MenuEntry
-              entry="sound"
-              label={t("oriso.menu_sound_devices")}
-              onClick={pick(onOpenSoundSettings)}
-            >
-              <VolumeOnSolidIcon aria-hidden width={21} height={21} />
-            </MenuEntry>
-            <MenuEntry
-              entry="settings"
-              label={t("common.settings")}
-              onClick={pick(onOpenSettings)}
-            >
-              <SettingsSolidIcon aria-hidden width={21} height={21} />
-            </MenuEntry>
+            {onOpenSoundSettings !== null && (
+              <MenuEntry
+                entry="sound"
+                label={t("oriso.menu_sound_devices")}
+                onClick={pick(onOpenSoundSettings)}
+              >
+                <VolumeOnSolidIcon aria-hidden width={21} height={21} />
+              </MenuEntry>
+            )}
+            {onOpenSettings !== null && (
+              <MenuEntry
+                entry="settings"
+                label={t("common.settings")}
+                onClick={pick(onOpenSettings)}
+              >
+                <SettingsSolidIcon aria-hidden width={21} height={21} />
+              </MenuEntry>
+            )}
           </div>
           <div className={styles.section}>
             <MenuEntry

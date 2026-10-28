@@ -176,6 +176,15 @@ describe("the call menu behind ⋮", () => {
     expect(p.onOpenSettings).toHaveBeenCalledOnce();
   });
 
+  it("leaves out the settings where there is no dialog to open", () => {
+    // Codex on #107: a call 600px high or less runs in flat mode, where
+    // InCallView renders no SettingsModal, so the entries would open nothing.
+    open({ onOpenSoundSettings: null, onOpenSettings: null });
+    const menu = screen.getByTestId("oriso-call-menu");
+    expect(menu.querySelector('[data-entry="sound"]')).toBeNull();
+    expect(menu.querySelector('[data-entry="settings"]')).toBeNull();
+  });
+
   it("leaves out screen sharing where there is none", () => {
     open({ onToggleScreenShare: null });
     expect(

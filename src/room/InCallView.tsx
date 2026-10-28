@@ -982,8 +982,9 @@ export const InCallView: FC<InCallViewProps> = ({
             onViewChange={setStageView}
             onToggleScreenShare={vm.toggleScreenSharing}
             sharingScreen={sharingScreen}
-            onOpenSoundSettings={openSoundSettings}
-            onOpenSettings={openSettings}
+            // The SettingsModal is not mounted in pip or flat mode.
+            onOpenSoundSettings={isPopupMode ? null : openSoundSettings}
+            onOpenSettings={isPopupMode ? null : openSettings}
             onTouchEnd={onControlsTouchEnd}
           />
         ) : (
