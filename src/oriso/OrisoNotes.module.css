@@ -1,0 +1,570 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* "Meine Gesprächsnotiz" (#112). Every number is the prototype's: the docked
+   card of 2a, the in-view card of 2b, the compact phone card. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  /* No overflow: hidden. The ⋮ menu opens upward past an empty card; the
+     list scrolls on its own. */
+  box-sizing: border-box;
+  border-radius: 24px;
+  background: rgb(250 249 249);
+  color: rgb(28 27 31);
+  font-family: Inter, sans-serif;
+  z-index: var(--oriso-z-notes, 15);
+}
+
+.card h2 {
+  margin: 0;
+}
+
+/* 2a: beside the stage, the full height between header and bottom. */
+.docked {
+  position: absolute;
+  inset-block: var(--oriso-notes-top, 16px) 16px;
+  inset-inline-end: 16px;
+  inline-size: 352px;
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 10%),
+    0 3px 0 1px rgb(0 0 0 / 6%);
+}
+
+/* 2b: inside the view, 36px above the control bar. */
+.sheet {
+  position: absolute;
+  /* 2b's card: 20px from the edges, never wider than its 560px. */
+  inset-inline: max(20px, (100% - 560px) / 2);
+  inset-block-end: calc(
+    (var(--oriso-footer-h, 144px) + var(--oriso-toolbar-h, 64px)) / 2 + 36px
+  );
+  max-block-size: min(
+    296px,
+    calc(
+      100% - var(--oriso-notes-top, 0px) - 16px -
+        (var(--oriso-footer-h, 144px) + var(--oriso-toolbar-h, 64px)) / 2 - 36px
+    )
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 10%),
+    0 12px 30px rgb(0 0 0 / 20%);
+  animation: oriso-sheet 0.24s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes oriso-sheet {
+  from {
+    transform: translateY(26px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion) {
+  .sheet {
+    animation: none;
+  }
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 16px 18px 10px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  flex: 1;
+  min-inline-size: 0;
+  font:
+    500 15px/22px Inter,
+    sans-serif;
+  color: rgb(28 27 31);
+}
+
+.copy {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  block-size: 30px;
+  padding: 0 11px;
+  border: none;
+  border-radius: 15px;
+  background: rgb(240 237 238);
+  color: rgb(73 69 79);
+  font:
+    500 11.5px/16px Inter,
+    sans-serif;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+}
+
+.copy svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 30px;
+  block-size: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 15px;
+  background: none;
+  color: rgb(102 100 105);
+  cursor: pointer;
+}
+
+.close svg {
+  inline-size: 17px;
+  block-size: 17px;
+}
+
+@media (hover) {
+  .copy:hover {
+    background: rgb(230 227 228);
+  }
+
+  .close:hover {
+    background: rgb(240 237 238);
+  }
+}
+
+.private {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font:
+    400 11.5px/16px Inter,
+    sans-serif;
+  color: rgb(120 118 125);
+}
+
+.private svg {
+  inline-size: 12px;
+  block-size: 12px;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.rule {
+  flex-shrink: 0;
+  block-size: 1px;
+  margin: 0 18px;
+  background: rgb(0 0 0 / 8%);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 8px 18px;
+  list-style: none;
+}
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 0;
+  border-block-end: 1px solid rgb(0 0 0 / 5%);
+}
+
+.box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  inline-size: 17px;
+  block-size: 17px;
+  margin-block-start: 1px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px rgb(0 0 0 / 26%);
+  color: transparent;
+  cursor: pointer;
+}
+
+.box svg {
+  inline-size: 13px;
+  block-size: 13px;
+}
+
+.note[data-done="true"] .box {
+  background: #a5000a;
+  box-shadow: none;
+  color: #fff;
+}
+
+.kind {
+  flex-shrink: 0;
+  /* The design's column; a longer word ("ANMERKUNG" on a phone) pushes the
+     text instead of running into it. */
+  min-inline-size: 68px;
+  font:
+    500 10.5px/19px Inter,
+    sans-serif;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: rgb(140 138 142);
+}
+
+.text {
+  flex: 1;
+  min-inline-size: 0;
+  font:
+    400 13.5px/19px Inter,
+    sans-serif;
+  color: rgb(45 44 40);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+  text-decoration-thickness: 1px;
+  transition: color 0.2s ease;
+}
+
+.time {
+  flex-shrink: 0;
+  font:
+    400 10.5px/19px Inter,
+    sans-serif;
+  color: rgb(160 158 162);
+}
+
+.note[data-done="true"] .kind {
+  color: rgb(182 180 184);
+}
+
+.note[data-done="true"] .text {
+  color: rgb(154 152 156);
+  text-decoration-line: line-through;
+}
+
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 18px 18px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  block-size: 42px;
+  padding: 0 4px 0 12px;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow:
+    inset 0 2px 0 0 rgb(0 0 0 / 5%),
+    inset 0 0 0 1px rgb(0 0 0 / 16%);
+}
+
+.field:focus-within {
+  box-shadow:
+    inset 0 2px 0 0 rgb(0 0 0 / 5%),
+    inset 0 0 0 2px #a5000a;
+}
+
+.input {
+  flex: 1;
+  min-inline-size: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font:
+    400 13.5px/19px Inter,
+    sans-serif;
+  color: rgb(28 27 31);
+}
+
+.input::placeholder {
+  color: rgb(120 118 125);
+}
+
+.kindAnchor {
+  position: relative;
+}
+
+.kindButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 34px;
+  block-size: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 17px;
+  background: none;
+  color: rgb(102 100 105);
+  cursor: pointer;
+}
+
+.kindButton svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.kindMenu {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-end: 40px;
+  z-index: 3;
+  inline-size: 176px;
+  padding: 6px 0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 16%);
+}
+
+.kindItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  inline-size: 100%;
+  block-size: 38px;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  font:
+    400 13.5px/19px Inter,
+    sans-serif;
+  color: rgb(28 27 31);
+  text-align: start;
+  cursor: pointer;
+}
+
+.kindItem[aria-checked="true"] {
+  background: rgb(240 237 238);
+}
+
+@media (hover) {
+  .kindItem:hover {
+    background: rgb(240 237 238);
+  }
+}
+
+.temporary {
+  font:
+    400 11px/16px Inter,
+    sans-serif;
+  color: rgb(140 138 142);
+}
+
+/* 2b sizes for the in-view card. */
+.sheet .head {
+  gap: 5px;
+  padding: 14px 16px 8px;
+}
+
+.sheet .title {
+  font:
+    500 14px/20px Inter,
+    sans-serif;
+}
+
+.sheet .copy {
+  gap: 5px;
+  block-size: 28px;
+  padding: 0 10px;
+  border-radius: 14px;
+  font-size: 11px;
+}
+
+.sheet .copy svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+.sheet .close {
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 14px;
+}
+
+@media (hover) {
+  .sheet .close:hover {
+    background: rgb(0 0 0 / 6%);
+  }
+}
+
+.sheet .private {
+  font:
+    400 11px/15px Inter,
+    sans-serif;
+}
+
+.sheet .private svg {
+  inline-size: 11px;
+  block-size: 11px;
+}
+
+.sheet .rule {
+  margin: 0 16px;
+}
+
+.sheet .list {
+  gap: 0;
+  padding: 4px 16px;
+}
+
+.sheet .text {
+  font-size: 13px;
+}
+
+.sheet .foot {
+  padding: 9px 16px 14px;
+}
+
+.sheet .field {
+  block-size: 40px;
+}
+
+.sheet .input {
+  font-size: 13px;
+}
+
+.sheet .temporary {
+  font:
+    400 10.5px/15px Inter,
+    sans-serif;
+}
+
+/* The phone card (compact). */
+.sheet.compact {
+  inset-inline: 12px;
+  inset-block-end: calc(
+    (var(--oriso-footer-h, 120px) + var(--oriso-toolbar-h, 56px)) / 2 + 28px
+  );
+  max-block-size: min(
+    264px,
+    calc(
+      100% - var(--oriso-notes-top, 0px) - 12px -
+        (var(--oriso-footer-h, 120px) + var(--oriso-toolbar-h, 56px)) / 2 - 28px
+    )
+  );
+}
+
+.compact .head {
+  gap: 3px;
+  padding: 10px 12px 6px;
+}
+
+.compact .titleRow {
+  gap: 6px;
+}
+
+.compact .title {
+  overflow: hidden;
+  font:
+    500 13px/28px Inter,
+    sans-serif;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.compact .copy {
+  justify-content: center;
+  flex-shrink: 0;
+  inline-size: 28px;
+  padding: 0;
+}
+
+.compact .close {
+  flex-shrink: 0;
+}
+
+.compact .private {
+  gap: 5px;
+  font:
+    400 10.5px/14px Inter,
+    sans-serif;
+  white-space: nowrap;
+}
+
+.compact .private svg {
+  inline-size: 10px;
+  block-size: 10px;
+}
+
+.compact .rule {
+  margin: 0 12px;
+}
+
+.compact .list {
+  padding: 2px 12px;
+}
+
+.compact .note {
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.compact .box {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.compact .box svg {
+  inline-size: 12px;
+  block-size: 12px;
+}
+
+.compact .kind {
+  min-inline-size: 58px;
+  font:
+    500 9.5px/18px Inter,
+    sans-serif;
+}
+
+.compact .text {
+  font:
+    400 12px/18px Inter,
+    sans-serif;
+}
+
+.compact .foot {
+  gap: 6px;
+  padding: 7px 12px 11px;
+}
+
+.compact .field {
+  block-size: 36px;
+}
+
+.compact .input {
+  font-size: 12px;
+}
+
+.compact .temporary {
+  font:
+    400 10px/14px Inter,
+    sans-serif;
+  white-space: nowrap;
+}

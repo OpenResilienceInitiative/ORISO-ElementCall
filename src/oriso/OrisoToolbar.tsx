@@ -46,8 +46,10 @@ interface Props {
   /** Null hides the hand: reactions are not available in this call. */
   handRaised: boolean;
   onToggleHand: (() => void) | null;
-  /** Null hides the notes: only the host app has a notepad. */
+  /** Null hides the notes button. */
   onToggleNotes: (() => void) | null;
+  /** "Meine Gesprächsnotiz" is open (#112). */
+  notesOpen?: boolean;
   onHangup: () => void;
   participantCount: number;
   view: StageView;
@@ -88,6 +90,7 @@ export const OrisoToolbar: FC<Props> = ({
   handRaised,
   onToggleHand,
   onToggleNotes,
+  notesOpen = false,
   onHangup,
   participantCount,
   view,
@@ -210,7 +213,8 @@ export const OrisoToolbar: FC<Props> = ({
         {onToggleNotes !== null && (
           <ToolbarButton
             label={t("oriso.notes_label")}
-            state="off"
+            state={notesOpen ? "open" : "off"}
+            pressed={notesOpen}
             onClick={onToggleNotes}
             onTouchEnd={onTouchEnd}
             testId="incall_notes"

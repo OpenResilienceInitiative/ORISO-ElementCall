@@ -555,6 +555,22 @@ describe("the call, in the ORISO design", () => {
     expect(container.querySelector('[data-testid="view-switcher"]')).toBeNull();
     expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
   });
+
+  it("opens my call note in the call itself, and closes it again (#112)", async () => {
+    // The design's "Meine Gesprächsnotiz" lives in the call; the host app is
+    // no longer asked for a notepad of its own.
+    createInCallView();
+    const button = await screen.findByTestId("incall_notes");
+    expect(screen.queryByRole("region", { name: "My call note" })).toBeNull();
+
+    fireEvent.click(button);
+    const card = screen.getByRole("region", { name: "My call note" });
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(within(card).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("region", { name: "My call note" })).toBeNull();
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+  });
 });
 
 /** The view rail moved into the toolbar's `⋮` menu. */

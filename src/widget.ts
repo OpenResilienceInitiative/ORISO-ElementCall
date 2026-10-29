@@ -47,9 +47,6 @@ export enum ElementWidgetActions {
 
 /** ORISO's own actions between the call and the host app around it. */
 export enum OrisoWidgetActions {
-  // fromWidget: the person pressed "Meine Notiz". The notepad belongs to the
-  // host, so the call only asks it to open or close.
-  ToggleNotes = "org.oriso.call.toggle_notes",
   // toWidget: who knocks on this call's link, and its "Anklopfen" setting
   //   { waiting: number, knock: boolean | null } — null: no link to switch.
   //   The host sends it whenever either changes (#108).
