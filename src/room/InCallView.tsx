@@ -82,6 +82,7 @@ import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
 import { type StageView } from "../oriso/ViewSwitcher";
 import { OrisoToolbar } from "../oriso/OrisoToolbar";
 import { OrisoNotes } from "../oriso/OrisoNotes";
+import { useOrisoKnock } from "../oriso/useOrisoKnock";
 import {
   OrisoStageContext,
   useOrisoIdentities,
@@ -445,6 +446,9 @@ export const InCallView: FC<InCallViewProps> = ({
   const toggleNotes = useCallback(() => setNotesOpen((was) => !was), []);
   const closeNotes = useCallback(() => setNotesOpen(false), []);
   const [joinedAt] = useState(() => Date.now());
+
+  // Who knocks on this call's link, and its switch: both from the host (#108).
+  const orisoKnock = useOrisoKnock();
 
   const openProfile = useMemo(
     () =>
@@ -1018,6 +1022,9 @@ export const InCallView: FC<InCallViewProps> = ({
             }
             onToggleNotes={toggleNotes}
             notesOpen={notesOpen}
+            waitingCount={orisoKnock.waiting}
+            knock={orisoKnock.knock}
+            onKnockChange={orisoKnock.setKnock}
             onHangup={() => vm.hangup()}
             participantCount={participantCount}
             view={stageView}

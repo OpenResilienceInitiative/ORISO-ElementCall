@@ -18,6 +18,7 @@ Please see LICENSE in the repository root for full details.
  *   ?muted=first|second           show that person's microphone as off
  *   ?notes=sheet|docked           open "Meine Gesprächsnotiz" (#112) in the
  *                                 view (2b) or docked beside the stage (2a)
+ *   ?waiting=<n>                  people knocking, with the Anklopfen switch (#108)
  */
 import {
   type CSSProperties,
@@ -78,6 +79,7 @@ void i18n.use(initReactI18next).init({
 const params = new URLSearchParams(window.location.search);
 const speaking = params.get("speaking") ?? "first";
 const muted = params.get("muted");
+const waiting = params.get("waiting");
 
 const PEOPLE: Record<string, { name: string; identity: OrisoIdentity }> = {
   remote: {
@@ -179,8 +181,12 @@ function Footer({
   const [audioMuted, setAudioMuted] = useState(muted === "second");
   const [videoMuted, setVideoMuted] = useState(true);
   const [hand, setHand] = useState(false);
+  const [knock, setKnock] = useState(true);
   return (
     <OrisoToolbar
+      waitingCount={Number(waiting ?? 0)}
+      knock={waiting === null ? null : knock}
+      onKnockChange={waiting === null ? null : setKnock}
       className={styles.orisoToolbar}
       audioMuted={audioMuted}
       onToggleAudio={() => setAudioMuted((m) => !m)}

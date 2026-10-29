@@ -151,6 +151,9 @@
   "oriso": {
     "call_menu_label": "Menü",
     "controls_label": "Anrufsteuerung",
+    "knock_label": "Anklopfen",
+    "knock_off": "Gäste kommen ohne Warten direkt in den Anruf.",
+    "knock_on": "Gäste warten, bis Sie sie einlassen.",
     "listening": "hört zu",
     "menu_leave": "Gespräch verlassen",
     "menu_participants": "Teilnehmende",
@@ -175,7 +178,9 @@
     "view_fields": "Kacheln",
     "view_grove": "Kreis",
     "view_one_on_one": "Einzelgespräch",
-    "view_switcher_label": "Bühnenansicht"
+    "view_switcher_label": "Bühnenansicht",
+    "waiting_count_one": "{{count, number}} wartet",
+    "waiting_count_other": "{{count, number}} warten"
   },
   "participant_count_one": "{{count, number}}",
   "participant_count_other": "{{count, number}}",

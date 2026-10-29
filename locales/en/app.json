@@ -179,6 +179,9 @@
   "oriso": {
     "call_menu_label": "Call menu",
     "controls_label": "Call controls",
+    "knock_label": "Knock first",
+    "knock_off": "Guests come straight into the call.",
+    "knock_on": "Guests wait until you let them in.",
     "listening": "listening",
     "menu_leave": "Leave call",
     "menu_participants": "Participants",
@@ -203,7 +206,9 @@
     "view_fields": "Tiles",
     "view_grove": "Circle",
     "view_one_on_one": "Conversation",
-    "view_switcher_label": "Stage view"
+    "view_switcher_label": "Stage view",
+    "waiting_count_one": "{{count, number}} waiting",
+    "waiting_count_other": "{{count, number}} waiting"
   },
   "participant_count_one": "{{count, number}}",
   "participant_count_other": "{{count, number}}",
