@@ -21,6 +21,7 @@ Please see LICENSE in the repository root for full details.
  */
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import svgrPlugin from "vite-plugin-svgr";
 
 const artwork = process.env.ORISO_ARTWORK_DIR;
 
@@ -28,6 +29,9 @@ export default defineConfig({
   root: ".",
   plugins: [
     react(),
+    // As the app: icons are imported as components (the settings dialog's
+    // checkbox and close icons need it).
+    svgrPlugin({ svgrOptions: { ref: true } }),
     {
       name: "oriso-artwork",
       configureServer(server) {
