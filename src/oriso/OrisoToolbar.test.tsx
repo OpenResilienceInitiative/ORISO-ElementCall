@@ -97,11 +97,16 @@ describe("the ORISO control bar", () => {
     expect(hand.dataset.state).toBe("raised");
   });
 
-  it("asks the host for the notes", () => {
+  it("opens and folds the call note, and shows when it is open", () => {
     const onToggleNotes = vi.fn();
-    render(<OrisoToolbar {...props({ onToggleNotes })} />);
-    fireEvent.click(screen.getByTestId("incall_notes"));
+    const { rerender } = render(<OrisoToolbar {...props({ onToggleNotes })} />);
+    const notes = screen.getByTestId("incall_notes");
+    fireEvent.click(notes);
     expect(onToggleNotes).toHaveBeenCalledOnce();
+    expect(notes.getAttribute("aria-pressed")).toBe("false");
+    rerender(<OrisoToolbar {...props({ onToggleNotes, notesOpen: true })} />);
+    expect(notes.getAttribute("aria-pressed")).toBe("true");
+    expect(notes.dataset.state).toBe("open");
   });
 
   it("has no accessibility violations, open or closed", async () => {

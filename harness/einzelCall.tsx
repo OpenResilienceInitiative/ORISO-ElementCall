@@ -16,8 +16,17 @@ Please see LICENSE in the repository root for full details.
  *
  *   ?speaking=none|first|second   who holds the floor
  *   ?muted=first|second           show that person's microphone as off
+ *   ?notes=sheet|docked           open "Meine Gesprächsnotiz" (#112) in the
+ *                                 view (2b) or docked beside the stage (2a)
  */
-import { StrictMode, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  StrictMode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import useMeasure from "react-use-measure";
 import { createRoot } from "react-dom/client";
 import { BehaviorSubject } from "rxjs";
 import { animated } from "@react-spring/web";
@@ -47,6 +56,7 @@ import {
 } from "../src/oriso/useOrisoShape";
 import { Atmosphere } from "../src/oriso/Atmosphere";
 import { OrisoToolbar } from "../src/oriso/OrisoToolbar";
+import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { type OrisoIdentity } from "../src/oriso/identity";
 import styles from "../src/room/InCallView.module.css";
 import de from "../locales/de/app.json";
@@ -155,7 +165,17 @@ function Tile({
   );
 }
 
-function Footer(): React.ReactNode {
+const notesParam = new URLSearchParams(window.location.search).get("notes");
+const notesLayout = notesParam === "docked" ? "docked" : "sheet";
+const startedAt = Date.now();
+
+function Footer({
+  notesOpen,
+  onToggleNotes,
+}: {
+  notesOpen: boolean;
+  onToggleNotes: () => void;
+}): React.ReactNode {
   const [audioMuted, setAudioMuted] = useState(muted === "second");
   const [videoMuted, setVideoMuted] = useState(true);
   const [hand, setHand] = useState(false);
@@ -168,7 +188,8 @@ function Footer(): React.ReactNode {
       onToggleVideo={() => setVideoMuted((m) => !m)}
       handRaised={hand}
       onToggleHand={() => setHand((h) => !h)}
-      onToggleNotes={() => {}}
+      onToggleNotes={onToggleNotes}
+      notesOpen={notesOpen}
       onHangup={() => {}}
       participantCount={2}
       view="einzelgespraech"
@@ -187,14 +208,26 @@ const FOOTER_BLOCK = 144;
 
 function Call(): React.ReactNode {
   const shapes = useMemo(() => new OrisoShapeStore(), []);
+  const [notesOpen, setNotesOpen] = useState(notesParam !== null);
+  const docked = notesOpen && notesLayout === "docked";
+  const compact = window.innerWidth <= 400;
+  const [notesRef, notesBounds] = useMeasure();
+  // InCallView's grid gives the card its room the same way: the docked
+  // card's width, or the in-view card's height plus 12px of air.
+  const width = window.innerWidth - (docked ? 352 + 32 : 0);
+  const height =
+    window.innerHeight -
+    FOOTER_BLOCK -
+    (notesOpen && !docked && notesBounds.height > 0
+      ? notesBounds.height + 12
+      : 0);
   const bounds$ = useMemo(
-    () =>
-      new BehaviorSubject({
-        width: window.innerWidth,
-        height: window.innerHeight - FOOTER_BLOCK,
-      }),
+    () => new BehaviorSubject({ width, height }),
+    // Created once; the effect below moves it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+  useEffect(() => bounds$.next({ width, height }), [bounds$, width, height]);
   const layout = useMemo(
     () =>
       makeEinzelgespraechLayout({
@@ -206,19 +239,42 @@ function Call(): React.ReactNode {
   );
   return (
     <OrisoShapesContext value={shapes}>
-      <div className={styles.inRoom} data-oriso="true">
+      <div
+        className={styles.inRoom}
+        data-oriso="true"
+        data-notes-docked={docked ? "true" : undefined}
+      >
         <div className={styles.orisoBackdrop} aria-hidden="true">
           <Atmosphere palette="duene" />
         </div>
         <Grid
           className={styles.scrollingGrid}
+          style={{ marginBlockEnd: window.innerHeight - FOOTER_BLOCK - height }}
           model={model}
           Layout={layout.scrolling}
           Tile={Tile as never}
         />
         <div className={classNames(styles.footer, styles.orisoFooter)}>
-          <Footer />
+          <Footer
+            notesOpen={notesOpen}
+            onToggleNotes={() => setNotesOpen((o) => !o)}
+          />
         </div>
+        <OrisoNotes
+          ref={notesRef}
+          open={notesOpen}
+          onClose={() => setNotesOpen(false)}
+          layout={notesLayout}
+          compact={notesLayout === "sheet" && compact}
+          startedAt={startedAt}
+          style={
+            {
+              "--oriso-notes-top": "16px",
+              "--oriso-footer-h": `${FOOTER_BLOCK}px`,
+              "--oriso-toolbar-h": compact ? "56px" : "64px",
+            } as CSSProperties
+          }
+        />
       </div>
     </OrisoShapesContext>
   );

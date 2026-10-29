@@ -285,3 +285,21 @@ Please see LICENSE in the repository root for full details.
 .inRoom[data-oriso="true"] > .header {
   z-index: var(--oriso-z-header);
 }
+
+/* "Meine Gesprächsnotiz" docked beside a group stage (#112, design 2a): the
+   stage and the control bar give up the card's width plus its margins, so
+   the card covers nobody. */
+.inRoom[data-notes-docked="true"] {
+  --oriso-notes-inset: calc(352px + 2 * 16px);
+}
+
+.inRoom[data-notes-docked="true"] > .fixedGrid,
+.inRoom[data-notes-docked="true"] > .scrollingGrid {
+  inline-size: calc(100% - var(--oriso-notes-inset));
+  align-self: flex-start;
+  inset-inline-start: 0;
+}
+
+.inRoom[data-notes-docked="true"] > .footer {
+  padding-inline-end: var(--oriso-notes-inset);
+}

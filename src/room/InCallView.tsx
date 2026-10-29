@@ -8,6 +8,7 @@ Please see LICENSE in the repository root for full details.
 import { Button, IconButton, Text, Tooltip } from "@vector-im/compound-web";
 import { type MatrixClient, type Room as MatrixRoom } from "matrix-js-sdk";
 import {
+  type CSSProperties,
   type FC,
   type PointerEvent,
   type TouchEvent,
@@ -43,7 +44,7 @@ import {
 import { Header, LeftNav, RightNav, RoomHeaderInfo } from "../Header";
 import { type HeaderStyle, useUrlParams } from "../UrlParams";
 import { useCallViewKeyboardShortcuts } from "../useCallViewKeyboardShortcuts";
-import { ElementWidgetActions, OrisoWidgetActions, widget } from "../widget";
+import { ElementWidgetActions, widget } from "../widget";
 import styles from "./InCallView.module.css";
 import { GridTile } from "../tile/GridTile";
 import { type OTelGroupCallMembership } from "../otel/OTelGroupCallMembership";
@@ -80,6 +81,7 @@ import { makeOrisoGroveLayout } from "../grid/OrisoGroveLayout";
 import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
 import { type StageView } from "../oriso/ViewSwitcher";
 import { OrisoToolbar } from "../oriso/OrisoToolbar";
+import { OrisoNotes } from "../oriso/OrisoNotes";
 import {
   OrisoStageContext,
   useOrisoIdentities,
@@ -131,6 +133,17 @@ import { ObservableScope } from "../state/ObservableScope.ts";
 const logger = rootLogger.getChild("[InCallView]");
 
 const maxTapDurationMs = 400;
+
+// The notepad docks beside a group stage from this width (#112): 352px card
+// plus margins still leave the stage most of a laptop screen.
+const NOTES_DOCK_MIN_WIDTH = 900;
+// The phone card, the same width at which the toolbar turns compact.
+const NOTES_COMPACT_MAX_WIDTH = 400;
+// What the docked card takes from the stage: 352px plus 16px either side.
+const NOTES_DOCK_INSET = 352 + 2 * 16;
+// The card in the view ends just above the control bar; this keeps 12px of
+// air between it and whatever the stage draws above it.
+const NOTES_SHEET_CLEARANCE = 12;
 
 export interface ActiveCallProps extends Omit<
   InCallViewProps,
@@ -424,21 +437,14 @@ export const InCallView: FC<InCallViewProps> = ({
   }, [setSettingsTab, setSettingsModalOpen]);
 
   /*
-   * "Meine Notiz" is the host's notepad, not ours: the call only asks the
-   * host to open or close it. Not offered outside a widget, where there is
-   * no host to ask.
+   * "Meine Gesprächsnotiz" (#112) lives in the call, for everyone in it: the
+   * notes stay in this window and end with the call. Its clock starts when
+   * this person joined.
    */
-  const toggleNotes = useMemo(
-    () =>
-      widget === null
-        ? null
-        : (): void => {
-            widget!.api.transport
-              .send(OrisoWidgetActions.ToggleNotes, {})
-              .catch((e) => logger.warn("The host did not open its notes", e));
-          },
-    [],
-  );
+  const [notesOpen, setNotesOpen] = useState(false);
+  const toggleNotes = useCallback(() => setNotesOpen((was) => !was), []);
+  const closeNotes = useCallback(() => setNotesOpen(false), []);
+  const [joinedAt] = useState(() => Date.now());
 
   const openProfile = useMemo(
     () =>
@@ -461,10 +467,30 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
+  const [notesRef, notesBounds] = useMeasure();
+  const alone = useBehavior(vm.orisoOneOnOne$);
+
+  /*
+   * Where the notepad opens (#112), as in the design: beside the stage of a
+   * group call when there is room for both (2a), otherwise inside the view
+   * above the control bar (2b), compact on a phone. Either way the stage
+   * gives the card its room — the circle steps back rather than being
+   * covered.
+   */
+  const notesDocked =
+    (gridMode === "spotlight" || !alone) &&
+    bounds.width >= NOTES_DOCK_MIN_WIDTH;
+  const notesCompact = bounds.width <= NOTES_COMPACT_MAX_WIDTH;
+  const notesShown = orisoEnabled && showControls && notesOpen;
+  const notesWidth = notesShown && notesDocked ? NOTES_DOCK_INSET : 0;
+  const notesHeight =
+    notesShown && !notesDocked && notesBounds.height > 0
+      ? notesBounds.height + NOTES_SHEET_CLEARANCE
+      : 0;
 
   const gridBounds = useMemo(
     () => ({
-      width: bounds.width,
+      width: bounds.width - notesWidth,
       /*
        * The footer's height comes off the stage — for ORISO even in `flat`.
        *
@@ -478,11 +504,14 @@ export const InCallView: FC<InCallViewProps> = ({
       height:
         bounds.height -
         headerBounds.height -
-        (windowMode === "flat" && !orisoEnabled ? 0 : footerBounds.height),
+        (windowMode === "flat" && !orisoEnabled ? 0 : footerBounds.height) -
+        notesHeight,
     }),
     [
       bounds.width,
       bounds.height,
+      notesWidth,
+      notesHeight,
       headerBounds.height,
       footerBounds.height,
       windowMode,
@@ -570,7 +599,6 @@ export const InCallView: FC<InCallViewProps> = ({
    * back on the Einzelgespräch. The control went back to naming arrangements
    * it cannot honour, which is the thing it was fixed to stop doing.
    */
-  const alone = useBehavior(vm.orisoOneOnOne$);
   // A stable array, so the rail can memoise its entries on it and its
   // keyboard handler cannot close over a list that has moved on.
   const orisoOffer: readonly StageView[] = useMemo(
@@ -848,6 +876,9 @@ export const InCallView: FC<InCallViewProps> = ({
       <Grid
         key="scrolling"
         className={styles.scrollingGrid}
+        // The card in the view takes its height from the stage, so the
+        // circle steps back above it (design 2b) instead of under it.
+        style={notesHeight > 0 ? { marginBlockEnd: notesHeight } : undefined}
         model={layout}
         Layout={layers.scrolling}
         Tile={Tile}
@@ -939,6 +970,24 @@ export const InCallView: FC<InCallViewProps> = ({
       data-testid="incall_leave"
     />,
   );
+  const notes = orisoEnabled && showControls && (
+    <OrisoNotes
+      ref={notesRef}
+      open={notesOpen}
+      onClose={closeNotes}
+      layout={notesDocked ? "docked" : "sheet"}
+      compact={!notesDocked && notesCompact}
+      startedAt={joinedAt}
+      style={
+        {
+          "--oriso-notes-top": `${headerBounds.height + 16}px`,
+          "--oriso-footer-h": `${footerBounds.height}px`,
+          "--oriso-toolbar-h": notesCompact ? "56px" : "64px",
+        } as CSSProperties
+      }
+    />
+  );
+
   const footer = (
     <div
       ref={footerRef}
@@ -968,6 +1017,7 @@ export const InCallView: FC<InCallViewProps> = ({
                 : null
             }
             onToggleNotes={toggleNotes}
+            notesOpen={notesOpen}
             onHangup={() => vm.hangup()}
             participantCount={participantCount}
             view={stageView}
@@ -1012,6 +1062,7 @@ export const InCallView: FC<InCallViewProps> = ({
             onPointerMove={onPointerMove}
             onPointerOut={onPointerOut}
             data-oriso={orisoEnabled ? "true" : undefined}
+            data-notes-docked={notesShown && notesDocked ? "true" : undefined}
           >
             {/* The living backdrop. Behind everything, announced to
                 nobody: it carries no information, and reading it out would be
@@ -1056,6 +1107,7 @@ export const InCallView: FC<InCallViewProps> = ({
             <ReactionsOverlay vm={vm} />
             {waitingOverlay}
             {footer}
+            {notes}
             {!isPopupMode && (
               <>
                 <RageshakeRequestModal {...rageshakeRequestModalProps} />
