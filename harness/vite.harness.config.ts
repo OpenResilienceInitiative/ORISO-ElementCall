@@ -19,8 +19,11 @@ Please see LICENSE in the repository root for full details.
  * is not given one — the faces then show initials, which is the truthful
  * result and not a crash.
  */
-import { defineConfig } from "vite";
+import { realpathSync } from "node:fs";
+
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
+import svgrPlugin from "vite-plugin-svgr";
 
 const artwork = process.env.ORISO_ARTWORK_DIR;
 
@@ -28,6 +31,9 @@ export default defineConfig({
   root: ".",
   plugins: [
     react(),
+    // As the app: icons are imported as components (the settings dialog's
+    // checkbox and close icons need it).
+    svgrPlugin({ svgrOptions: { ref: true } }),
     {
       name: "oriso-artwork",
       configureServer(server) {
@@ -49,5 +55,18 @@ export default defineConfig({
       },
     },
   ],
-  server: { port: 6007, strictPort: true, host: "127.0.0.1" },
+  server: {
+    port: 6007,
+    strictPort: true,
+    host: "127.0.0.1",
+    // A worktree may link node_modules from another checkout; without its
+    // real path Vite refuses the Inter font files and the proof shows a
+    // fallback font.
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        realpathSync("node_modules"),
+      ],
+    },
+  },
 });

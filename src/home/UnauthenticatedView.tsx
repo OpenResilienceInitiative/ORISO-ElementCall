@@ -144,7 +144,6 @@ export const UnauthenticatedView: FC = () => {
       <div className={commonStyles.container}>
         {header === "standard" && (
           <Header>
-           
             <RightNav hideMobile>
               <UserMenuContainer />
             </RightNav>

@@ -90,6 +90,20 @@ Please see LICENSE in the repository root for full details.
    * to scroll to. One value, every side.
    */
   padding: var(--oriso-halo-room);
+  /*
+   * Plus the shared screen's band, on the edge it is pinned to.
+   *
+   * The subdivided arrangements take that band out of the rectangle they
+   * divide (`spotlightRoom.ts`); this one has no rectangle, so it pads. The
+   * halo's room above stays on all four sides — these two only ADD to the
+   * block edges, and both default to nothing when no screen is shared.
+   */
+  padding-block-start: calc(
+    var(--oriso-halo-room) + var(--oriso-spotlight-room-start, 0px)
+  );
+  padding-block-end: calc(
+    var(--oriso-halo-room) + var(--oriso-spotlight-room-end, 0px)
+  );
 }
 
 .fixed {

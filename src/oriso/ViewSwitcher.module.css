@@ -71,3 +71,20 @@ Please see LICENSE in the repository root for full details.
 .label {
   white-space: nowrap;
 }
+
+/* On white, inside the call menu: the handoff's light rail, active in the
+   primary colour with white ink. */
+.rail.light {
+  background: rgb(240 237 238);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.light .view {
+  color: rgb(73 69 79);
+}
+
+.light .view[aria-checked="true"] {
+  background: var(--oriso-primary, #a5000a);
+  color: #fff;
+}

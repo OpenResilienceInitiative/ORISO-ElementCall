@@ -31,6 +31,10 @@ import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { useOrisoView } from "../oriso/useOrisoView";
 import { FIELD_RADIUS, type TileShape } from "../oriso/shape";
+import {
+  type SpotlightSide,
+  stageBesideSpotlight,
+} from "../oriso/spotlightRoom";
 
 /** A speaker's share of the grove, relative to a quiet participant's 1. */
 export const SPEAKING_WEIGHT = 1.6;
@@ -164,6 +168,31 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     const view = useOrisoView();
 
     /*
+     * The shared screen gets its band, and the people get the rest.
+     *
+     * It is drawn in the fixed layer above this one, pinned to a corner, so
+     * packing the forms across the whole stage put somebody underneath it —
+     * which is what the 22 October live test photographed. Only the BLOCK
+     * half of the alignment is read: the band spans the full width, so
+     * dragging the box from one corner to the other along the same edge
+     * leaves the arrangement alone. See `spotlightRoom.ts`.
+     */
+    const spotlightBlock = useObservableEagerState(
+      useInitial(() =>
+        spotlightAlignment$.pipe(
+          map((alignment) => alignment.block),
+          distinctUntilChanged(),
+        ),
+      ),
+    );
+    const side: SpotlightSide =
+      model.spotlight === undefined ? null : spotlightBlock;
+    const stage = useMemo(
+      () => stageBesideSpotlight(width, height, side),
+      [width, height, side],
+    );
+
+    /*
      * Subscribed, not sampled.
      *
      * The first version read `media$.value` and `speaking$.value` straight
@@ -211,7 +240,9 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     // What the arrangement actually depends on, as one value. `seats` is
     // rebuilt on every render, so it cannot be a dependency itself; this is
     // the alternative to re-running a 240-pass relaxation every frame.
-    const signature = `${view}:${width}x${height}:${seats
+    const signature = `${view}:${stage.width}x${stage.height}+${
+      stage.offsetY
+    }:${seats
       .map((s) => `${s.mediaId}|${s.seed}|${s.speaking ? 1 : 0}`)
       .join(",")}`;
 
@@ -233,14 +264,14 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
          * prototype's packing until that has its own answer.
          */
         if (seats.length === 2) {
-          const room = Math.round(haloRoomFor(width, height));
+          const room = Math.round(haloRoomFor(stage.width, stage.height));
           return pairShapes(
             seats.map((s) => s.seed),
             {
               x: room,
-              y: room,
-              w: Math.max(0, width - 2 * room),
-              h: Math.max(0, height - 2 * room),
+              y: stage.offsetY + room,
+              w: Math.max(0, stage.width - 2 * room),
+              h: Math.max(0, stage.height - 2 * room),
             },
             seats.map((s) => (s.speaking ? SPEAKING_WEIGHT : 1)),
           ).map((spot, i) => ({
@@ -261,7 +292,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         // centred rather than stretched: stretching would turn every
         // organic form into an ellipse. Inset by the room a speaking halo
         // needs — see `groveBox`.
-        const { box, offsetX, offsetY } = groveBox(width, height);
+        const { box, offsetX, offsetY } = groveBox(stage.width, stage.height);
         return packShapes(
           seats.map((s) => s.seed),
           box,
@@ -271,7 +302,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
           mediaId: seats[i].mediaId,
           model: seats[i].model,
           x: spot.x + offsetX,
-          y: spot.y + offsetY,
+          y: spot.y + offsetY + stage.offsetY,
           width: spot.size,
           height: spot.size,
           shape: { radius: spot.blob, tilt: Number(spot.tilt) },
@@ -300,14 +331,14 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
        * inset goes into the rectangle `splitCells` divides, so every cell
        * comes back already inside it.
        */
-      const room = Math.round(haloRoomFor(width, height));
+      const room = Math.round(haloRoomFor(stage.width, stage.height));
       return splitCells(
         seats.map((_, i) => i),
         {
           x: room,
-          y: room,
-          w: Math.max(0, width - 2 * room),
-          h: Math.max(0, height - 2 * room),
+          y: stage.offsetY + room,
+          w: Math.max(0, stage.width - 2 * room),
+          h: Math.max(0, stage.height - 2 * room),
         },
         speakers,
       ).map((cell) => ({
@@ -373,6 +404,20 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               "--oriso-field-gutter": `${FIELD_GUTTER}px`,
               // The sheet pads rather than insets; see the stylesheet.
               "--oriso-halo-room": `${Math.round(haloRoomFor(width, height))}px`,
+              /*
+               * And the shared screen's band is padding here too.
+               *
+               * This branch has no rectangle to take the band out of — the
+               * sheet is a flex wrap that scrolls — so the room is added to
+               * the edge the box is pinned to. The halo's own padding stays
+               * on all four sides underneath it; see the stylesheet.
+               */
+              "--oriso-spotlight-room-start": `${
+                side === "start" ? height - stage.height : 0
+              }px`,
+              "--oriso-spotlight-room-end": `${
+                side === "end" ? height - stage.height : 0
+              }px`,
             } as never
           }
         >

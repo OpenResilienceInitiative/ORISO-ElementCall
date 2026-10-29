@@ -43,11 +43,15 @@ const reEnables = (): string[] =>
   );
 
 describe("only the visible form takes the pointer", () => {
-  it("turns the grove tile's root off and something back on", () => {
+  it("turns every ORISO tile's root off and something back on", () => {
+    /*
+     * The Einzelgespräch's halves included. They used to rely on a clip path
+     * on the ROOT for this, and that clip also cut off the names, which stand
+     * under the circle. The clip is the face's now, and a clipped face is
+     * hit-tested along its clip.
+     */
     const off = bodiesWhere(
-      (selector) =>
-        selector.includes(".oriso") &&
-        selector.includes(':not([data-oriso-half="true"])'),
+      (selector) => selector.trim() === ".media.oriso",
     ).filter((body) => /pointer-events:\s*none/.test(body));
     expect(off.length).toBeGreaterThan(0);
     expect(reEnables().length).toBeGreaterThan(0);
@@ -74,37 +78,75 @@ describe("only the visible form takes the pointer", () => {
   });
 });
 
-describe("the chrome belongs to its half", () => {
-  it("sizes the chrome layer to the half rather than moving it", () => {
-    /*
-     * Two earlier versions were wrong in different ways, and neither could
-     * be seen from here.
-     *
-     * The first targeted `… > button`, and the options button is rendered
-     * inside `.fg` rather than as a child of the tile, so the selector never
-     * matched: the button stayed at the shared box's corner, clipped away by
-     * the seam with the tile's only menu control in it.
-     *
-     * The second translated `.fg`, which spans 84% of the WHOLE box — so
-     * moving it carried its left-aligned capsule and its right-aligned
-     * button the same distance, and the left tile's button was still past
-     * the seam. The layer has to be SIZED to the half; the bounds are
-     * computed from `focusX` in `MediaView`.
-     */
-    const rules = bodiesWhere(
+describe("the names stand under the circle", () => {
+  /*
+   * Section 2b: plain text under the circle, the left half's name at its
+   * left edge and the right half's at its right edge. Dev showed two dark
+   * capsules at the top of the circle instead (`place-self: start start`
+   * inside the shared box), and jsdom applies no CSS, so only the stylesheet
+   * can say where they go.
+   */
+  const halfChrome = (): string[] =>
+    bodiesWhere(
       (selector) =>
-        selector.includes('[data-oriso-half="true"]') &&
-        selector.includes(".fg"),
+        selector.includes('[data-oriso-half="true"] > .fg') &&
+        !selector.includes("button"),
     );
+
+  it("moves the chrome layer out of the circle, below it", () => {
+    const rules = halfChrome();
     expect(rules.length).toBe(1);
-    expect(rules[0]).toMatch(/inset-inline:/);
-    expect(rules[0]).toMatch(/--oriso-half-inset-start/);
-    expect(rules[0]).toMatch(/--oriso-half-inset-end/);
-    // Translating it is the version that did not work.
-    expect(rules[0]).not.toMatch(/translate:/);
+    expect(rules[0]).toMatch(/inset-block-start:\s*calc\(100% \+ \d+px\)/);
+    expect(rules[0]).toMatch(/inline-size:\s*50%/);
+    // Above every shape in the stage.
+    expect(rules[0]).toMatch(/z-index:\s*var\(--oriso-z-names, 6\)/);
+  });
+
+  it("puts each name on its own side, its `⋮` on the outside", () => {
+    const start = bodiesWhere((selector) =>
+      selector.includes('[data-oriso-side="start"] > .fg'),
+    );
+    const end = bodiesWhere((selector) =>
+      selector.includes('[data-oriso-side="end"] > .fg'),
+    );
+    expect(start.join()).toMatch(/inset-inline-start:\s*0/);
+    expect(end.join()).toMatch(/inset-inline-end:\s*0/);
+    expect(end.join()).toMatch(/flex-direction:\s*row-reverse/);
+  });
+
+  it("drops the capsule for plain text in the design's type", () => {
+    const tag = bodiesWhere(
+      (selector) =>
+        selector.includes('[data-oriso-half="true"] .nameTag') &&
+        !selector.includes(">"),
+    ).join();
+    expect(tag).toMatch(/background:\s*none/);
+    expect(tag).toMatch(/color:\s*rgb\(45 44 40\)/);
+
+    const name = bodiesWhere((selector) =>
+      selector.includes(".orisoLabel > .name"),
+    ).join();
+    expect(name).toMatch(/font:\s*500 14px/);
+  });
+
+  it("says who is talking in the primary colour and who listens in grey", () => {
+    const status = bodiesWhere(
+      (selector) => selector.trim() === ".media.oriso .orisoStatus",
+    ).join();
+    expect(status).toMatch(/font:\s*400 12px/);
+    expect(status).toMatch(/color:\s*rgb\(120 118 125\)/);
+    const speaking = bodiesWhere((selector) =>
+      selector.includes('.orisoStatus[data-speaking="true"]'),
+    ).join();
+    expect(speaking).toMatch(/color:\s*var\(--oriso-primary, #a5000a\)/);
   });
 
   it("never targets a button that is not a child of the tile", () => {
+    /*
+     * The options button is rendered inside `.fg`, not as a child of the
+     * tile, so `[data-oriso-half] > button` never matched anything. `.fg >
+     * button` is where it actually is.
+     */
     const selectors: string[] = [];
     const pattern = /([^{}]+)\{([^{}]*)\}/g;
     let rule: RegExpExecArray | null;
@@ -113,7 +155,7 @@ describe("the chrome belongs to its half", () => {
     }
     expect(selectors.length).toBeGreaterThan(0);
     for (const selector of selectors) {
-      expect(selector).not.toMatch(/>\s*button/);
+      expect(selector).not.toMatch(/\]\s*>\s*button/);
     }
   });
 });
