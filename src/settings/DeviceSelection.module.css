@@ -20,3 +20,30 @@
 .secondary {
   color: var(--cpd-color-text-secondary);
 }
+
+/* The ORISO settings (#110): each device is one of the call menu's choice
+   tiles (1c); the picked one gets the tonal fill and the primary ring. */
+:global(.oriso-settings) .options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:global(.oriso-settings) .options > * {
+  align-items: center;
+  min-block-size: 52px;
+  padding-inline: 16px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%);
+}
+
+:global(.oriso-settings) .options > :has(input:checked) {
+  background: rgb(240 237 238);
+  box-shadow: inset 0 0 0 2px var(--oriso-primary, #a5000a);
+}
+
+:global(.oriso-settings) .separator {
+  display: none;
+}
