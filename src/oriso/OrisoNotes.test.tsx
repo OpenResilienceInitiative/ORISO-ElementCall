@@ -66,6 +66,18 @@ describe("the call notepad (#112)", () => {
     ).toBe("");
   });
 
+  it("waits for an input method to finish before Enter adds", () => {
+    render(<OrisoNotes {...props()} />);
+    const field = screen.getByPlaceholderText("Write a note…");
+    fireEvent.change(field, { target: { value: "いつから" } });
+    // Enter that confirms a Japanese or Chinese candidate is not a submit.
+    fireEvent.keyDown(field, { key: "Enter", isComposing: true });
+    expect(screen.queryByRole("listitem")).toBeNull();
+    expect((field as HTMLInputElement).value).toBe("いつから");
+    fireEvent.keyDown(field, { key: "Enter" });
+    within(screen.getByRole("listitem")).getByText("いつから");
+  });
+
   it("takes the type from the ⋮ menu: exactly three", () => {
     render(<OrisoNotes {...props()} />);
     fireEvent.click(screen.getByRole("button", { name: "Type of note" }));

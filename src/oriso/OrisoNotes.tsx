@@ -100,7 +100,8 @@ export const OrisoNotes: FC<Props> = ({
   };
 
   const onDraftKey = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === "Enter") add();
+    // Enter that confirms an input method's candidate is not a submit.
+    if (e.key === "Enter" && !e.nativeEvent.isComposing) add();
   };
 
   const copy = (): void => {
