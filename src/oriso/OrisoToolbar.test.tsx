@@ -220,3 +220,47 @@ describe("the call menu behind ⋮", () => {
     expect(screen.queryByTestId("oriso-call-menu")).toBeNull();
   });
 });
+
+describe("knocking in the call (#108)", () => {
+  it("shows no waiting count and no switch when the host sends nothing", () => {
+    render(<OrisoToolbar {...props()} />);
+    expect(screen.queryByTestId("oriso-waiting-badge")).toBeNull();
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    expect(screen.queryByRole("switch")).toBeNull();
+  });
+
+  it("counts the people waiting on the ⋮ and in the participants row", () => {
+    render(<OrisoToolbar {...props({ waitingCount: 2 })} />);
+    expect(screen.getByTestId("oriso-waiting-badge").textContent).toBe("2");
+    expect(screen.getByTestId("incall_menu").getAttribute("aria-label")).toBe(
+      "Call menu, 2 waiting",
+    );
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    const row = screen
+      .getByTestId("oriso-call-menu")
+      .querySelector('[data-entry="participants"]');
+    expect(row?.textContent).toContain("2 waiting");
+  });
+
+  it("offers the Anklopfen switch with the host's setting", () => {
+    const onKnockChange = vi.fn();
+    render(<OrisoToolbar {...props({ knock: true, onKnockChange })} />);
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    const knock = screen.getByRole("switch", { name: "Knock first" });
+    expect(knock.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(knock);
+    expect(onKnockChange).toHaveBeenCalledWith(false);
+    // The menu stays open, so the person sees the switch flip.
+    expect(screen.getByTestId("oriso-call-menu")).toBeTruthy();
+  });
+
+  it("has no accessibility violations with the badge and the switch", async () => {
+    const { container } = render(
+      <OrisoToolbar
+        {...props({ waitingCount: 1, knock: false, onKnockChange: vi.fn() })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    expect(await axe(container)).toHaveNoViolations();
+  });
+});

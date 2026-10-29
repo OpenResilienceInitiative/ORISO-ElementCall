@@ -16,6 +16,7 @@ Please see LICENSE in the repository root for full details.
  *
  *   ?speaking=none|first|second   who holds the floor
  *   ?muted=first|second           show that person's microphone as off
+ *   ?waiting=<n>                  people knocking, with the Anklopfen switch (#108)
  */
 import { StrictMode, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -68,6 +69,7 @@ void i18n.use(initReactI18next).init({
 const params = new URLSearchParams(window.location.search);
 const speaking = params.get("speaking") ?? "first";
 const muted = params.get("muted");
+const waiting = params.get("waiting");
 
 const PEOPLE: Record<string, { name: string; identity: OrisoIdentity }> = {
   remote: {
@@ -159,8 +161,12 @@ function Footer(): React.ReactNode {
   const [audioMuted, setAudioMuted] = useState(muted === "second");
   const [videoMuted, setVideoMuted] = useState(true);
   const [hand, setHand] = useState(false);
+  const [knock, setKnock] = useState(true);
   return (
     <OrisoToolbar
+      waitingCount={Number(waiting ?? 0)}
+      knock={waiting === null ? null : knock}
+      onKnockChange={waiting === null ? null : setKnock}
       className={styles.orisoToolbar}
       audioMuted={audioMuted}
       onToggleAudio={() => setAudioMuted((m) => !m)}

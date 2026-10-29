@@ -59,6 +59,11 @@ interface Props {
   /** Null hides both: this window mode mounts no settings dialog. */
   onOpenSoundSettings: (() => void) | null;
   onOpenSettings: (() => void) | null;
+  /** People knocking on this call's link, from the host (#108). */
+  waitingCount?: number;
+  /** "Anklopfen" of this call's link; null hides the switch (no link to switch). */
+  knock?: boolean | null;
+  onKnockChange?: ((knock: boolean) => void) | null;
   onTouchEnd?: (e: TouchEvent) => void;
   className?: string;
 }
@@ -92,6 +97,9 @@ export const OrisoToolbar: FC<Props> = ({
   sharingScreen,
   onOpenSoundSettings,
   onOpenSettings,
+  waitingCount = 0,
+  knock = null,
+  onKnockChange = null,
   onTouchEnd,
   className,
 }) => {
@@ -150,6 +158,11 @@ export const OrisoToolbar: FC<Props> = ({
   const videoLabel = videoMuted
     ? t("start_video_button_label")
     : t("stop_video_button_label");
+  const waiting =
+    waitingCount > 0 ? t("oriso.waiting_count", { count: waitingCount }) : null;
+  const menuLabel = waiting
+    ? `${t("oriso.call_menu_label")}, ${waiting}`
+    : t("oriso.call_menu_label");
   const handLabel = handRaised
     ? t("action.lower_hand")
     : t("action.raise_hand");
@@ -207,7 +220,7 @@ export const OrisoToolbar: FC<Props> = ({
         )}
         <ToolbarButton
           ref={triggerRef}
-          label={t("oriso.call_menu_label")}
+          label={menuLabel}
           state={menuOpen ? "open" : "off"}
           expanded={menuOpen}
           controls={menuId}
@@ -216,6 +229,11 @@ export const OrisoToolbar: FC<Props> = ({
           testId="incall_menu"
         >
           <OverflowVerticalIcon />
+          {waiting && (
+            <span className={styles.badge} data-testid="oriso-waiting-badge">
+              {waitingCount > 99 ? "99+" : waitingCount}
+            </span>
+          )}
         </ToolbarButton>
       </div>
       <button
@@ -250,9 +268,42 @@ export const OrisoToolbar: FC<Props> = ({
               <span className={styles.rowLabel}>
                 {t("oriso.menu_participants")}
               </span>
-              <span className={styles.rowHint}>{participantCount}</span>
+              <span className={styles.rowHint}>
+                {participantCount}
+                {waiting && (
+                  <span className={styles.waiting}> · {waiting}</span>
+                )}
+              </span>
               <GroupIcon aria-hidden width={21} height={21} />
             </div>
+            {knock !== null && onKnockChange !== null && (
+              <div className={styles.row} data-entry="knock">
+                <span className={styles.rowLabel}>
+                  <span id={`${menuId}-knock`}>{t("oriso.knock_label")}</span>
+                  <span
+                    id={`${menuId}-knock-state`}
+                    className={styles.rowDescription}
+                  >
+                    {t(knock ? "oriso.knock_on" : "oriso.knock_off")}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={knock}
+                  aria-labelledby={`${menuId}-knock`}
+                  aria-describedby={`${menuId}-knock-state`}
+                  className={styles.switch}
+                  data-state={knock ? "on" : "off"}
+                  // The menu stays open: the person sees the switch flip.
+                  onClick={() => onKnockChange(!knock)}
+                  onTouchEnd={onTouchEnd}
+                  data-testid="oriso-knock-switch"
+                >
+                  <span className={styles.switchThumb} aria-hidden="true" />
+                </button>
+              </div>
+            )}
             <div className={styles.row} data-entry="view">
               <span className={styles.rowLabel}>{t("oriso.menu_view")}</span>
               <ViewSwitcher

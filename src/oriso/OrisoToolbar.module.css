@@ -55,6 +55,7 @@ Please see LICENSE in the repository root for full details.
 }
 
 .fill {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -182,6 +183,98 @@ Please see LICENSE in the repository root for full details.
     400 15px / 20px Inter,
     sans-serif;
   color: rgb(150 148 152);
+}
+
+/* People knocking (#108): a count on ⋮, as a notification badge on an M3 icon. */
+.badge {
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-end: -6px;
+  min-inline-size: 18px;
+  block-size: 18px;
+  padding-inline: 4px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 9px;
+  background: var(--oriso-primary, #a5000a);
+  color: #fff;
+  font:
+    600 11px / 14px Inter,
+    sans-serif;
+  text-align: center;
+}
+
+.waiting {
+  color: var(--oriso-primary, #a5000a);
+  font-weight: 600;
+}
+
+.rowDescription {
+  display: block;
+  font:
+    400 13px / 18px Inter,
+    sans-serif;
+  color: rgb(110 108 112);
+}
+
+.row[data-entry="knock"] {
+  padding-block: 8px;
+}
+
+/* The M3 switch: 52 x 32 track, the thumb grows when on. */
+.switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  inline-size: 52px;
+  block-size: 32px;
+  padding: 0;
+  border: 2px solid rgb(121 116 126);
+  border-radius: 16px;
+  background: rgb(230 224 233);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.switchThumb {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 6px;
+  inline-size: 16px;
+  block-size: 16px;
+  border-radius: 50%;
+  background: rgb(121 116 126);
+  transform: translateY(-50%);
+  transition:
+    inset-inline-start 0.15s,
+    inline-size 0.15s,
+    block-size 0.15s;
+}
+
+.switch[data-state="on"] {
+  border-color: var(--oriso-primary, #a5000a);
+  background: var(--oriso-primary, #a5000a);
+}
+
+.switch[data-state="on"] .switchThumb {
+  inset-inline-start: 22px;
+  inline-size: 24px;
+  block-size: 24px;
+  background: #fff;
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switchThumb {
+    transition: none;
+  }
 }
 
 .entry {
