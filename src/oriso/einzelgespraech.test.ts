@@ -12,8 +12,12 @@ import {
   EVEN_SHARE,
   MAX_SHARE,
   SEAM_EASING,
+  SEAM_CAPSULE,
   SEAM_TWEEN,
+  capsulePathFor,
+  seamAt,
   seamFor,
+  seamMiddleFor,
   shareFor,
 } from "./einzelgespraech";
 
@@ -140,5 +144,70 @@ describe("the curve the seam travels on", () => {
   it("runs for the ticket's 450ms", () => {
     expect(SEAM_TWEEN.duration).toBe(450);
     expect(SEAM_EASING).toContain("0.45s");
+  });
+});
+
+describe("the microphone capsule on a bowing seam", () => {
+  /*
+   * Frank, 28 Oct: a straight pill on a curved seam looks pasted on. The
+   * capsule bends with the seam, whichever side it bows to, and every bar
+   * turns to stay across the line it sits on.
+   */
+  const CIRCLE = 400;
+
+  it("finds the seam where the clip path draws it", () => {
+    for (const share of [EVEN_SHARE, MAX_SHARE, 1 - MAX_SHARE]) {
+      // The clip path's quadratic runs from (share, 0) to (share, 1).
+      expect(seamAt(share, 0).x).toBeCloseTo(share, 10);
+      expect(seamAt(share, 1).x).toBeCloseTo(share, 10);
+      expect(seamAt(share, 0.5).x).toBeCloseTo(seamMiddleFor(share), 10);
+    }
+  });
+
+  it("keeps every bar level while the seam is straight", () => {
+    for (const y of [0.2, 0.5, 0.8])
+      expect(seamAt(EVEN_SHARE, y).angle).toBe(0);
+  });
+
+  it("turns the bars with the seam, mirrored for either speaker", () => {
+    // First speaks: the seam bows right, so above the middle it leans one
+    // way and below it the other; the second speaker mirrors that.
+    const upper = seamAt(MAX_SHARE, 0.3).angle;
+    const lower = seamAt(MAX_SHARE, 0.7).angle;
+    expect(Math.abs(upper)).toBeGreaterThan(1);
+    expect(lower).toBeCloseTo(-upper, 10);
+    expect(seamAt(1 - MAX_SHARE, 0.3).angle).toBeCloseTo(-upper, 10);
+    expect(seamAt(MAX_SHARE, 0.5).angle).toBeCloseTo(0, 10);
+  });
+
+  it("draws the capsule along the seam, bowing the same way", () => {
+    const numbers = (d: string) => d.match(/-?\d+(\.\d+)?/g)!.map(Number);
+
+    const [x0, y0, cx, cy, x1, y1] = numbers(capsulePathFor(MAX_SHARE, CIRCLE));
+    // The capsule's length is the design's 176px, the caps included.
+    expect(y1 - y0 + SEAM_CAPSULE.width).toBeCloseTo(SEAM_CAPSULE.length, 0);
+    expect(cy).toBeCloseTo(CIRCLE / 2, 6);
+    // Both ends sit on the seam, and the middle bows into the quiet half.
+    expect(x0).toBeCloseTo(seamAt(MAX_SHARE, y0 / CIRCLE).x * CIRCLE, 3);
+    expect(x1).toBeCloseTo(x0, 6);
+    expect(cx).toBeGreaterThan(x0);
+    const [m0, , mcx] = numbers(capsulePathFor(1 - MAX_SHARE, CIRCLE));
+    expect(mcx).toBeLessThan(m0);
+  });
+
+  it("stays a straight capsule while nobody speaks", () => {
+    const [x0, , cx, , x1] = capsulePathFor(EVEN_SHARE, CIRCLE)
+      .match(/-?\d+(\.\d+)?/g)!
+      .map(Number);
+    expect(cx).toBeCloseTo(x0, 6);
+    expect(x1).toBeCloseTo(x0, 6);
+  });
+
+  it("shrinks with a small circle, and draws nothing without one", () => {
+    const [, y0, , , , y1] = capsulePathFor(EVEN_SHARE, 200)
+      .match(/-?\d+(\.\d+)?/g)!
+      .map(Number);
+    expect(y1 - y0 + SEAM_CAPSULE.width).toBeCloseTo(200 * 0.63, 0);
+    expect(capsulePathFor(EVEN_SHARE, 0)).toBe("");
   });
 });

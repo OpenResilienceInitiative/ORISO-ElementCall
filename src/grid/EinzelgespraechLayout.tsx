@@ -14,8 +14,12 @@ import styles from "./EinzelgespraechLayout.module.css";
 import { type CallLayout } from "./CallLayout";
 import { useUpdateLayout } from "./Grid";
 import {
+  SEAM_BARS,
+  SEAM_CAPSULE,
   SEAM_TWEEN,
   type Speaking,
+  capsulePathFor,
+  seamAt,
   seamFor,
   shareFor,
 } from "../oriso/einzelgespraech";
@@ -42,6 +46,17 @@ const FACE_SHARE_OF_CIRCLE = 0.22 / 0.86;
  * and the circle came out a flat ellipse — two to one.
  */
 const CIRCLE_SHARE = 0.86;
+
+/**
+ * The room kept free under the circle for the two names, and above it so
+ * the circle stays centred.
+ *
+ * The names stand under the circle (section 2b), two lines of 18px and 16px
+ * after a 12px gap. With the circle at 86% of a short stage there was 7% of
+ * the height left below it — 21px on a 300px landscape phone — so the names
+ * ran off the stage or under the toolbar.
+ */
+const NAME_ROOM = 40;
 
 /**
  * Einzelgespräch — one circle, two halves, a bowing seam.
@@ -152,7 +167,7 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
     // all, which looks like the call failing rather than like a frame.
     const circle = Math.max(
       0,
-      Math.round(Math.min(width, height) * CIRCLE_SHARE),
+      Math.round(Math.min(width, height - 2 * NAME_ROOM) * CIRCLE_SHARE),
     );
 
     const shapes = useMemo(() => {
@@ -232,6 +247,64 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
               `share` above. */}
           <Slot id={first.id} model={first} className={styles.slot} />
           <Slot id={second.id} model={second} className={styles.slot} />
+          {/* The microphone on the seam. It rides the same spring as the
+              clip paths, so it never parts from the line it sits on, and its
+              bars move only while somebody is actually speaking. The capsule
+              is a stroke along the seam itself, so it bends as the seam
+              bows; each bar turns to stay across it. */}
+          <div
+            className={styles.seam}
+            data-testid="oriso-seam"
+            data-active={speaking !== "none"}
+            aria-hidden="true"
+          >
+            <svg
+              className={styles.capsule}
+              width={circle}
+              height={circle}
+              viewBox={`0 0 ${circle} ${circle}`}
+            >
+              <animated.path
+                className={styles.capsuleEdge}
+                d={eased.to((at) => capsulePathFor(at, circle))}
+              />
+              <animated.path
+                className={styles.capsuleBody}
+                d={eased.to((at) => capsulePathFor(at, circle))}
+              />
+            </svg>
+            {SEAM_BARS.map((bar, i) => {
+              const offset =
+                (i - (SEAM_BARS.length - 1) / 2) * SEAM_CAPSULE.barPitch;
+              const y = circle > 0 ? 0.5 + offset / circle : 0.5;
+              return (
+                <animated.span
+                  key={i}
+                  className={styles.barSeat}
+                  data-bar
+                  style={{
+                    insetBlockStart: `calc(50% + ${offset}px)`,
+                    insetInlineStart: eased.to(
+                      (at) => `${(seamAt(at, y).x * 100).toFixed(3)}%`,
+                    ),
+                    transform: eased.to(
+                      (at) =>
+                        `translate(-50%, -50%) rotate(${seamAt(at, y).angle.toFixed(3)}deg)`,
+                    ),
+                  }}
+                >
+                  <span
+                    className={styles.bar}
+                    style={{
+                      inlineSize: bar.width,
+                      animationDuration: `${bar.duration}s`,
+                      animationDelay: `${bar.delay}s`,
+                    }}
+                  />
+                </animated.span>
+              );
+            })}
+          </div>
         </div>
       </div>
     );

@@ -34,6 +34,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   type RenderResult,
 } from "@testing-library/react";
 import {
@@ -426,7 +427,7 @@ describe("the call, in the ORISO design", () => {
 
   it("offers the three views, with one of them spelled out", async () => {
     createInCallView({ crowd: true });
-    const rail = await screen.findByTestId("view-switcher");
+    const rail = await openViewRail();
     expect(
       rail.querySelectorAll('[role="radio"][aria-checked="false"]'),
     ).toHaveLength(2);
@@ -444,7 +445,7 @@ describe("the call, in the ORISO design", () => {
      * on and offers the one real alternative.
      */
     createInCallView();
-    const rail = await screen.findByTestId("view-switcher");
+    const rail = await openViewRail();
     const views = [...rail.querySelectorAll('[role="radio"]')].map((radio) =>
       radio.getAttribute("data-view"),
     );
@@ -466,7 +467,7 @@ describe("the call, in the ORISO design", () => {
      * items whatever mode is on.
      */
     createInCallView();
-    const rail = await screen.findByTestId("view-switcher");
+    const rail = await openViewRail();
     fireEvent.click(rail.querySelector('[data-view="spotlight"]')!);
 
     const views = [...rail.querySelectorAll('[role="radio"]')].map((radio) =>
@@ -488,7 +489,7 @@ describe("the call, in the ORISO design", () => {
      * user's place in the rail and announced nothing.
      */
     createInCallView({ crowd: true });
-    const rail = await screen.findByTestId("view-switcher");
+    const rail = await openViewRail();
     const buttons = [...rail.querySelectorAll<HTMLElement>('[role="radio"]')];
     buttons[0].focus();
 
@@ -530,5 +531,34 @@ describe("the call, in the ORISO design", () => {
     expect(container.querySelector('[data-testid="oriso-face"]')).toBeNull();
     expect(container.querySelector('[data-oriso="true"]')).toBeNull();
     expect(container.querySelector('[data-testid="view-switcher"]')).toBeNull();
+    expect(container.querySelector('[data-testid="oriso-toolbar"]')).toBeNull();
+  });
+
+  it("puts one ORISO bar in the footer, not upstream's buttons", async () => {
+    /*
+     * Section 1c: one white bar with the microphone, the camera, the hand and
+     * a `⋮`, and the hang-up beside it rather than in it. Dev still showed
+     * Element Call's black round buttons and the view rail bottom-right.
+     */
+    const { container } = createInCallView();
+    const toolbar = await screen.findByTestId("oriso-toolbar");
+    const bar = within(toolbar).getByRole("toolbar");
+
+    expect(within(bar).getByTestId("incall_mute")).toBeTruthy();
+    expect(within(bar).getByTestId("incall_videomute")).toBeTruthy();
+    expect(within(bar).getByTestId("incall_menu")).toBeTruthy();
+    const hangup = within(toolbar).getByTestId("incall_leave");
+    expect(bar.contains(hangup)).toBe(false);
+
+    // Upstream's settings button and the rail are gone from the footer; the
+    // rail lives in the menu now.
+    expect(container.querySelector('[data-testid="view-switcher"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
   });
 });
+
+/** The view rail moved into the toolbar's `⋮` menu. */
+async function openViewRail(): Promise<HTMLElement> {
+  fireEvent.click(await screen.findByTestId("incall_menu"));
+  return screen.findByTestId("view-switcher");
+}

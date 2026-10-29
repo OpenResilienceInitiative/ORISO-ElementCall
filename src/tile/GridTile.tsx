@@ -22,6 +22,7 @@ import {
   MicOffSolidIcon,
   MicOffIcon,
   OverflowHorizontalIcon,
+  OverflowVerticalIcon,
   VolumeOnIcon,
   VolumeOffIcon,
   VisibilityOnIcon,
@@ -215,7 +216,13 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
                 aria-label={t("common.options")}
                 tabIndex={focusable ? undefined : -1}
               >
-                <OverflowHorizontalIcon aria-hidden width={20} height={20} />
+                {/* Under the Einzelgespräch's circle the design draws a
+                    vertical `⋮` beside each name. */}
+                {orisoShape?.focusX === undefined ? (
+                  <OverflowHorizontalIcon aria-hidden width={20} height={20} />
+                ) : (
+                  <OverflowVerticalIcon aria-hidden width={20} height={20} />
+                )}
               </button>
             }
             side="left"

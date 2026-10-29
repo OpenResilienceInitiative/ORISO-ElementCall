@@ -177,11 +177,20 @@
   "microphone_on": "Microphone on",
   "mute_microphone_button_label": "Mute microphone",
   "oriso": {
-    "view_grove": "Circle",
+    "call_menu_label": "Call menu",
+    "controls_label": "Call controls",
+    "listening": "listening",
+    "menu_leave": "Leave call",
+    "menu_participants": "Participants",
+    "menu_sound_devices": "Sound & devices",
+    "menu_view": "View",
+    "notes_label": "My note",
+    "notes_title": "Call notes",
+    "speaking": "speaking",
     "view_fields": "Tiles",
+    "view_grove": "Circle",
     "view_one_on_one": "Conversation",
-    "view_switcher_label": "Stage view",
-    "notes_title": "Call notes"
+    "view_switcher_label": "Stage view"
   },
   "participant_count_one": "{{count, number}}",
   "participant_count_other": "{{count, number}}",

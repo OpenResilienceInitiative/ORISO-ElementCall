@@ -43,7 +43,7 @@ import {
 import { Header, LeftNav, RightNav, RoomHeaderInfo } from "../Header";
 import { type HeaderStyle, useUrlParams } from "../UrlParams";
 import { useCallViewKeyboardShortcuts } from "../useCallViewKeyboardShortcuts";
-import { ElementWidgetActions, widget } from "../widget";
+import { ElementWidgetActions, OrisoWidgetActions, widget } from "../widget";
 import styles from "./InCallView.module.css";
 import { GridTile } from "../tile/GridTile";
 import { type OTelGroupCallMembership } from "../otel/OTelGroupCallMembership";
@@ -78,7 +78,8 @@ import { makeSpotlightLandscapeLayout } from "../grid/SpotlightLandscapeLayout";
 import { makeSpotlightPortraitLayout } from "../grid/SpotlightPortraitLayout";
 import { makeOrisoGroveLayout } from "../grid/OrisoGroveLayout";
 import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
-import { ViewSwitcher, type StageView } from "../oriso/ViewSwitcher";
+import { type StageView } from "../oriso/ViewSwitcher";
+import { OrisoToolbar } from "../oriso/OrisoToolbar";
 import {
   OrisoStageContext,
   useOrisoIdentities,
@@ -298,6 +299,9 @@ export const InCallView: FC<InCallViewProps> = ({
   const earpieceMode = useBehavior(vm.earpieceMode$);
   const audioOutputSwitcher = useBehavior(vm.audioOutputSwitcher$);
   const sharingScreen = useBehavior(vm.sharingScreen$);
+  const localHandRaised = !!useBehavior(vm.handsRaised$)[
+    `${client.getUserId()}:${client.getDeviceId()}`
+  ];
 
   const ringOverlay = useBehavior(vm.ringOverlay$);
   const fatalCallError = useBehavior(vm.fatalError$);
@@ -412,6 +416,28 @@ export const InCallView: FC<InCallViewProps> = ({
   const closeSettings = useCallback(
     () => setSettingsModalOpen(false),
     [setSettingsModalOpen],
+  );
+
+  const openSoundSettings = useCallback(() => {
+    setSettingsTab("audio");
+    setSettingsModalOpen(true);
+  }, [setSettingsTab, setSettingsModalOpen]);
+
+  /*
+   * "Meine Notiz" is the host's notepad, not ours: the call only asks the
+   * host to open or close it. Not offered outside a widget, where there is
+   * no host to ask.
+   */
+  const toggleNotes = useMemo(
+    () =>
+      widget === null
+        ? null
+        : (): void => {
+            widget!.api.transport
+              .send(OrisoWidgetActions.ToggleNotes, {})
+              .catch((e) => logger.warn("The host did not open its notes", e));
+          },
+    [],
   );
 
   const openProfile = useMemo(
@@ -927,23 +953,43 @@ export const InCallView: FC<InCallViewProps> = ({
       {headerStyle !== "none" && debugTileLayout
         ? `Tiles generation: ${tileStoreGeneration}`
         : undefined}
-      {showControls && <div className={styles.buttons}>{buttons}</div>}
       {showControls &&
         (orisoEnabled ? (
-          <ViewSwitcher
-            className={styles.orisoLayout}
-            active={stageView}
+          <OrisoToolbar
+            className={styles.orisoToolbar}
+            audioMuted={!audioEnabled || mediaError !== null}
+            onToggleAudio={mediaError === null ? toggleAudio : null}
+            videoMuted={!videoEnabled || mediaError !== null}
+            onToggleVideo={mediaError === null ? toggleVideo : null}
+            handRaised={localHandRaised}
+            onToggleHand={
+              supportsReactions && !isPopupMode
+                ? (): void => void toggleRaisedHand()
+                : null
+            }
+            onToggleNotes={toggleNotes}
+            onHangup={() => vm.hangup()}
+            participantCount={participantCount}
+            view={stageView}
             offer={orisoOffer}
-            onChange={setStageView}
+            onViewChange={setStageView}
+            onToggleScreenShare={vm.toggleScreenSharing}
+            sharingScreen={sharingScreen}
+            // The SettingsModal is not mounted in pip or flat mode.
+            onOpenSoundSettings={isPopupMode ? null : openSoundSettings}
+            onOpenSettings={isPopupMode ? null : openSettings}
             onTouchEnd={onControlsTouchEnd}
           />
         ) : (
-          <LayoutToggle
-            className={styles.layout}
-            layout={gridMode}
-            setLayout={setGridMode}
-            onTouchEnd={onControlsTouchEnd}
-          />
+          <>
+            <div className={styles.buttons}>{buttons}</div>
+            <LayoutToggle
+              className={styles.layout}
+              layout={gridMode}
+              setLayout={setGridMode}
+              onTouchEnd={onControlsTouchEnd}
+            />
+          </>
         ))}
     </div>
   );
