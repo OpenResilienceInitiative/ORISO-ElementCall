@@ -29,4 +29,15 @@ describe("the call note's card (#112)", () => {
     // The list scrolls on its own, so long notes still stay inside.
     expect(rule("list")).toMatch(/overflow\s*:\s*auto/);
   });
+
+  it("stays below the control bar, so the call menu opens over it", () => {
+    // The card comes after the footer in the DOM; on the toolbar's own level
+    // it would paint over the ⋮ menu that opens upward from the bar.
+    expect(rule("card")).toMatch(/z-index\s*:\s*var\(--oriso-z-notes/);
+    const scale = readFileSync("src/room/InCallView.module.css", "utf8");
+    const level = (name: string): number =>
+      Number(new RegExp(`--oriso-z-${name}:\\s*(\\d+)`).exec(scale)?.[1]);
+    expect(level("notes")).toBeGreaterThan(level("names"));
+    expect(level("notes")).toBeLessThan(level("toolbar"));
+  });
 });

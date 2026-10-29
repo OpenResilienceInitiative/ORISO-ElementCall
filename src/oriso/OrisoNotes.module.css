@@ -18,7 +18,7 @@ Please see LICENSE in the repository root for full details.
   background: rgb(250 249 249);
   color: rgb(28 27 31);
   font-family: Inter, sans-serif;
-  z-index: var(--oriso-z-toolbar, 20);
+  z-index: var(--oriso-z-notes, 15);
 }
 
 .card h2 {

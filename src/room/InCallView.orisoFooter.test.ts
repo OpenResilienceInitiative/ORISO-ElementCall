@@ -109,7 +109,13 @@ describe("the stacking order", () => {
   );
 
   it("names one value per layer, bottom to top", () => {
-    expect(z).toEqual({ stage: 1, names: 6, toolbar: 20, header: 30 });
+    expect(z).toEqual({
+      stage: 1,
+      names: 6,
+      notes: 15,
+      toolbar: 20,
+      header: 30,
+    });
   });
 
   it("isolates the stage, so nothing inside it can climb out", () => {
