@@ -116,6 +116,7 @@ import { ReactionsReader } from "../reactions/ReactionsReader";
 import { LivekitRoomAudioRenderer } from "../livekit/MatrixAudioRenderer.tsx";
 import { muteAllAudio$ } from "../state/MuteAllAudioModel.ts";
 import { useMediaDevices } from "../MediaDevicesContext.ts";
+import { InitialDeviceNotice } from "./InitialDeviceNotice";
 import { EarpieceOverlay } from "./EarpieceOverlay.tsx";
 import { useAppBarHidden, useAppBarSecondaryButton } from "../AppBar.tsx";
 import { useBehavior } from "../useBehavior.ts";
@@ -1110,6 +1111,7 @@ export const InCallView: FC<InCallViewProps> = ({
             <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
             <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
             {reconnectingToast}
+            <InitialDeviceNotice />
             {earpieceOverlay}
             <ReactionsOverlay vm={vm} />
             {waitingOverlay}

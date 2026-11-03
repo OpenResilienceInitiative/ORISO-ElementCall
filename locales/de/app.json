@@ -121,6 +121,11 @@
   "hangup_button_label": "Anruf beenden",
   "header_label": "Element Call-Startseite",
   "header_participants_label": "Teilnehmende",
+  "initial_device_notice": {
+    "both_not_found": "Ihr gewähltes Mikrofon und Ihre gewählte Kamera wurden nicht gefunden. Der Anruf nutzt die Standardgeräte.",
+    "camera_not_found": "Ihre gewählte Kamera wurde nicht gefunden. Der Anruf nutzt die Standardkamera.",
+    "microphone_not_found": "Ihr gewähltes Mikrofon wurde nicht gefunden. Der Anruf nutzt das Standardmikrofon."
+  },
   "invite_modal": {
     "link_copied_toast": "Link in Zwischenablage kopiert",
     "title": "Zu diesem Anruf einladen"
