@@ -52,6 +52,8 @@ interface Props {
    * that offers less, so the caller says what is real.
    */
   offer?: readonly StageView[];
+  /** `light` for the rail inside the call menu, which sits on white. */
+  tone?: "dark" | "light";
   className?: string;
   onTouchEnd?: (e: TouchEvent) => void;
 }
@@ -82,6 +84,7 @@ export const ViewSwitcher: FC<Props> = ({
   active,
   onChange,
   offer = DEFAULT_VIEWS,
+  tone = "dark",
   className,
   onTouchEnd,
 }) => {
@@ -175,7 +178,9 @@ export const ViewSwitcher: FC<Props> = ({
     // a single interactive element.
     // eslint-disable-next-line jsx-a11y/interactive-supports-focus
     <div
-      className={classNames(styles.rail, className)}
+      className={classNames(styles.rail, className, {
+        [styles.light]: tone === "light",
+      })}
       data-testid="view-switcher"
       role="radiogroup"
       aria-label={t("oriso.view_switcher_label")}

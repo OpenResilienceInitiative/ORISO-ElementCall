@@ -320,19 +320,13 @@ describe("the name, when it does not fit", () => {
     expect(tag.lastElementChild?.textContent).toBe(" 303");
   });
 
-  it("sizes its chrome to the half it owns, on both sides", () => {
+  it("knows which side of the circle its name stands on", () => {
     /*
-     * Shifting the chrome layer was not enough: `.fg` spans 84% of the WHOLE
-     * box, so moving it sideways carries its left-aligned name capsule and
-     * its right-aligned options button the same distance — the left tile's
-     * button stayed past the seam and was clipped away with the tile's only
-     * menu control in it. The bounds come from `focusX`, which the layout
-     * sets to the middle of the half it gave this tile.
-     *
-     * An even split: the left half is [0, 0.5] and the right [0.5, 1], each
-     * inset by 8% of its own width — so 4% of the box, not 8%.
+     * The names stand under the circle (section 2b): the left half's at the
+     * circle's left edge, the right half's at its right edge. `focusX` is
+     * the middle of the half the layout gave this tile, so it says which.
      */
-    const half = (focusX: number): CSSStyleDeclaration =>
+    const side = (focusX: number): string | undefined =>
       render(
         <MediaView
           {...base}
@@ -344,28 +338,21 @@ describe("the name, when it does not fit", () => {
             focusX,
           }}
         />,
-      ).container.querySelector<HTMLElement>('[data-oriso-half="true"]')!.style;
+      ).container.querySelector<HTMLElement>('[data-oriso-half="true"]')!
+        .dataset.orisoSide;
 
-    const left = half(0.25);
-    expect(left.getPropertyValue("--oriso-half-inset-start")).toBe("4.000%");
-    expect(left.getPropertyValue("--oriso-half-inset-end")).toBe("54.000%");
-
-    const right = half(0.75);
-    expect(right.getPropertyValue("--oriso-half-inset-start")).toBe("54.000%");
-    expect(right.getPropertyValue("--oriso-half-inset-end")).toBe("4.000%");
+    expect(side(0.31)).toBe("start");
+    expect(side(0.69)).toBe("end");
   });
 
-  it("owns only its half of a shared box", () => {
+  it("clips the face, not the tile, so the name under the circle shows", () => {
     /*
      * In the Einzelgespräch both tiles are given the WHOLE circle and differ
-     * only by the clip path — that is what makes them one body rather than
-     * two shapes side by side. But a tile is more than its background: the
-     * later one's box lay over both halves and swallowed every click meant
-     * for the other, and both name capsules sat at the same corner of the
-     * same circle, one on top of the other.
-     *
-     * The clip on the ROOT fixes the first (a clipped-away region is not
-     * hit-testable) and the focus shift fixes the second.
+     * only by the clip path — that is what makes them one body. The clip
+     * used to sit on the tile ROOT, which also cut off everything outside
+     * the circle: the names had to sit on top of it as capsules. The face
+     * carries the clip now (and is the hit target, along that clip), so the
+     * chrome can stand below the circle.
      */
     const { container } = render(
       <MediaView
@@ -383,10 +370,40 @@ describe("the name, when it does not fit", () => {
     const tile = container.querySelector<HTMLElement>(
       '[data-testid="videoTile"]',
     )!;
-    expect(tile.style.clipPath).toBe("url(#seam)");
+    expect(tile.style.clipPath).toBe("");
+    expect(screen.getByTestId("oriso-face").style.clipPath).toBe("url(#seam)");
     expect(tile.dataset.orisoHalf).toBe("true");
     // (0.31 - 0.5) * min(300, 200) = -38
     expect(tile.style.getPropertyValue("--oriso-focus-shift")).toBe("-38px");
+  });
+
+  it("says under the name whether this person speaks or listens", () => {
+    const half = (speaking: boolean): HTMLElement => {
+      const { unmount } = render(
+        <MediaView
+          {...base}
+          orisoIdentity={FOX}
+          orisoSpeaking={speaking}
+          orisoShape={{ radius: "50%", tilt: 0, focusX: 0.25 }}
+        />,
+      );
+      const status = screen.getByTestId("oriso_status");
+      const copy = status.cloneNode(true) as HTMLElement;
+      unmount();
+      return copy;
+    };
+
+    const talking = half(true);
+    expect(talking.dataset.speaking).toBe("true");
+    expect(talking.textContent).toBe("speaking");
+    const listening = half(false);
+    expect(listening.dataset.speaking).toBe("false");
+    expect(listening.textContent).toBe("listening");
+  });
+
+  it("keeps the capsule, without a status line, outside the Einzelgespräch", () => {
+    render(<MediaView {...base} orisoIdentity={FOX} />);
+    expect(screen.queryByTestId("oriso_status")).toBeNull();
   });
 
   it("asks for neither when the layout gave it the whole shape", () => {

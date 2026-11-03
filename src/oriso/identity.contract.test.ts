@@ -31,13 +31,26 @@ const EVENT_TYPE = "org.oriso.call.identity";
 
 /** Exactly what `ownCallIdentity` over there produces. */
 const ON_THE_WIRE = {
-  animal: { kind: "animal", file: "fox.svg", bg: "#165E83", ink: "#ffffff" },
-  motif: { kind: "motif", file: "owl.svg", bg: "#a5000a", ink: "#ffffff" },
+  animal: {
+    kind: "animal",
+    file: "fox.svg",
+    bg: "#165E83",
+    ink: "#ffffff",
+    name: "ruhiger Fuchs 432",
+  },
+  motif: {
+    kind: "motif",
+    file: "owl.svg",
+    bg: "#a5000a",
+    ink: "#ffffff",
+    name: "Beratung Nord",
+  },
   initials: {
     kind: "initials",
     bg: "#a5000a",
     ink: "#ffffff",
     initials: "SP",
+    name: "Susanne Pfeiffer",
   },
 } as const;
 
@@ -50,6 +63,22 @@ describe("the record the host publishes", () => {
     "accepts the %s record",
     (_kind, wire) => {
       expect(readIdentity(wire)).toEqual(wire);
+    },
+  );
+
+  /*
+   * A host that has not been taught to publish a name — the deployed state
+   * on the day this lands — must still produce a usable record. The field
+   * is optional on the wire in both directions, and the tile falls back to
+   * the display name it already has.
+   */
+  it.each(Object.entries(ON_THE_WIRE))(
+    "accepts the %s record from a host too old to send a name",
+    (_kind, wire) => {
+      const { name: _ignored, ...older } = wire;
+      const read = readIdentity(older);
+      expect(read).not.toBeNull();
+      expect(read?.name).toBeUndefined();
     },
   );
 

@@ -139,3 +139,23 @@ body[data-platform="ios"] .drawer {
   background: var(--cpd-color-icon-secondary);
   border-radius: var(--cpd-radius-pill-effect);
 }
+
+/* The ORISO settings (#110): no grey header band, the notes panel's quiet
+   28px close button, and the primary focus ring instead of the browser's. */
+:global(.oriso-settings) .header {
+  background: transparent;
+}
+
+:global(.oriso-settings) .close {
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 4px;
+  border-radius: 14px;
+  background: transparent;
+  color: rgb(102 100 105);
+}
+
+:global(.oriso-settings) :focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
+}

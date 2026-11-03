@@ -217,10 +217,7 @@ test("matches the LiveKit participant identity generated from Matrix membership"
   const members$ = createMatrixLivekitMembers$({
     scope: testScope,
     membershipsWithTransport$: constant(
-      new Epoch(
-        [{ membership: bobMembership, transport: transportA }],
-        0,
-      ),
+      new Epoch([{ membership: bobMembership, transport: transportA }], 0),
     ),
     connectionManager: {
       connectionManagerData$: constant(new Epoch(managerData, 0)),
@@ -229,7 +226,7 @@ test("matches the LiveKit participant identity generated from Matrix membership"
 
   const member = members$.getValue().value[0];
   expect(member.participant.value$.getValue()).toBe(participant);
-  expect(member.participantId).toBe(participantId);
+  expect(member.participant.value$.getValue()?.identity).toBe(participantId);
 });
 
 test("should signal participant on a connection that is not publishing", () => {

@@ -22,6 +22,7 @@ import {
   MicOffSolidIcon,
   MicOffIcon,
   OverflowHorizontalIcon,
+  OverflowVerticalIcon,
   VolumeOnIcon,
   VolumeOffIcon,
   VisibilityOnIcon,
@@ -52,6 +53,7 @@ import { useMergedRefs } from "../useMergedRefs";
 import { useReactionsSender } from "../reactions/useReactionsSender";
 import { useBehavior } from "../useBehavior";
 import { useOrisoIdentity, useOrisoStage } from "../oriso/useOrisoIdentities";
+import { shownNameFor } from "../oriso/identity";
 import { useOrisoShape } from "../oriso/useOrisoShape";
 
 interface TileProps {
@@ -159,6 +161,18 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
   const { parentUrl } = useOrisoStage();
   const orisoIdentity = useOrisoIdentity(vm.userId, displayName);
   const orisoShape = useOrisoShape(vm.id);
+  /*
+   * The name the ROOM uses, not the one the homeserver happens to hold.
+   *
+   * `displayName` comes from `RoomMember.name`, which matrix-js-sdk answers
+   * with the user id for a profile that has none — the normal state of an
+   * ORISO account, whose pseudonym lives in the userservice. So every tag,
+   * every menu title and every accessible name here said
+   * `@cyrus:oriso.org`. One substitution at the top rather than four at the
+   * use sites: the id must not survive in the menu after being taken off
+   * the tag, which is the half a reviewer would not see in a screenshot.
+   */
+  const shownName = shownNameFor(displayName, orisoIdentity);
 
   const tile = (
     <MediaView
@@ -188,7 +202,7 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
           className={styles.muteIcon}
         />
       }
-      displayName={displayName}
+      displayName={shownName}
       mxcAvatarUrl={mxcAvatarUrl}
       focusable={focusable}
       primaryButton={
@@ -196,13 +210,19 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
           <Menu
             open={menuOpen}
             onOpenChange={setMenuOpen}
-            title={displayName}
+            title={shownName}
             trigger={
               <button
                 aria-label={t("common.options")}
                 tabIndex={focusable ? undefined : -1}
               >
-                <OverflowHorizontalIcon aria-hidden width={20} height={20} />
+                {/* Under the Einzelgespräch's circle the design draws a
+                    vertical `⋮` beside each name. */}
+                {orisoShape?.focusX === undefined ? (
+                  <OverflowHorizontalIcon aria-hidden width={20} height={20} />
+                ) : (
+                  <OverflowVerticalIcon aria-hidden width={20} height={20} />
+                )}
               </button>
             }
             side="left"
@@ -239,7 +259,7 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
   );
 
   return (
-    <ContextMenu title={displayName} trigger={tile} hasAccessibleAlternative>
+    <ContextMenu title={shownName} trigger={tile} hasAccessibleAlternative>
       {menu}
     </ContextMenu>
   );

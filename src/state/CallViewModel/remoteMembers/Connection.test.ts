@@ -37,6 +37,7 @@ import { ObservableScope } from "../../ObservableScope.ts";
 import { type OpenIDClientParts } from "../../../livekit/openIDSFU.ts";
 import {
   ElementCallError,
+  LiveKitJwtServiceUnavailableError,
   FailToGetOpenIdToken,
 } from "../../../utils/errors.ts";
 import { mockRemoteParticipant } from "../../../utils/test.ts";
@@ -253,13 +254,14 @@ describe("Start connection states", () => {
 
     capturedState = capturedStates.pop();
 
+    // A 5xx from the JWT gateway is classified as "JWT service unavailable"
+    // (see getLiveKitJWT in openIDSFU.ts), with the status as the cause.
     if (
-      capturedState instanceof ElementCallError &&
+      capturedState instanceof LiveKitJwtServiceUnavailableError &&
       capturedState.cause instanceof Error
     ) {
-      expect(capturedState.cause.message).toContain(
-        "SFU Config fetch failed with exception Error",
-      );
+      expect(capturedState.status).toBe(500);
+      expect(capturedState.cause.message).toBe("JWT gateway returned 500");
       expect(connection.transport.livekit_alias).toEqual(
         livekitFocus.livekit_alias,
       );

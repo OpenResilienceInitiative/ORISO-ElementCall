@@ -7,6 +7,7 @@ Please see LICENSE in the repository root for full details.
 
 import { type FC, type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import classNames from "classnames";
 import { type MatrixClient } from "matrix-js-sdk";
 import { Button, Root as Form, Separator } from "@vector-im/compound-web";
 import { type Room as LivekitRoom } from "livekit-client";
@@ -122,7 +123,7 @@ export const SettingsModal: FC<Props> = ({
   // a single device. These are called "headset" or "speaker" (or similar) but contain both input and output.
   // On EC, we decided that it is less confusing for the user if they see those options in the output section
   // rather than the input section.
-  const { controlledAudioDevices } = useUrlParams();
+  const { controlledAudioDevices, orisoDesign } = useUrlParams();
   // If we are on iOS we will show a button to open the native audio device picker.
   const iosDeviceMenu = useBehavior(iosDeviceMenu$);
 
@@ -242,7 +243,12 @@ export const SettingsModal: FC<Props> = ({
   return (
     <Modal
       title={t("common.settings")}
-      className={styles.settingsModal}
+      className={classNames(
+        styles.settingsModal,
+        // The ORISO look (#110): light tokens under the dark call, and a plain
+        // class the tab bar's and the device list's ORISO rules hang on.
+        orisoDesign && [styles.oriso, "cpd-theme-light", "oriso-settings"],
+      )}
       open={open}
       onDismiss={onDismiss}
       tabbed

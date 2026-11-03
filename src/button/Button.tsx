@@ -79,8 +79,7 @@ export const VideoButton: FC<VideoButtonProps & TooltipControlProps> = ({
 };
 
 interface ShareScreenButtonProps
-  extends ComponentPropsWithoutRef<"button">,
-    TooltipControlProps {
+  extends ComponentPropsWithoutRef<"button">, TooltipControlProps {
   enabled: boolean;
 }
 
@@ -108,11 +107,7 @@ export const ShareScreenButton: FC<ShareScreenButtonProps> = ({
 
 export const EndCallButton: FC<
   ComponentPropsWithoutRef<"button"> & TooltipControlProps
-> = ({
-  className,
-  disableTooltip = false,
-  ...props
-}) => {
+> = ({ className, disableTooltip = false, ...props }) => {
   const { t } = useTranslation();
 
   const button = (
@@ -125,7 +120,9 @@ export const EndCallButton: FC<
     />
   );
 
-  return disableTooltip ? button : (
+  return disableTooltip ? (
+    button
+  ) : (
     <Tooltip label={t("hangup_button_label")}>{button}</Tooltip>
   );
 };
@@ -136,15 +133,12 @@ export const SettingsButton: FC<
   const { t } = useTranslation();
 
   const button = (
-    <CpdButton
-      iconOnly
-      Icon={SettingsSolidIcon}
-      kind="secondary"
-      {...props}
-    />
+    <CpdButton iconOnly Icon={SettingsSolidIcon} kind="secondary" {...props} />
   );
 
-  return disableTooltip ? button : (
+  return disableTooltip ? (
+    button
+  ) : (
     <Tooltip label={t("common.settings")}>{button}</Tooltip>
   );
 };

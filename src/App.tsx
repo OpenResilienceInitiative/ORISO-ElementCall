@@ -89,7 +89,11 @@ export const App: FC<Props> = ({ vm }) => {
       <ThemeProvider>
         <TooltipProvider>
           <Suspense fallback={null}>
-            {header === HeaderStyle.AppBar ? <AppBar>{content}</AppBar> : content}
+            {header === HeaderStyle.AppBar ? (
+              <AppBar>{content}</AppBar>
+            ) : (
+              content
+            )}
           </Suspense>
         </TooltipProvider>
       </ThemeProvider>

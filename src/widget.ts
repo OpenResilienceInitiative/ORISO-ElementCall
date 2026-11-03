@@ -45,6 +45,17 @@ export enum ElementWidgetActions {
   DeviceMute = "io.element.device_mute",
 }
 
+/** ORISO's own actions between the call and the host app around it. */
+export enum OrisoWidgetActions {
+  // toWidget: who knocks on this call's link, and its "Anklopfen" setting
+  //   { waiting: number, knock: boolean | null } — null: no link to switch.
+  //   The host sends it whenever either changes (#108).
+  KnockState = "org.oriso.call.knock_state",
+  // fromWidget: the person flipped "Anklopfen" in the call menu. The link
+  //   belongs to the host, so the call only asks: { knock: boolean }.
+  SetKnock = "org.oriso.call.set_knock",
+}
+
 export interface JoinCallData {
   audioInput: string | null;
   videoInput: string | null;
@@ -92,6 +103,7 @@ export const widget = ((): WidgetHelpers | null => {
         ElementWidgetActions.TileLayout,
         ElementWidgetActions.SpotlightLayout,
         ElementWidgetActions.DeviceMute,
+        OrisoWidgetActions.KnockState,
       ].forEach((action) => {
         api.on(`action:${action}`, (ev: CustomEvent<IWidgetApiRequest>) => {
           ev.preventDefault();

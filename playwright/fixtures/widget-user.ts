@@ -150,9 +150,11 @@ export async function registerUser(
 
   await setDevToolElementCallDevUrl(page);
 
-  const clientHandle = await page.evaluateHandle(() =>
-    window.mxMatrixClientPeg.get(),
-  );
+  const clientHandle = await page.evaluateHandle(() => {
+    const client = window.mxMatrixClientPeg?.get();
+    if (!client) throw new Error("Matrix client is not available");
+    return client;
+  });
   const mxId = (await clientHandle.evaluate(
     (cli: MatrixClient) => cli.getUserId(),
     clientHandle,

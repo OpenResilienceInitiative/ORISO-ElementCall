@@ -248,6 +248,27 @@ export interface OrisoIdentity {
    * fills them in from the display name it has; see `useOrisoIdentity`.
    */
   initials?: string;
+  /**
+   * What this person is CALLED, by the name the room they came from uses.
+   *
+   * Inherited for the same reason the animal is. The call has no source for
+   * a name except `RoomMember.name`, and matrix-js-sdk answers that with the
+   * user id when a profile carries no display name — which is the normal
+   * state of an ORISO counsellor account, because the pseudonym lives in the
+   * userservice and was never written to the homeserver. So a counselling
+   * call labelled its participants `@cyrus:oriso.org`: an identifier on the
+   * one surface whose entire purpose is that identifiers stay out of sight.
+   *
+   * Putting it in the Matrix profile instead would have been the smaller
+   * change and the wrong one — a profile display name is server-visible and
+   * federates, so it would publish the pseudonym permanently to close the
+   * leak temporarily. This record is already the encrypted channel for
+   * exactly this kind of fact, so the name travels in it.
+   *
+   * Absent means the host did not say, which older hosts do not; the tile
+   * then falls back to the display name it has. See `shownNameFor`.
+   */
+  name?: string;
 }
 
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -326,6 +347,112 @@ export function resetRejectionLog(): void {
 }
 
 /**
+ * A bare Matrix user id and nothing else — `@cyrus:oriso.org`.
+ *
+ * Anchored at both ends on purpose. matrix-js-sdk disambiguates clashing
+ * names by appending the id (`Alex (@alex:example.org)`), and that string
+ * must survive untouched: it is a deliberate answer to two people called
+ * Alex, not the fallback this guards against.
+ */
+const MATRIX_ID_ONLY = /^@([^:\s]+):[^\s]+$/;
+
+/**
+ * How long a name may be before it is cut.
+ *
+ * ORISO pseudonyms are three short words; a counsellor's published name is
+ * shorter still. The cap is here because the value is a STRANGER'S — anybody
+ * in the room can publish an identity event — and it lands in a name tag
+ * that the layout sizes around.
+ */
+const MAX_NAME_LENGTH = 64;
+
+/**
+ * A display name out of untrusted event content.
+ *
+ * Control characters out (a newline in a name tag is a second line nobody
+ * sized a tile for, and bidi overrides can make one name render as another),
+ * runs of whitespace collapsed, trimmed, cut to length. `undefined` for
+ * anything left empty, which puts the tile back on what it already had.
+ *
+ * A name that is only a Matrix id is refused rather than shown. It is the
+ * exact value this field exists to replace, and a host that sends it —
+ * because it read `RoomMember.name` itself and passed the fallback on — must
+ * not be able to reintroduce the identifier through the field meant to keep
+ * it out.
+ */
+function readName(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const cleaned = raw
+    /*
+     * Every format character, not a hand-picked list of them.
+     *
+     * The first version named the bidi marks and overrides it knew about and
+     * missed the isolates (U+2066-2069) and the zero-width characters
+     * (U+200B-200D, U+FEFF) — review caught it. `\p{Cf}` is the category all
+     * of them are in, so the rule is now "no invisible formatting" rather
+     * than a list that is one Unicode revision from being incomplete.
+     *
+     * They are REMOVED rather than replaced by a space: a space would make a
+     * name of nothing but zero-width characters non-empty, which is the
+     * blank tag the emptiness check below exists to refuse.
+     */
+    .replace(/\p{Cf}/gu, "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_NAME_LENGTH)
+    .trim();
+  if (cleaned.length === 0) return undefined;
+  if (MATRIX_ID_ONLY.test(cleaned)) return undefined;
+  return cleaned;
+}
+
+/**
+ * The name to put on a person's tile.
+ *
+ * Three answers, in order: what the host published, what the room already
+ * knows, and — only when the room's answer is a bare Matrix id — the local
+ * part of it. The last is a floor, not a fix: `cyrus` is a username and not
+ * a name, but it is the half of `@cyrus:oriso.org` that is not addressing
+ * information, and it is what a call running against a host too old to
+ * publish names can honestly show.
+ *
+ * `undefined` identity means this is not an ORISO call at all — the lobby,
+ * the standalone build — and upstream's name is returned untouched.
+ */
+export function shownNameFor(
+  displayName: string,
+  identity: OrisoIdentity | undefined,
+): string {
+  if (identity === undefined) return displayName;
+  /*
+   * The published name is only consulted where the room has NO name of its
+   * own — review's answer to impersonation, and the right one.
+   *
+   * Identities are keyed on the event's sender (`readIdentities`), so nobody
+   * can publish a record onto somebody else's tile. What was left is a
+   * person relabelling their OWN tile: an advice seeker publishing "Beratung
+   * Nord" and sitting in a group session next to the counsellor it names.
+   * Keying cannot stop that, because it is their own tile.
+   *
+   * So the homeserver's answer wins whenever it is a real one, and the
+   * published name is taken only for the case it was added for — a profile
+   * with no display name, which on this platform is every pseudonymous
+   * account, because the pseudonym lives in the userservice and is never
+   * written to Matrix. It costs nothing where it matters and closes the hole
+   * where a name already exists.
+   *
+   * It also leaves matrix-js-sdk's disambiguation ("Alex (@alex:example.org)")
+   * standing, which is a deliberate answer to two people called Alex and not
+   * ours to overrule.
+   */
+  const bare = MATRIX_ID_ONLY.exec(displayName.trim());
+  if (bare === null) return displayName;
+  return identity.name ?? bare[1];
+}
+
+/**
  * An identity record out of untrusted event content.
  *
  * Every field is checked, because this arrives from another client over the
@@ -369,7 +496,7 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
     // which is the truth, and the tile then takes the letters from the
     // display name it already has.
     if (letters.length === 0) return null;
-    return { kind, bg, ink, initials: letters };
+    return { kind, bg, ink, initials: letters, name: readName(raw.name) };
   }
   if (kind !== "animal" && kind !== "motif") return null;
 
@@ -384,7 +511,7 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
     return null;
   }
 
-  return { kind, file, bg, ink };
+  return { kind, file, bg, ink, name: readName(raw.name) };
 }
 
 /**
