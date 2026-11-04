@@ -329,7 +329,11 @@ function createInCallView({
             <RoomContext value={livekitRoom}>
               <InCallView
                 client={client}
-                header={HeaderStyle.Standard}
+                header={
+                  callIntent === "video"
+                    ? HeaderStyle.None
+                    : HeaderStyle.Standard
+                }
                 rtcSession={rtcSession.asMockedSession()}
                 muteStates={muteState}
                 vm={vm}
@@ -338,7 +342,7 @@ function createInCallView({
                   displayName: "",
                   avatarUrl: "",
                   roomId: "",
-                  roomName: "",
+                  roomName: "Schuldnerberatung",
                   roomAlias: null,
                   roomAvatar: null,
                   e2eeSystem: {
@@ -435,6 +439,35 @@ describe("the call, in the ORISO design", () => {
         '[data-block-alignment="end"][data-inline-alignment="end"]',
       ),
     ).toBeInTheDocument();
+  });
+
+  it("opens docked notes from the header of an embedded video call", () => {
+    const { container } = createInCallView({
+      callIntent: "video",
+      published: {},
+    });
+    expect(screen.getByText("Schuldnerberatung")).toBeInTheDocument();
+
+    const headerButton = screen.getByTestId("incall_video_header_notes");
+    expect(headerButton).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(headerButton);
+
+    expect(
+      screen.getByRole("region", { name: "My call note" }),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-notes-docked="true"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("incall_notes")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.click(screen.getByTestId("incall_notes"));
+    expect(
+      screen.queryByRole("region", { name: "My call note" }),
+    ).not.toBeInTheDocument();
+    expect(headerButton).toHaveAttribute("aria-pressed", "false");
   });
 
   it("inherits the artwork from the host rather than drawing its own", async () => {
