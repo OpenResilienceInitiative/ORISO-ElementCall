@@ -219,6 +219,7 @@ function createInCallView({
   embedded = true,
   orisoDesign = true,
   crowd = false,
+  callIntent,
 }: {
   mediaError?: ElementCallError | null;
   published?: Record<string, Record<string, string>>;
@@ -228,6 +229,7 @@ function createInCallView({
   orisoDesign?: boolean;
   /** Three or more puts the grove on; two gives the Einzelgespräch. */
   crowd?: boolean;
+  callIntent?: "audio" | "video";
 } = {}): RenderResult & {
   rtcSession: MockRTCSession;
   retryMedia: ReturnType<typeof vi.fn>;
@@ -313,7 +315,8 @@ function createInCallView({
       initialEntries={[
         embedded
           ? `/room/#?widgetId=w${orisoDesign ? "&orisoDesign=true" : ""}` +
-            `&parentUrl=${encodeURIComponent(HOST)}`
+            `&parentUrl=${encodeURIComponent(HOST)}` +
+            (callIntent === undefined ? "" : `&callIntent=${callIntent}`)
           : "/room/",
       ]}
     >
@@ -404,6 +407,34 @@ describe("the call, in the ORISO design", () => {
     expect(faces.every((face) => face.style.clipPath.startsWith("url("))).toBe(
       true,
     );
+  });
+
+  it("keeps the audio circle with participant symbols and hides the camera control", async () => {
+    createInCallView({ callIntent: "audio", published: {} });
+
+    expect(await screen.findByTestId("einzelgespraech")).toBeInTheDocument();
+    const symbols = await screen.findAllByTestId("oriso-initials");
+    expect(symbols).toHaveLength(2);
+    expect(symbols.every((symbol) => symbol.textContent?.trim())).toBe(true);
+    expect(screen.queryByTestId("incall_videomute")).not.toBeInTheDocument();
+  });
+
+  it("shows the video layout and both identities with the cameras off", async () => {
+    const { container } = createInCallView({
+      callIntent: "video",
+      published: {},
+    });
+
+    expect(screen.queryByTestId("einzelgespraech")).not.toBeInTheDocument();
+    expect(screen.getByTestId("incall_videomute")).toBeInTheDocument();
+    const symbols = await screen.findAllByTestId("oriso-initials");
+    expect(symbols).toHaveLength(2);
+    expect(symbols.every((symbol) => symbol.textContent?.trim())).toBe(true);
+    expect(
+      container.querySelector(
+        '[data-block-alignment="end"][data-inline-alignment="end"]',
+      ),
+    ).toBeInTheDocument();
   });
 
   it("inherits the artwork from the host rather than drawing its own", async () => {

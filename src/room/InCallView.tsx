@@ -70,6 +70,7 @@ import { E2eeType } from "../e2ee/e2eeType";
 import { makeGridLayout } from "../grid/GridLayout";
 import {
   type CallLayoutOutputs,
+  type Alignment,
   defaultPipAlignment,
   defaultSpotlightAlignment,
 } from "../grid/CallLayout";
@@ -467,8 +468,12 @@ export const InCallView: FC<InCallViewProps> = ({
    * Read before the bounds below, because they depend on it: see the ORISO
    * section further down for what the gate means.
    */
-  const { parentUrl, orisoAtmosphere, orisoDesign } = useUrlParams();
+  const { parentUrl, orisoAtmosphere, orisoDesign, callIntent } =
+    useUrlParams();
   const orisoEnabled = orisoDesign;
+  const orisoAudioOnly = orisoEnabled && callIntent === "audio";
+  const orisoVideoCall = orisoEnabled && callIntent === "video";
+  const orisoVideoOneOnOne = orisoVideoCall && layout.type === "one-on-one";
 
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
@@ -483,7 +488,7 @@ export const InCallView: FC<InCallViewProps> = ({
    * covered.
    */
   const notesDocked =
-    (gridMode === "spotlight" || !alone) &&
+    (gridMode === "spotlight" || !alone || orisoVideoOneOnOne) &&
     bounds.width >= NOTES_DOCK_MIN_WIDTH;
   const notesCompact = bounds.width <= NOTES_COMPACT_MAX_WIDTH;
   const notesShown = orisoEnabled && showControls && notesOpen;
@@ -532,7 +537,10 @@ export const InCallView: FC<InCallViewProps> = ({
     () => new BehaviorSubject(defaultSpotlightAlignment),
   );
   const pipAlignment$ = useInitial(
-    () => new BehaviorSubject(defaultPipAlignment),
+    () =>
+      new BehaviorSubject<Alignment>(
+        orisoVideoCall ? { inline: "end", block: "end" } : defaultPipAlignment,
+      ),
   );
 
   const setGridMode = useCallback(
@@ -559,8 +567,16 @@ export const InCallView: FC<InCallViewProps> = ({
       identities: orisoIdentities,
       parentUrl,
       enabled: orisoEnabled,
+      audioOnly: orisoAudioOnly,
+      rectangular: orisoVideoOneOnOne,
     }),
-    [orisoIdentities, parentUrl, orisoEnabled],
+    [
+      orisoIdentities,
+      parentUrl,
+      orisoEnabled,
+      orisoAudioOnly,
+      orisoVideoOneOnOne,
+    ],
   );
   const orisoShapes = useInitial(() => new OrisoShapeStore());
 
@@ -838,11 +854,18 @@ export const InCallView: FC<InCallViewProps> = ({
       "spotlight-landscape": makeSpotlightLandscapeLayout(inputs),
       "spotlight-portrait": makeSpotlightPortraitLayout(inputs),
       "spotlight-expanded": makeSpotlightExpandedLayout(inputs),
-      "one-on-one": orisoEnabled
-        ? makeEinzelgespraechLayout(inputs)
-        : makeOneOnOneLayout(inputs),
+      "one-on-one":
+        orisoEnabled && !orisoVideoCall
+          ? makeEinzelgespraechLayout(inputs)
+          : makeOneOnOneLayout({ ...inputs, fillStage: orisoVideoCall }),
     };
-  }, [gridBoundsObservable$, spotlightAlignment$, pipAlignment$, orisoEnabled]);
+  }, [
+    gridBoundsObservable$,
+    spotlightAlignment$,
+    pipAlignment$,
+    orisoEnabled,
+    orisoVideoCall,
+  ]);
 
   const renderContent = (): JSX.Element => {
     if (layout.type === "pip") {
@@ -1013,6 +1036,7 @@ export const InCallView: FC<InCallViewProps> = ({
             className={styles.orisoToolbar}
             audioMuted={!audioEnabled || mediaError !== null}
             onToggleAudio={mediaError === null ? toggleAudio : null}
+            showVideo={!orisoAudioOnly}
             videoMuted={!videoEnabled || mediaError !== null}
             onToggleVideo={mediaError === null ? toggleVideo : null}
             handRaised={localHandRaised}

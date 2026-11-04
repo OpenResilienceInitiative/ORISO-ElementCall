@@ -23,6 +23,7 @@ import { type ReactionOption } from "../reactions";
 import { ReactionIndicator } from "../reactions/ReactionIndicator";
 import { RTCConnectionStats } from "../RTCConnectionStats";
 import { OrisoFace } from "../oriso/OrisoFace";
+import { useOrisoStage } from "../oriso/useOrisoIdentities";
 import { type OrisoIdentity } from "../oriso/identity";
 import { splitName, type TileShape } from "../oriso/shape";
 import { HALO_ROOM_MAX_SHARE, shapelessFaceSide } from "../oriso/halo";
@@ -71,6 +72,14 @@ interface Props extends ComponentProps<typeof animated.div> {
   orisoParentUrl?: string | null;
 }
 
+const VIDEO_STAGE_SHAPE: TileShape = {
+  radius: "var(--cpd-space-5x)",
+  tilt: 0,
+  contentShare: 0.4,
+  body: false,
+  lifted: false,
+};
+
 export const MediaView: FC<Props> = ({
   ref,
   className,
@@ -81,7 +90,7 @@ export const MediaView: FC<Props> = ({
   videoFit,
   mirror,
   userId,
-  videoEnabled,
+  videoEnabled: cameraEnabled,
   unencryptedWarning,
   nameTagLeadingIcon,
   displayName,
@@ -97,7 +106,7 @@ export const MediaView: FC<Props> = ({
   videoStreamStats,
   focusUrl,
   orisoIdentity,
-  orisoShape,
+  orisoShape: layoutShape,
   orisoSpeaking = false,
   orisoParentUrl = null,
   ...props
@@ -105,6 +114,11 @@ export const MediaView: FC<Props> = ({
   const { t } = useTranslation();
   const [handRaiseTimerVisible] = useSetting(showHandRaisedTimer);
 
+  const { audioOnly, rectangular } = useOrisoStage();
+  const orisoRectangular = orisoIdentity !== undefined && rectangular;
+  const videoEnabled =
+    cameraEnabled && !(orisoIdentity !== undefined && audioOnly);
+  const orisoShape = orisoRectangular ? VIDEO_STAGE_SHAPE : layoutShape;
   const avatarSize = Math.round(Math.min(targetWidth, targetHeight) / 2);
 
   const hasVideo = video?.publication !== undefined;
@@ -235,6 +249,7 @@ export const MediaView: FC<Props> = ({
       data-testid="videoTile"
       data-video-fit={videoFit}
       data-oriso={orisoIdentity === undefined ? undefined : "true"}
+      data-oriso-rectangular={orisoRectangular ? "true" : undefined}
       data-oriso-speaking={orisoSpeaking ? "true" : undefined}
       data-oriso-half={orisoFocusShift === undefined ? undefined : "true"}
       data-oriso-side={orisoHalfSide}

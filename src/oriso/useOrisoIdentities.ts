@@ -369,6 +369,10 @@ export interface OrisoStage {
    * so there is only ever one tile implementation.
    */
   enabled: boolean;
+  /** Camera feeds are hidden for participant tiles in a pure audio call. */
+  audioOnly?: boolean;
+  /** The 5A video stage uses rectangular participant tiles. */
+  rectangular?: boolean;
 }
 
 const EMPTY: OrisoStage = {

@@ -266,6 +266,25 @@ unconditionally select the container so we can use cqmin units */
   object-fit: cover;
 }
 
+.media.oriso[data-oriso-rectangular="true"] {
+  --media-view-fg-inset: var(--cpd-space-3x);
+}
+
+.media.oriso[data-oriso-rectangular="true"] > .fg {
+  grid-template-rows: 1fr auto;
+  grid-template-areas: "reactions status button" "nameTag nameTag nameTag";
+}
+
+.media.oriso[data-oriso-rectangular="true"] .nameTag {
+  max-inline-size: min(100%, 17rem);
+}
+
+@container mediaView (height < 150px) {
+  .media.oriso[data-oriso-rectangular="true"] > .bg {
+    padding-block-end: var(--cpd-space-5x);
+  }
+}
+
 .media.oriso[data-video-fit="contain"] video {
   object-fit: contain;
 }
