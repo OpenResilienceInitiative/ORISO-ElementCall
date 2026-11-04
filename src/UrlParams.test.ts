@@ -372,6 +372,58 @@ describe("UrlParams", () => {
     });
   });
 
+  describe("initial devices from the host's pre-join check (#116)", () => {
+    const widget =
+      "?intent=start_call&callIntent=video&skipLobby=true&widgetId=1&parentUrl=https%3A%2F%2Fapp.example";
+
+    it("starts with the camera off when the host says so", () => {
+      expect(
+        computeUrlParams("", `#${widget}&videoEnabled=false`),
+      ).toMatchObject({
+        callIntent: "video",
+        defaultAudioEnabled: true,
+        defaultVideoEnabled: false,
+      });
+    });
+
+    it("starts with the microphone off when the host says so", () => {
+      expect(
+        computeUrlParams("", `#${widget}&audioEnabled=false`),
+      ).toMatchObject({
+        defaultAudioEnabled: false,
+        defaultVideoEnabled: true,
+      });
+    });
+
+    it("keeps the intent's defaults when the host says nothing", () => {
+      expect(computeUrlParams("", `#${widget}`)).toMatchObject({
+        defaultAudioEnabled: true,
+        defaultVideoEnabled: true,
+        audioInput: null,
+        videoInput: null,
+      });
+    });
+
+    it("reads the chosen devices by label", () => {
+      const params = new URLSearchParams({
+        audioInput: "Jabra Evolve2 65 (0b0e:030c)",
+        videoInput: "Logi C920 & friends",
+      });
+      expect(
+        computeUrlParams("", `#${widget}&${params.toString()}`),
+      ).toMatchObject({
+        audioInput: "Jabra Evolve2 65 (0b0e:030c)",
+        videoInput: "Logi C920 & friends",
+      });
+    });
+
+    it("treats an empty label as no choice", () => {
+      expect(
+        computeUrlParams("", `#${widget}&audioInput=&videoInput=`),
+      ).toMatchObject({ audioInput: null, videoInput: null });
+    });
+  });
+
   describe("skipLobby", () => {
     it("defaults to false", () => {
       expect(computeUrlParams().skipLobby).toBe(false);
