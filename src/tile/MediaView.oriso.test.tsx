@@ -22,6 +22,7 @@ import { mockLocalParticipant } from "../utils/test";
 import { HALO_ROOM_PX, shapelessFaceSide } from "../oriso/halo";
 import { type OrisoIdentity } from "../oriso/identity";
 import { resetArtworkCache } from "../oriso/artwork";
+import { OrisoStageContext } from "../oriso/useOrisoIdentities";
 import { liftFor } from "../oriso/lift";
 
 const participant = mockLocalParticipant({});
@@ -76,6 +77,49 @@ describe("without an identity, the tile is upstream's", () => {
     // Upstream keeps the track mounted and toggles display, which is what
     // lets it switch without renegotiating. That must not change.
     expect(screen.getByTestId("video").style.display).toBe("block");
+  });
+});
+
+describe("ORISO call mode", () => {
+  const stage = { enabled: true, identities: new Map(), parentUrl: null };
+  const identity: OrisoIdentity = {
+    ...FOX,
+    kind: "initials",
+    file: undefined,
+    initials: "F",
+  };
+
+  it("shows the participant symbol in an audio call even if a camera track is present", () => {
+    render(
+      <OrisoStageContext value={{ ...stage, audioOnly: true }}>
+        <MediaView {...base} orisoIdentity={identity} />
+      </OrisoStageContext>,
+    );
+
+    expect(screen.queryByTestId("video")).not.toBeInTheDocument();
+    expect(screen.getByTestId("oriso-initials")).toHaveTextContent("F");
+  });
+
+  it("keeps the same rectangular video tile when the camera turns off", () => {
+    const tile = (videoEnabled: boolean): React.ReactNode => (
+      <OrisoStageContext value={{ ...stage, rectangular: true }}>
+        <MediaView
+          {...base}
+          orisoIdentity={identity}
+          videoEnabled={videoEnabled}
+        />
+      </OrisoStageContext>
+    );
+    const { rerender } = render(tile(true));
+
+    const frame = screen.getByTestId("videoTile");
+    expect(frame).toHaveAttribute("data-oriso-rectangular", "true");
+    expect(screen.getByTestId("video")).toBeInTheDocument();
+
+    rerender(tile(false));
+    expect(screen.getByTestId("videoTile")).toBe(frame);
+    expect(screen.queryByTestId("video")).not.toBeInTheDocument();
+    expect(screen.getByTestId("oriso-initials")).toHaveTextContent("F");
   });
 });
 

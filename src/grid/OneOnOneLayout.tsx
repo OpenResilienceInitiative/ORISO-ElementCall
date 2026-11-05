@@ -10,7 +10,11 @@ import { useObservableEagerState } from "observable-hooks";
 import classNames from "classnames";
 
 import { type OneOnOneLayout as OneOnOneLayoutModel } from "../state/layout-types.ts";
-import { type CallLayout, arrangeTiles } from "./CallLayout";
+import {
+  type CallLayoutInputs,
+  type CallLayoutOutputs,
+  arrangeTiles,
+} from "./CallLayout";
 import styles from "./OneOnOneLayout.module.css";
 import { type DragCallback, useUpdateLayout } from "./Grid";
 import { useBehavior } from "../useBehavior";
@@ -19,10 +23,13 @@ import { useBehavior } from "../useBehavior";
  * An implementation of the "one-on-one" layout, in which the remote participant
  * is shown at maximum size, overlaid by a small view of the local participant.
  */
-export const makeOneOnOneLayout: CallLayout<OneOnOneLayoutModel> = ({
+export const makeOneOnOneLayout = ({
   minBounds$,
   pipAlignment$,
-}) => ({
+  fillStage = false,
+}: CallLayoutInputs & {
+  fillStage?: boolean;
+}): CallLayoutOutputs<OneOnOneLayoutModel> => ({
   scrollingOnTop: false,
 
   fixed: function OneOnOneLayoutFixed({ ref }): ReactNode {
@@ -35,7 +42,10 @@ export const makeOneOnOneLayout: CallLayout<OneOnOneLayoutModel> = ({
     const { width, height } = useObservableEagerState(minBounds$);
     const pipAlignmentValue = useBehavior(pipAlignment$);
     const { tileWidth, tileHeight } = useMemo(
-      () => arrangeTiles(width, height, 1),
+      () =>
+        fillStage
+          ? { tileWidth: width, tileHeight: height }
+          : arrangeTiles(width, height, 1),
       [width, height],
     );
 
@@ -57,7 +67,9 @@ export const makeOneOnOneLayout: CallLayout<OneOnOneLayoutModel> = ({
           style={{ width: tileWidth, height: tileHeight }}
         >
           <Slot
-            className={classNames(styles.slot, styles.local)}
+            className={classNames(styles.slot, styles.local, {
+              [styles.responsiveLocal]: fillStage,
+            })}
             id={model.local.id}
             model={model.local}
             onDrag={onDragLocalTile}
