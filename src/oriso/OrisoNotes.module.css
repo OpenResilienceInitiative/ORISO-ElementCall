@@ -28,9 +28,9 @@ Please see LICENSE in the repository root for full details.
 /* 2a: beside the stage, the full height between header and bottom. */
 .docked {
   position: absolute;
-  inset-block: var(--oriso-notes-top, 16px) 16px;
-  inset-inline-end: 16px;
-  inline-size: 352px;
+  inset-block: var(--oriso-notes-top, 16px) var(--oriso-notes-dock-bottom, 16px);
+  inset-inline-end: var(--oriso-notes-dock-end, 16px);
+  inline-size: var(--oriso-notes-dock-width, 352px);
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 10%),
     0 3px 0 1px rgb(0 0 0 / 6%);

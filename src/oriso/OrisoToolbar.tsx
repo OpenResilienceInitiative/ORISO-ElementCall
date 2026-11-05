@@ -41,6 +41,7 @@ interface Props {
   audioMuted: boolean;
   /** Null while the microphone cannot be toggled. */
   onToggleAudio: (() => void) | null;
+  showVideo?: boolean;
   videoMuted: boolean;
   onToggleVideo: (() => void) | null;
   /** Null hides the hand: reactions are not available in this call. */
@@ -85,6 +86,7 @@ interface Props {
 export const OrisoToolbar: FC<Props> = ({
   audioMuted,
   onToggleAudio,
+  showVideo = true,
   videoMuted,
   onToggleVideo,
   handRaised,
@@ -189,15 +191,17 @@ export const OrisoToolbar: FC<Props> = ({
         >
           {audioMuted ? <MicOffSolidIcon /> : <MicOnSolidIcon />}
         </ToolbarButton>
-        <ToolbarButton
-          label={videoLabel}
-          state={videoMuted ? "off" : "live"}
-          onClick={onToggleVideo}
-          onTouchEnd={onTouchEnd}
-          testId="incall_videomute"
-        >
-          {videoMuted ? <VideoCallOffSolidIcon /> : <VideoCallSolidIcon />}
-        </ToolbarButton>
+        {showVideo && (
+          <ToolbarButton
+            label={videoLabel}
+            state={videoMuted ? "off" : "live"}
+            onClick={onToggleVideo}
+            onTouchEnd={onTouchEnd}
+            testId="incall_videomute"
+          >
+            {videoMuted ? <VideoCallOffSolidIcon /> : <VideoCallSolidIcon />}
+          </ToolbarButton>
+        )}
         {onToggleHand !== null && (
           <ToolbarButton
             label={handLabel}

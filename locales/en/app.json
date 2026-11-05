@@ -149,6 +149,11 @@
   "hangup_button_label": "End call",
   "header_label": "Element Call Home",
   "header_participants_label": "Participants",
+  "initial_device_notice": {
+    "both_not_found": "Your chosen microphone and camera were not found. The call uses the default devices.",
+    "camera_not_found": "Your chosen camera was not found. The call uses the default camera.",
+    "microphone_not_found": "Your chosen microphone was not found. The call uses the default microphone."
+  },
   "invite_modal": {
     "link_copied_toast": "Link copied to clipboard",
     "title": "Invite to this call"
@@ -202,6 +207,9 @@
     "notes_temporary": "Temporary — deleted when you leave. Copy first.",
     "notes_temporary_short": "Temporary — copy first.",
     "notes_title": "My call note",
+    "video_stage_encrypted": "End-to-end encrypted",
+    "video_stage_notes": "Notes",
+    "video_stage_title": "Video call",
     "speaking": "speaking",
     "view_fields": "Tiles",
     "view_grove": "Circle",

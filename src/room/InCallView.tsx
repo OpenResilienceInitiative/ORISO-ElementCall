@@ -27,6 +27,8 @@ import { BehaviorSubject, map } from "rxjs";
 import { useObservable } from "observable-hooks";
 import { logger as rootLogger } from "matrix-js-sdk/lib/logger";
 import {
+  ListBulletedIcon,
+  LockSolidIcon,
   VoiceCallSolidIcon,
   VolumeOnSolidIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
@@ -70,6 +72,7 @@ import { E2eeType } from "../e2ee/e2eeType";
 import { makeGridLayout } from "../grid/GridLayout";
 import {
   type CallLayoutOutputs,
+  type Alignment,
   defaultPipAlignment,
   defaultSpotlightAlignment,
 } from "../grid/CallLayout";
@@ -116,6 +119,7 @@ import { ReactionsReader } from "../reactions/ReactionsReader";
 import { LivekitRoomAudioRenderer } from "../livekit/MatrixAudioRenderer.tsx";
 import { muteAllAudio$ } from "../state/MuteAllAudioModel.ts";
 import { useMediaDevices } from "../MediaDevicesContext.ts";
+import { InitialDeviceNotice } from "./InitialDeviceNotice";
 import { EarpieceOverlay } from "./EarpieceOverlay.tsx";
 import { useAppBarHidden, useAppBarSecondaryButton } from "../AppBar.tsx";
 import { useBehavior } from "../useBehavior.ts";
@@ -142,6 +146,8 @@ const NOTES_DOCK_MIN_WIDTH = 900;
 const NOTES_COMPACT_MAX_WIDTH = 400;
 // What the docked card takes from the stage: 352px plus 16px either side.
 const NOTES_DOCK_INSET = 352 + 2 * 16;
+const VIDEO_NOTES_WIDTH = 312;
+const VIDEO_NOTES_GAP = 16;
 // The card in the view ends just above the control bar; this keeps 12px of
 // air between it and whatever the stage draws above it.
 const NOTES_SHEET_CLEARANCE = 12;
@@ -466,8 +472,12 @@ export const InCallView: FC<InCallViewProps> = ({
    * Read before the bounds below, because they depend on it: see the ORISO
    * section further down for what the gate means.
    */
-  const { parentUrl, orisoAtmosphere, orisoDesign } = useUrlParams();
+  const { parentUrl, orisoAtmosphere, orisoDesign, callIntent } =
+    useUrlParams();
   const orisoEnabled = orisoDesign;
+  const orisoAudioOnly = orisoEnabled && callIntent === "audio";
+  const orisoVideoCall = orisoEnabled && callIntent === "video";
+  const orisoVideoOneOnOne = orisoVideoCall && layout.type === "one-on-one";
 
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
@@ -482,11 +492,19 @@ export const InCallView: FC<InCallViewProps> = ({
    * covered.
    */
   const notesDocked =
-    (gridMode === "spotlight" || !alone) &&
+    (gridMode === "spotlight" || !alone || orisoVideoOneOnOne) &&
     bounds.width >= NOTES_DOCK_MIN_WIDTH;
   const notesCompact = bounds.width <= NOTES_COMPACT_MAX_WIDTH;
   const notesShown = orisoEnabled && showControls && notesOpen;
-  const notesWidth = notesShown && notesDocked ? NOTES_DOCK_INSET : 0;
+  const videoStageGutter = orisoVideoOneOnOne
+    ? bounds.width >= 640
+      ? 20
+      : 12
+    : 0;
+  const dockInset = orisoVideoOneOnOne
+    ? VIDEO_NOTES_WIDTH + VIDEO_NOTES_GAP
+    : NOTES_DOCK_INSET;
+  const notesWidth = notesShown && notesDocked ? dockInset : 0;
   const notesHeight =
     notesShown && !notesDocked && notesBounds.height > 0
       ? notesBounds.height + NOTES_SHEET_CLEARANCE
@@ -494,7 +512,7 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const gridBounds = useMemo(
     () => ({
-      width: bounds.width - notesWidth,
+      width: Math.max(0, bounds.width - notesWidth - 2 * videoStageGutter),
       /*
        * The footer's height comes off the stage — for ORISO even in `flat`.
        *
@@ -515,6 +533,7 @@ export const InCallView: FC<InCallViewProps> = ({
       bounds.width,
       bounds.height,
       notesWidth,
+      videoStageGutter,
       notesHeight,
       headerBounds.height,
       footerBounds.height,
@@ -531,7 +550,10 @@ export const InCallView: FC<InCallViewProps> = ({
     () => new BehaviorSubject(defaultSpotlightAlignment),
   );
   const pipAlignment$ = useInitial(
-    () => new BehaviorSubject(defaultPipAlignment),
+    () =>
+      new BehaviorSubject<Alignment>(
+        orisoVideoCall ? { inline: "end", block: "end" } : defaultPipAlignment,
+      ),
   );
 
   const setGridMode = useCallback(
@@ -558,8 +580,16 @@ export const InCallView: FC<InCallViewProps> = ({
       identities: orisoIdentities,
       parentUrl,
       enabled: orisoEnabled,
+      audioOnly: orisoAudioOnly,
+      rectangular: orisoVideoOneOnOne,
     }),
-    [orisoIdentities, parentUrl, orisoEnabled],
+    [
+      orisoIdentities,
+      parentUrl,
+      orisoEnabled,
+      orisoAudioOnly,
+      orisoVideoOneOnOne,
+    ],
   );
   const orisoShapes = useInitial(() => new OrisoShapeStore());
 
@@ -699,7 +729,38 @@ export const InCallView: FC<InCallViewProps> = ({
   useAppBarHidden(!showHeader);
 
   let header: ReactNode = null;
-  if (showHeader) {
+  if (orisoVideoOneOnOne && showControls) {
+    header = (
+      <header
+        className={classNames(styles.header, styles.videoHeader)}
+        ref={headerRef}
+      >
+        <span className={styles.videoTitle}>
+          {matrixInfo.roomName || t("oriso.video_stage_title")}
+        </span>
+        {matrixInfo.e2eeSystem.kind !== E2eeType.NONE && (
+          <span className={styles.videoEncryption}>
+            <LockSolidIcon aria-hidden />
+            <span>{t("oriso.video_stage_encrypted")}</span>
+          </span>
+        )}
+        <button
+          type="button"
+          className={styles.videoNotesButton}
+          onClick={toggleNotes}
+          onTouchEnd={onControlsTouchEnd}
+          aria-pressed={notesOpen}
+          data-testid="incall_video_header_notes"
+        >
+          <ListBulletedIcon aria-hidden />
+          {t("oriso.video_stage_notes")}
+        </button>
+        {headerStyle === "standard" && onShareClick !== null && (
+          <InviteButton className={styles.invite} onClick={onShareClick} />
+        )}
+      </header>
+    );
+  } else if (showHeader) {
     switch (headerStyle) {
       case "none":
         // Cosmetic header to fill out space while still affecting the bounds of
@@ -837,11 +898,18 @@ export const InCallView: FC<InCallViewProps> = ({
       "spotlight-landscape": makeSpotlightLandscapeLayout(inputs),
       "spotlight-portrait": makeSpotlightPortraitLayout(inputs),
       "spotlight-expanded": makeSpotlightExpandedLayout(inputs),
-      "one-on-one": orisoEnabled
-        ? makeEinzelgespraechLayout(inputs)
-        : makeOneOnOneLayout(inputs),
+      "one-on-one":
+        orisoEnabled && !orisoVideoCall
+          ? makeEinzelgespraechLayout(inputs)
+          : makeOneOnOneLayout({ ...inputs, fillStage: orisoVideoCall }),
     };
-  }, [gridBoundsObservable$, spotlightAlignment$, pipAlignment$, orisoEnabled]);
+  }, [
+    gridBoundsObservable$,
+    spotlightAlignment$,
+    pipAlignment$,
+    orisoEnabled,
+    orisoVideoCall,
+  ]);
 
   const renderContent = (): JSX.Element => {
     if (layout.type === "pip") {
@@ -984,7 +1052,10 @@ export const InCallView: FC<InCallViewProps> = ({
       startedAt={joinedAt}
       style={
         {
-          "--oriso-notes-top": `${headerBounds.height + 16}px`,
+          "--oriso-notes-top": `${headerBounds.height + (orisoVideoOneOnOne && notesDocked ? 0 : 16)}px`,
+          "--oriso-notes-dock-bottom": orisoVideoOneOnOne
+            ? `${footerBounds.height}px`
+            : undefined,
           "--oriso-footer-h": `${footerBounds.height}px`,
           "--oriso-toolbar-h": notesCompact ? "56px" : "64px",
         } as CSSProperties
@@ -1012,6 +1083,7 @@ export const InCallView: FC<InCallViewProps> = ({
             className={styles.orisoToolbar}
             audioMuted={!audioEnabled || mediaError !== null}
             onToggleAudio={mediaError === null ? toggleAudio : null}
+            showVideo={!orisoAudioOnly}
             videoMuted={!videoEnabled || mediaError !== null}
             onToggleVideo={mediaError === null ? toggleVideo : null}
             handRaised={localHandRaised}
@@ -1069,6 +1141,16 @@ export const InCallView: FC<InCallViewProps> = ({
             onPointerMove={onPointerMove}
             onPointerOut={onPointerOut}
             data-oriso={orisoEnabled ? "true" : undefined}
+            data-oriso-video-stage={orisoVideoOneOnOne ? "true" : undefined}
+            style={
+              orisoVideoOneOnOne
+                ? ({
+                    "--oriso-stage-gutter": `${videoStageGutter}px`,
+                    "--oriso-video-notes-width": `${VIDEO_NOTES_WIDTH}px`,
+                    "--oriso-video-notes-inset": `${dockInset}px`,
+                  } as CSSProperties)
+                : undefined
+            }
             data-notes-docked={notesShown && notesDocked ? "true" : undefined}
           >
             {/* The living backdrop. Behind everything, announced to
@@ -1076,7 +1158,7 @@ export const InCallView: FC<InCallViewProps> = ({
                 noise between a counsellor and what they need. The preset is
                 the counselling centre's choice and travels on the URL — an
                 advice seeker never picks it. */}
-            {orisoEnabled && (
+            {orisoEnabled && !orisoVideoOneOnOne && (
               <div className={styles.orisoBackdrop} aria-hidden="true">
                 <Atmosphere palette={atmosphere} />
               </div>
@@ -1110,6 +1192,7 @@ export const InCallView: FC<InCallViewProps> = ({
             <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
             <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
             {reconnectingToast}
+            <InitialDeviceNotice />
             {earpieceOverlay}
             <ReactionsOverlay vm={vm} />
             {waitingOverlay}
