@@ -114,6 +114,7 @@ interface Props {
   // that the inputs for those createSomething$() functions should NOT contain any js-sdk objectes
   scope: ObservableScope;
   muteStates: MuteStates;
+  ownMembershipPresent$: Observable<boolean>;
   connectionManager: IConnectionManager;
   createPublisherFactory: (connection: Connection) => Publisher;
   joinMatrixRTC: (transport: LivekitTransport) => void;
@@ -148,6 +149,7 @@ export const createLocalMembership$ = ({
   joinMatrixRTC,
   logger: parentLogger,
   muteStates,
+  ownMembershipPresent$,
   matrixRTCSession,
 }: Props): {
   /**
@@ -498,12 +500,32 @@ export const createLocalMembership$ = ({
       }
     });
 
-  combineLatest([muteStates.video.enabled$, homeserverConnected.combined$])
-    .pipe(scope.bind())
-    .subscribe(([videoEnabled, connected]) => {
-      if (!connected) return;
-      void matrixRTCSession.updateCallIntent(videoEnabled ? "video" : "audio");
-    });
+  const callIntent$ = scope.behavior(
+    combineLatest([
+      muteStates.video.enabled$,
+      homeserverConnected.combined$,
+      ownMembershipPresent$,
+    ]).pipe(
+      map(([videoEnabled, connected, ownMembershipPresent]) => {
+        if (!connected || !ownMembershipPresent) return null;
+        return videoEnabled ? ("video" as const) : ("audio" as const);
+      }),
+      distinctUntilChanged(),
+      // A rejoin needs its own update even if the media mode did not change.
+      map((intent) => (intent === null ? null : { intent })),
+    ),
+  );
+
+  // The SDK emits MembershipsChanged before updating its own membership.
+  // Reconcile asynchronously so the intent update sees that membership.
+  scope.reconcile(callIntent$, async (update) => {
+    if (update === null) return;
+    try {
+      await matrixRTCSession.updateCallIntent(update.intent);
+    } catch (error) {
+      logger.warn("Failed to update call intent", error);
+    }
+  });
 
   // Keep matrix rtc session in sync with localTransport$, connectRequested$
   scope.reconcile(
