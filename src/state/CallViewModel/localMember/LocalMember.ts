@@ -698,6 +698,8 @@ export function enterRTCSession(
     multiSFU ? transport : undefined,
     {
       notificationType,
+      // The ORISO widget only has permission to send the modern event.
+      ...(widget && { sendLegacyNotification: false }),
       callIntent,
       manageMediaKeys: encryptMedia,
       ...(useDeviceSessionMemberEvents !== undefined && {
