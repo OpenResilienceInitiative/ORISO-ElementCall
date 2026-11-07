@@ -40,6 +40,7 @@
     "survey_prompt": "Wie ist es gelaufen?"
   },
   "call_name": "Name des Anrufs",
+  "oriso_call_title": "Anruf",
   "common": {
     "analytics": "Analyse",
     "audio": "Audio",
