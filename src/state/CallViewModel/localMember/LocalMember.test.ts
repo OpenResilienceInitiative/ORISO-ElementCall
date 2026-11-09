@@ -192,6 +192,7 @@ describe("LocalMembership", () => {
       leaveRoomSession: () => {},
     } as unknown as MatrixRTCSession,
     muteStates: mockMuteStates(),
+    ownMembershipPresent$: constant(true),
     trackProcessorState$: constant({
       supported: false,
       processor: undefined,
@@ -204,6 +205,54 @@ describe("LocalMembership", () => {
       rtsSession$: constant(RTCMemberStatus.Connected),
     },
   };
+
+  it("waits for the local device membership before updating call intent", async () => {
+    const scope = new ObservableScope();
+    const ownMembershipPresent$ = new BehaviorSubject(false);
+    const firstUpdate = Promise.withResolvers<void>();
+    const updateCallIntent = vi
+      .fn()
+      .mockReturnValueOnce(firstUpdate.promise)
+      .mockResolvedValue(undefined);
+    createLocalMembership$({
+      ...defaultCreateLocalMemberValues,
+      scope,
+      ownMembershipPresent$,
+      matrixRTCSession: {
+        updateCallIntent,
+        leaveRoomSession: vi.fn(),
+      },
+      connectionManager: {
+        connectionManagerData$: constant(
+          new Epoch(new ConnectionManagerData()),
+        ),
+      },
+      localTransport$: constant(null),
+    });
+
+    await flushPromises();
+    expect(updateCallIntent).not.toHaveBeenCalled();
+
+    ownMembershipPresent$.next(true);
+    expect(updateCallIntent).not.toHaveBeenCalled();
+    await flushPromises();
+    expect(updateCallIntent).toHaveBeenCalledOnce();
+
+    ownMembershipPresent$.next(false);
+    ownMembershipPresent$.next(true);
+    await flushPromises();
+    expect(updateCallIntent).toHaveBeenCalledOnce();
+    firstUpdate.reject(new Error("Membership left while updating intent"));
+    await flushPromises();
+    expect(updateCallIntent).toHaveBeenCalledTimes(2);
+    expect(updateCallIntent).toHaveBeenLastCalledWith("video");
+
+    ownMembershipPresent$.next(false);
+    ownMembershipPresent$.next(true);
+    scope.end();
+    await flushPromises();
+    expect(updateCallIntent).toHaveBeenCalledTimes(2);
+  });
 
   it("throws error on missing RTC config error", () => {
     withTestScheduler(({ scope, hot, expectObservable }) => {

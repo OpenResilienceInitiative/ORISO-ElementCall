@@ -497,6 +497,18 @@ export function createCallViewModel$(
     ),
   );
 
+  const localRtcMembership$ = scope.behavior(
+    memberships$.pipe(
+      map(
+        (memberships) =>
+          memberships.value.find(
+            (membership) =>
+              membership.userId === userId && membership.deviceId === deviceId,
+          ) ?? null,
+      ),
+    ),
+  );
+
   const localMembership = createLocalMembership$({
     scope: scope,
     homeserverConnected: createHomeserverConnected$(
@@ -505,6 +517,7 @@ export function createCallViewModel$(
       matrixRTCSession,
     ),
     muteStates: muteStates,
+    ownMembershipPresent$: localRtcMembership$.pipe(map(Boolean)),
     joinMatrixRTC: (transport: LivekitTransport) => {
       return enterRTCSession(
         matrixRTCSession,
@@ -529,18 +542,6 @@ export function createCallViewModel$(
     localTransport$: localTransport$,
     logger: logger.getChild(`[${Date.now()}]`),
   });
-
-  const localRtcMembership$ = scope.behavior(
-    memberships$.pipe(
-      map(
-        (memberships) =>
-          memberships.value.find(
-            (membership) =>
-              membership.userId === userId && membership.deviceId === deviceId,
-          ) ?? null,
-      ),
-    ),
-  );
 
   const localMatrixLivekitMember$: Behavior<LocalMatrixLivekitMember | null> =
     scope.behavior(
