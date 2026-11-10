@@ -25,6 +25,8 @@ import { init as initRageshake } from "./settings/rageshake";
 import { Initializer } from "./initializer";
 import { AppViewModel } from "./state/AppViewModel";
 import { globalScope } from "./state/ObservableScope";
+import { getUrlParams } from "./UrlParams";
+import { applyBrandTheme } from "./oriso/theme/applyBrandTheme";
 
 window.setLKLogLevel = setLKLogLevel;
 
@@ -38,6 +40,11 @@ setLKLogExtension((level, msg, context) => {
 });
 
 logger.info(`Element Call ${import.meta.env.VITE_APP_VERSION || "dev"}`);
+
+// The Träger's colours, if the call address names any. Before React renders:
+// the body stays hidden (`no-theme`) until the theme hook runs, so the shipped
+// default palette is never on screen first.
+applyBrandTheme(getUrlParams());
 
 const root = createRoot(document.getElementById("root")!);
 
