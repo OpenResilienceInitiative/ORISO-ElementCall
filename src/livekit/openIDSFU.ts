@@ -50,7 +50,6 @@ export async function getSFUConfigWithOpenID(
       error instanceof Error ? error : new Error("Unknown error"),
     );
   }
-  logger.debug("Got openID token", openIdToken);
 
   logger.info(`Trying to get JWT for focus ${serviceUrl}...`);
   const sfuConfig = await getLiveKitJWT(
