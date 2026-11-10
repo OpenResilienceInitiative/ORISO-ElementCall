@@ -60,6 +60,28 @@ describe("the ORISO control bar", () => {
     expect(onHangup).toHaveBeenCalledOnce();
   });
 
+  /*
+   * S3, design 2b: an audio call shows only what an audio call can use —
+   * no camera at all, not a crossed-out one — and the hang-up is wide and
+   * spelled out.
+   */
+  it("holds only the audio controls in an audio call", () => {
+    render(<OrisoToolbar {...props({ showVideo: false })} />);
+    expect(barButtons()).toEqual([
+      "incall_mute",
+      "incall_raise_hand",
+      "incall_notes",
+      "incall_menu",
+    ]);
+  });
+
+  it("says what the hang-up does in a word", () => {
+    render(<OrisoToolbar {...props()} />);
+    const hangup = screen.getByTestId("incall_leave");
+    expect(hangup).toHaveTextContent("Hang up");
+    expect(hangup).toHaveAccessibleName("Hang up");
+  });
+
   it("leaves out what the call cannot do", () => {
     render(
       <OrisoToolbar {...props({ onToggleHand: null, onToggleNotes: null })} />,

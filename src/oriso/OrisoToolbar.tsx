@@ -244,15 +244,18 @@ export const OrisoToolbar: FC<Props> = ({
           )}
         </ToolbarButton>
       </div>
+      {/* Wide and spelled out (design 2a/2b, "Auflegen"): the one action
+          that ends the call should not be an icon to be guessed. */}
       <button
         type="button"
         className={styles.hangup}
-        aria-label={t("hangup_button_label")}
+        title={t("hangup_button_label")}
         onClick={onHangup}
         onTouchEnd={onTouchEnd}
         data-testid="incall_leave"
       >
         <EndCallIcon aria-hidden width={24} height={24} />
+        <span className={styles.hangupLabel}>{t("oriso.hangup")}</span>
       </button>
 
       {menuOpen && (

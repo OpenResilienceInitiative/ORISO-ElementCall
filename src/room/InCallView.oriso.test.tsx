@@ -220,6 +220,7 @@ function createInCallView({
   orisoDesign = true,
   crowd = false,
   callIntent,
+  encrypted = false,
 }: {
   mediaError?: ElementCallError | null;
   published?: Record<string, Record<string, string>>;
@@ -230,6 +231,7 @@ function createInCallView({
   /** Three or more puts the grove on; two gives the Einzelgespräch. */
   crowd?: boolean;
   callIntent?: "audio" | "video";
+  encrypted?: boolean;
 } = {}): RenderResult & {
   rtcSession: MockRTCSession;
   retryMedia: ReturnType<typeof vi.fn>;
@@ -346,7 +348,7 @@ function createInCallView({
                   roomAlias: null,
                   roomAvatar: null,
                   e2eeSystem: {
-                    kind: E2eeType.NONE,
+                    kind: encrypted ? E2eeType.PER_PARTICIPANT : E2eeType.NONE,
                   },
                 }}
                 matrixRoom={room}
@@ -421,6 +423,29 @@ describe("the call, in the ORISO design", () => {
     expect(symbols).toHaveLength(2);
     expect(symbols.every((symbol) => symbol.textContent?.trim())).toBe(true);
     expect(screen.queryByTestId("incall_videomute")).not.toBeInTheDocument();
+  });
+
+  /*
+   * S3, design 2b: the audio 1:1 has a header — the title, the encryption
+   * chip and the call's duration — over the atmosphere.
+   */
+  it("gives the audio 1:1 a header with title, encryption and duration", async () => {
+    createInCallView({ callIntent: "audio", published: {}, encrypted: true });
+    await screen.findByTestId("einzelgespraech");
+    const header = screen.getByTestId("oriso-header");
+    expect(header.dataset.tone).toBe("light");
+    expect(within(header).getByText("Schuldnerberatung")).toBeInTheDocument();
+    expect(
+      within(header).getByText("End-to-end encrypted"),
+    ).toBeInTheDocument();
+    expect(
+      within(header).getByTestId("oriso-call-duration").textContent,
+    ).toMatch(/^\d+:\d\d$/);
+    const toolbar = screen.getByTestId("oriso-toolbar");
+    expect(within(toolbar).queryByTestId("incall_videomute")).toBeNull();
+    expect(within(toolbar).getByTestId("incall_leave")).toHaveTextContent(
+      "Hang up",
+    );
   });
 
   it("shows the video layout and both identities with the cameras off", async () => {

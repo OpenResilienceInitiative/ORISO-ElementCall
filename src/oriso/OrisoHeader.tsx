@@ -86,6 +86,7 @@ export const OrisoHeader: FC<Props> = ({
                 </span>
               </span>
             )}
+            {encrypted && meta && <span aria-hidden="true">·</span>}
             {meta}
           </span>
         )}

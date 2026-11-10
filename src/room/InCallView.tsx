@@ -86,6 +86,7 @@ import { OrisoToolbar } from "../oriso/OrisoToolbar";
 import { OrisoNotes } from "../oriso/OrisoNotes";
 import { OrisoHeader } from "../oriso/OrisoHeader";
 import { useOrisoWindow } from "../oriso/useOrisoWindow";
+import { useCallDuration } from "../oriso/useCallDuration";
 import { useOrisoKnock } from "../oriso/useOrisoKnock";
 import {
   OrisoStageContext,
@@ -246,6 +247,7 @@ export const InCallView: FC<InCallViewProps> = ({
   matrixInfo,
   matrixRoom,
   muteStates,
+  rtcSession,
 
   header: headerStyle,
   onShareClick,
@@ -489,6 +491,11 @@ export const InCallView: FC<InCallViewProps> = ({
   const [footerRef, footerBounds] = useMeasure();
   const [notesRef, notesBounds] = useMeasure();
   const alone = useBehavior(vm.orisoOneOnOne$);
+  // The call's duration in the header of a 1:1 over the atmosphere (2b).
+  const callDuration = useCallDuration(
+    rtcSession,
+    orisoEnabled && showControls && !orisoVideoCall && alone,
+  );
 
   /*
    * Where the notepad opens (#112), as in the design: beside the stage of a
@@ -756,6 +763,17 @@ export const InCallView: FC<InCallViewProps> = ({
           )
         }
         encrypted={matrixInfo.e2eeSystem.kind !== E2eeType.NONE}
+        meta={
+          callDuration !== null && (
+            <span
+              role="timer"
+              aria-label={t("oriso.call_duration", { duration: callDuration })}
+              data-testid="oriso-call-duration"
+            >
+              {callDuration}
+            </span>
+          )
+        }
         onWindow={orisoWindow.send}
         fullscreen={orisoWindow.fullscreen}
         onTouchEnd={onControlsTouchEnd}

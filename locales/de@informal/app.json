@@ -1,6 +1,8 @@
 {
   "oriso": {
     "audio_stage_title": "Telefongespräch",
+    "call_duration": "Gesprächsdauer {{duration}}",
+    "hangup": "Auflegen",
     "notes_close": "Schließen",
     "notes_copied": "Kopiert",
     "notes_copy": "Als Text kopieren",

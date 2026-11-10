@@ -184,8 +184,10 @@
   "mute_microphone_button_label": "Mute microphone",
   "oriso": {
     "audio_stage_title": "Audio call",
+    "call_duration": "Call duration {{duration}}",
     "call_menu_label": "Call menu",
     "controls_label": "Call controls",
+    "hangup": "Hang up",
     "knock_label": "Knock first",
     "knock_off": "Guests come straight into the call.",
     "knock_on": "Guests wait until you let them in.",

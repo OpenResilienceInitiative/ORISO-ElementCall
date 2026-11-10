@@ -109,12 +109,16 @@ Please see LICENSE in the repository root for full details.
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   flex: none;
-  inline-size: 56px;
+  min-inline-size: 56px;
   block-size: 56px;
-  padding: 0;
+  padding-inline: 20px 24px;
   border: none;
   border-radius: 28px;
+  font:
+    500 15px / 20px Inter,
+    sans-serif;
   /* Leaving a call is the one destructive action here: always the error
      colour, never the brand's or the tenant's. */
   background: var(--oriso-critical, #b1005e);
@@ -133,6 +137,10 @@ Please see LICENSE in the repository root for full details.
       rgb(0 0 0)
     );
   }
+}
+
+.hangupLabel {
+  white-space: nowrap;
 }
 
 /* The call menu, 1c. Opens upward from the bar. */
@@ -329,10 +337,22 @@ Please see LICENSE in the repository root for full details.
     border-radius: 18px;
   }
 
+  /* Round again: the word does not fit beside five buttons in 320px. It
+     stays the button's name for a screen reader. */
   .hangup {
+    min-inline-size: 48px;
     inline-size: 48px;
     block-size: 48px;
+    padding: 0;
     border-radius: 24px;
+  }
+
+  .hangupLabel {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 
   /* Wider than the bar here, so centred on it to keep both gutters. */

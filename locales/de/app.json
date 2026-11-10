@@ -156,8 +156,10 @@
   "mute_microphone_button_label": "Mikrofon stumm schalten",
   "oriso": {
     "audio_stage_title": "Telefongespräch",
+    "call_duration": "Gesprächsdauer {{duration}}",
     "call_menu_label": "Menü",
     "controls_label": "Anrufsteuerung",
+    "hangup": "Auflegen",
     "knock_label": "Anklopfen",
     "knock_off": "Gäste kommen ohne Warten direkt in den Anruf.",
     "knock_on": "Gäste warten, bis Sie sie einlassen.",
