@@ -99,6 +99,8 @@ import { OrisoNotes } from "../oriso/OrisoNotes";
 import { OrisoHeader } from "../oriso/OrisoHeader";
 import { useOrisoWindow } from "../oriso/useOrisoWindow";
 import { useOrisoCounsellors } from "../oriso/useOrisoCounsellors";
+import { InviteLinkButton } from "../oriso/InviteLinkButton";
+import { inviteLinkRequester } from "../oriso/inviteLink";
 import { useCallDuration } from "../oriso/useCallDuration";
 import { useOrisoKnock } from "../oriso/useOrisoKnock";
 import {
@@ -504,6 +506,7 @@ export const InCallView: FC<InCallViewProps> = ({
     orisoDesign,
     orisoHostChrome,
     orisoCallType,
+    orisoInvite,
     callIntent,
   } = useUrlParams();
   const orisoEnabled = orisoDesign;
@@ -512,6 +515,11 @@ export const InCallView: FC<InCallViewProps> = ({
   const orisoVideoOneOnOne = orisoVideoCall && layout.type === "one-on-one";
   // The window buttons in the header, when the host leaves them to the call.
   const orisoWindow = useOrisoWindow(orisoEnabled && orisoHostChrome);
+  // "Link teilen" (S8): only when the host said it can make a link.
+  const orisoInviteRequest = useMemo(
+    () => (orisoEnabled && orisoInvite ? inviteLinkRequester() : null),
+    [orisoEnabled, orisoInvite],
+  );
 
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
@@ -882,9 +890,22 @@ export const InCallView: FC<InCallViewProps> = ({
                 {t("oriso.video_stage_notes")}
               </button>
             )}
-            {headerStyle === "standard" && onShareClick !== null && (
-              <InviteButton className={styles.invite} onClick={onShareClick} />
+            {/* S8: the host's link to this call (`orisoInvite`). */}
+            {orisoInviteRequest !== null && (
+              <InviteLinkButton
+                request={orisoInviteRequest}
+                tone={orisoVideoOneOnOne ? "dark" : "light"}
+                onTouchEnd={onControlsTouchEnd}
+              />
             )}
+            {orisoInviteRequest === null &&
+              headerStyle === "standard" &&
+              onShareClick !== null && (
+                <InviteButton
+                  className={styles.invite}
+                  onClick={onShareClick}
+                />
+              )}
           </>
         }
       />

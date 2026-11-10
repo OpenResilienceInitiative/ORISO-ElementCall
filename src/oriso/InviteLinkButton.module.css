@@ -1,0 +1,142 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* "Link teilen" (S8): an outlined pill in the header, the popover under it. */
+.invite {
+  position: relative;
+  display: flex;
+}
+
+.trigger {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  block-size: 40px;
+  padding: 0 16px 0 12px;
+  border-radius: 20px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.invite[data-tone="light"] .trigger {
+  border: 1px solid rgb(0 0 0 / 12%);
+  background: #fff;
+  color: rgb(45 44 40);
+}
+
+.invite[data-tone="dark"] .trigger {
+  border: 1px solid rgb(251 244 211 / 24%);
+  background: rgb(251 244 211 / 10%);
+  color: inherit;
+}
+
+.trigger[aria-expanded="true"] {
+  border-color: var(--oriso-primary, #a5000a);
+}
+
+.trigger:focus-visible,
+.copy:focus-visible,
+.close:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
+}
+
+.popover {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  inline-size: min(340px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 16px;
+  border-radius: 20px;
+  background: #fff;
+  color: rgb(45 44 40);
+  text-align: start;
+  box-shadow:
+    0 8px 32px rgb(0 0 0 / 18%),
+    0 0 0 1px rgb(0 0 0 / 6%);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.close {
+  appearance: none;
+  display: flex;
+  padding: 4px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: rgb(96 94 99);
+  cursor: pointer;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.url {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 8px 10px;
+  border: 1px solid rgb(0 0 0 / 12%);
+  border-radius: 10px;
+  background: rgb(0 0 0 / 3%);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.copy {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--oriso-primary, #a5000a);
+  color: var(--oriso-on-primary, #fff);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.hint,
+.status,
+.detail {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgb(96 94 99);
+}
+
+.error {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+  color: #cc0000;
+}

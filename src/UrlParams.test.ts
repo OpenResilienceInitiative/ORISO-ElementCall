@@ -525,6 +525,18 @@ describe("UrlParams", () => {
       );
     });
   });
+  describe("orisoInvite", () => {
+    it("is off unless the ORISO host can make a link", () => {
+      expect(computeUrlParams().orisoInvite).toBe(false);
+      expect(computeUrlParams("", "#?orisoInvite=false").orisoInvite).toBe(
+        false,
+      );
+    });
+
+    it("is on when the host can hand out a link", () => {
+      expect(computeUrlParams("", "#?orisoInvite=1").orisoInvite).toBe(true);
+    });
+  });
   describe("getUrlParams", () => {
     it("uses cached values", () => {
       const spy = vi.spyOn(logger, "info");

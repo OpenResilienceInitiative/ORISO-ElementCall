@@ -832,6 +832,27 @@ describe("the call, in the ORISO design", () => {
     ).toBe("einzelgespraech");
   });
 
+  /*
+   * S8: a single conversation that somebody joined through the shared link
+   * is a group now — the rail offers the group views and the stage starts
+   * in the group default, the Kreis.
+   */
+  it("gives a single conversation of three the group rail, in the Kreis", async () => {
+    const { container } = createInCallView({
+      callType: "single",
+      crowd: true,
+    });
+    const rail = await openViewRail();
+    expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
+    expect(
+      container.querySelector('[data-testid="oriso-grove"][data-view="kreis"]'),
+    ).toBeTruthy();
+  });
+
   it("keeps the choice per conversation type", async () => {
     const { unmount } = createInCallView({ callType: "group" });
     fireEvent.click(

@@ -750,6 +750,54 @@ describe.each([
     });
   });
 
+  /*
+   * S8: a 1:1 that somebody joins through the shared link. At three people
+   * the rail offers the group views and the stage leaves the Einzelgespräch
+   * for the group default; when they leave, it is a 1:1 again.
+   */
+  it.each([
+    ["single", "kreis"],
+    [null, "hain"],
+  ] as const)(
+    "turns a %s call of two into a group at three and back at two (S8)",
+    (callType, groupDefault) => {
+      withTestScheduler(({ behavior, expectObservable }) => {
+        withCallViewModel(
+          {
+            remoteParticipants$: behavior("abc", {
+              a: [aliceParticipant],
+              b: [aliceParticipant, bobParticipant],
+              c: [aliceParticipant],
+            }),
+            rtcMembers$: behavior("abc", {
+              a: [localRtcMember, aliceRtcMember],
+              b: [localRtcMember, aliceRtcMember, bobRtcMember],
+              c: [localRtcMember, aliceRtcMember],
+            }),
+            windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+          },
+          (vm) => {
+            expectObservable(
+              vm.orisoPlan$.pipe(
+                map((plan) => `${plan.fallback}:${plan.offer.length}`),
+              ),
+            ).toBe("abc", {
+              a: "einzelgespraech:2",
+              b: `${groupDefault}:5`,
+              c: "einzelgespraech:2",
+            });
+            expectObservable(vm.orisoOneOnOne$).toBe("abc", {
+              a: true,
+              b: false,
+              c: true,
+            });
+          },
+          { orisoDesign: true, orisoCallType: callType },
+        );
+      });
+    },
+  );
+
   test("spotlight speakers swap places", () => {
     withTestScheduler(({ behavior, schedule, expectObservable }) => {
       // Go immediately into spotlight mode for the test

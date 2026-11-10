@@ -90,6 +90,14 @@ export interface UrlProperties {
    */
   orisoCallType: "group" | "single" | null;
   /**
+   * Whether this person may hand out a link to the running call.
+   *
+   * Set by ORISO-Frontend (`orisoInvite=1`) when it can create one. The
+   * header then shows "Link teilen", which asks the host for the link with
+   * the `org.oriso.call.invite_link` widget action.
+   */
+  orisoInvite: boolean;
+  /**
    * Anything about what room we're pointed to should be from useRoomIdentifier which
    * parses the path and resolves alias with respect to the default server name, however
    * roomId is an exception as we need the room ID in embedded (matroyska) mode, and not
@@ -442,6 +450,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const orisoAtmosphere = parser.getParam("orisoAtmosphere");
   const orisoDesign = parser.getFlagParam("orisoDesign");
   const orisoHostChrome = parser.getFlagParam("orisoHostChrome");
+  const orisoInvite = parser.getFlagParam("orisoInvite");
   const orisoCallType =
     parser.getEnumParam("orisoCallType", ["group", "single"] as const) ?? null;
   const isWidget = !!widgetId && !!parentUrl;
@@ -564,6 +573,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     orisoDesign,
     orisoHostChrome,
     orisoCallType,
+    orisoInvite,
     // NB. we don't validate roomId here as we do in getRoomIdentifierFromUrl:
     // what would we do if it were invalid? If the widget API says that's what
     // the room ID is, then that's what it is.

@@ -19,6 +19,8 @@
     "call_duration": "Gesprächsdauer {{duration}}",
     "hand_raised_for": "Hand gehoben seit {{duration}}",
     "hangup": "Auflegen",
+    "invite_copy_failed": "Automatisches Kopieren ging nicht. Markiere den Link und kopiere ihn.",
+    "invite_hint": "Wer den Link öffnet, klopft an und wird von dir eingelassen.",
     "kreis_quiet": "Stille",
     "menu_background": "Hintergrund",
     "names_dezent": "Namen dezent",

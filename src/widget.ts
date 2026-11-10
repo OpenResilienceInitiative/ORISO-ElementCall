@@ -61,6 +61,10 @@ export enum OrisoWidgetActions {
   // toWidget: whether the host shows the call full screen, so the header's
   //   button can say which way it goes: { fullscreen: boolean }.
   WindowState = "org.oriso.call.window_state",
+  // fromWidget: "Link teilen" in the header (`orisoInvite`). The host makes
+  //   or reuses the call's link: {} → { url: string } | { error: string }.
+  //   The error is a field of a normal reply, not a widget error.
+  InviteLink = "org.oriso.call.invite_link",
   // toWidget: who in this call is a counsellor, from the host's own records
   //   rather than the self-published identity: { userIds: string[] },
   //   response {}. Sent once the call is ready and again on every change.

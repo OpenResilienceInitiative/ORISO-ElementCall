@@ -21,6 +21,10 @@ import { type StageView } from "./ViewSwitcher";
  * not the head count: a group conversation starts in the Kreis and stays a
  * group at two people; a single conversation starts in the Einzelgespräch.
  * Without a type the head count decides, as it always did.
+ *
+ * A single conversation that grows to three (S8, "Link teilen") gets the
+ * group's rail and starts in the Kreis; back at two it is the
+ * Einzelgespräch again.
  */
 export type OrisoCallType = "group" | "single";
 export type OrisoCallIntent = "audio" | "video";
@@ -63,9 +67,14 @@ export function stagePlan({
   if (alone && callType !== "group")
     return { offer: ONE_ON_ONE_OFFER, fallback: "einzelgespraech" };
   if (intent === "video") return { offer: VIDEO_GROUP_OFFER, fallback: "hain" };
+  /*
+   * A typed conversation of three or more starts in the group default, the
+   * Kreis — a single conversation that grew to a group too (S8: somebody
+   * came in through the shared link). Without a type, the Hain as before.
+   */
   return {
     offer: GROUP_OFFER,
-    fallback: callType === "group" ? "kreis" : "hain",
+    fallback: callType === null ? "hain" : "kreis",
   };
 }
 
