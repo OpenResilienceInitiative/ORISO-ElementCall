@@ -138,7 +138,10 @@ function resolved(id: string): { name: string; identity: OrisoIdentity } {
   };
   if (names === null) return { name: person.name, identity };
   const userId = `@${person.login}:oriso.test`;
-  return { name: shownNameFor(person.login, identity, userId), identity };
+  return {
+    name: shownNameFor(person.login, identity, userId, "Teilnehmende Person"),
+    identity,
+  };
 }
 
 const seat = (
@@ -237,9 +240,6 @@ function Footer({
       notesOpen={notesOpen}
       onHangup={() => {}}
       participantCount={2}
-      view="einzelgespraech"
-      offer={["einzelgespraech", "spotlight"]}
-      onViewChange={() => {}}
       onToggleScreenShare={() => {}}
       sharingScreen={false}
       showVideo={callKind !== "audio"}
