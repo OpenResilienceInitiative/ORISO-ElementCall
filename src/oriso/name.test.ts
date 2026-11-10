@@ -16,7 +16,14 @@ Please see LICENSE in the repository root for full details.
  */
 import { describe, expect, it } from "vitest";
 
-import { type OrisoIdentity, readIdentity, shownNameFor } from "./identity";
+import {
+  cleanedUsername,
+  initialsFor,
+  isUsernameShaped,
+  type OrisoIdentity,
+  readIdentity,
+  shownNameFor,
+} from "./identity";
 
 const record = (extra: Record<string, unknown>): OrisoIdentity => {
   const read = readIdentity({
@@ -45,8 +52,8 @@ describe("the name a tile shows", () => {
    * is a username and not a name, but it is the half of the id that is not
    * addressing information.
    */
-  it("falls back to the local part when nothing was published", () => {
-    expect(shownNameFor("@cyrus:oriso.org", record({}))).toBe("cyrus");
+  it("falls back to the cleaned local part when nothing was published", () => {
+    expect(shownNameFor("@cyrus:oriso.org", record({}))).toBe("Cyrus");
   });
 
   it("leaves a real display name alone", () => {
@@ -109,7 +116,7 @@ describe("a published name, which arrives from a stranger", () => {
     expect(record({ name: "@cyrus:oriso.org" }).name).toBeUndefined();
     expect(
       shownNameFor("@cyrus:oriso.org", record({ name: "@cyrus:oriso.org" })),
-    ).toBe("cyrus");
+    ).toBe("Cyrus");
   });
 
   it("strips control characters and collapses the whitespace", () => {
@@ -165,5 +172,76 @@ describe("a published name, which arrives from a stranger", () => {
       name: "Beratung Nord",
     });
     expect(read?.name).toBe("Beratung Nord");
+  });
+});
+
+/*
+ * Live on dev, 10 Nov 2026: a counselling call labelled its two people
+ * `hugo.simpson_at_trail.ist` and `krusty.clown_at_openresilience.cc`. The
+ * homeserver profile held the login name, which is not a bare Matrix id, so
+ * the published role and animal names never got a say.
+ */
+describe("a login name standing in as the display name (S1)", () => {
+  const asker = "@hugo.simpson_at_trail.ist:oriso.org";
+  const counsellor = "@krusty.clown_at_openresilience.cc:oriso.org";
+
+  it("gives way to the animal name the host published for an asker", () => {
+    expect(
+      shownNameFor(
+        "hugo.simpson_at_trail.ist",
+        record({ name: "ruhiger Fuchs 432" }),
+        asker,
+      ),
+    ).toBe("ruhiger Fuchs 432");
+  });
+
+  it("gives way to the role name the host published for a counsellor", () => {
+    expect(
+      shownNameFor(
+        "krusty.clown_at_openresilience.cc",
+        record({ name: "Beratung · Frau Keller" }),
+        counsellor,
+      ),
+    ).toBe("Beratung · Frau Keller");
+  });
+
+  it("is cleaned rather than shown raw when nothing was published", () => {
+    expect(
+      shownNameFor("krusty.clown_at_openresilience.cc", record({}), counsellor),
+    ).toBe("Krusty Clown");
+    expect(shownNameFor(counsellor, record({}))).toBe("Krusty Clown");
+  });
+
+  it("recognises the bare local part as a username too", () => {
+    expect(
+      shownNameFor("cyrus", record({ name: "Beratung" }), "@cyrus:oriso.org"),
+    ).toBe("Beratung");
+  });
+
+  it("never lets a published login name through either", () => {
+    expect(record({ name: "hugo.simpson_at_trail.ist" }).name).toBeUndefined();
+  });
+
+  it("leaves a real name with spaces alone", () => {
+    expect(isUsernameShaped("Krusty Clown", counsellor)).toBe(false);
+    expect(
+      shownNameFor("Krusty Clown", record({ name: "Beratung" }), counsellor),
+    ).toBe("Krusty Clown");
+  });
+
+  it.each([
+    ["hugo.simpson_at_trail.ist", "Hugo Simpson"],
+    ["@krusty.clown_at_openresilience.cc:oriso.org", "Krusty Clown"],
+    ["@cyrus:oriso.org", "Cyrus"],
+    ["anne-marie_berg", "Anne Marie Berg"],
+  ])("cleans %s to %s", (raw, want) => {
+    expect(cleanedUsername(raw)).toBe(want);
+  });
+
+  it("takes the initials from the cleaned name", () => {
+    expect(initialsFor(counsellor, "krusty.clown_at_openresilience.cc")).toBe(
+      "KC",
+    );
+    expect(initialsFor(counsellor, counsellor)).toBe("KC");
   });
 });

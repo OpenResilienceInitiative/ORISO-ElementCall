@@ -172,7 +172,7 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
    * use sites: the id must not survive in the menu after being taken off
    * the tag, which is the half a reviewer would not see in a screenshot.
    */
-  const shownName = shownNameFor(displayName, orisoIdentity);
+  const shownName = shownNameFor(displayName, orisoIdentity, vm.userId);
 
   const tile = (
     <MediaView

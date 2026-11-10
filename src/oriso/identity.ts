@@ -405,18 +405,66 @@ function readName(raw: unknown): string | undefined {
     .trim();
   if (cleaned.length === 0) return undefined;
   if (MATRIX_ID_ONLY.test(cleaned)) return undefined;
+  // Nor the login name with a mail address folded in, for the same reason.
+  if (FOLDED_MAIL_USERNAME.test(cleaned)) return undefined;
   return cleaned;
+}
+
+/**
+ * An ORISO login name that a mail address was folded into:
+ * `hugo.simpson_at_trail.ist`. One token, `_at_` somewhere in the middle.
+ */
+const FOLDED_MAIL_USERNAME = /^[^\s@:]+_at_[^\s@:]+$/i;
+
+/**
+ * Whether a name is really a username — the localpart of a Matrix id, or a
+ * login name with a mail address folded into it.
+ *
+ * Live on dev (10 Nov) both people in a counselling call were labelled
+ * `hugo.simpson_at_trail.ist` and `krusty.clown_at_openresilience.cc`: the
+ * homeserver profile held the login name as the display name, so the guard
+ * against a bare Matrix id did not fire and the published role and animal
+ * names never got a say.
+ */
+export function isUsernameShaped(
+  displayName: string,
+  userId?: string,
+): boolean {
+  const name = displayName.trim();
+  if (MATRIX_ID_ONLY.test(name)) return true;
+  if (FOLDED_MAIL_USERNAME.test(name)) return true;
+  if (userId === undefined) return false;
+  const local = MATRIX_ID_ONLY.exec(userId.trim())?.[1];
+  return local !== undefined && local.toLowerCase() === name.toLowerCase();
+}
+
+/**
+ * A username made presentable: the mail domain cut off, the separators
+ * turned into spaces, every word capitalised. `hugo.simpson_at_trail.ist`
+ * becomes `Hugo Simpson`, `@cyrus:oriso.org` becomes `Cyrus`.
+ *
+ * Only ever used where nothing better was published — it is the floor, and
+ * it is never allowed to be the raw login name.
+ */
+export function cleanedUsername(raw: string): string {
+  const local = MATRIX_ID_ONLY.exec(raw.trim())?.[1] ?? raw.trim();
+  const beforeMail = local.split(/_at_/i)[0];
+  const words = beforeMail
+    .split(/[._\-+=/]+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length > 0)
+    .map((w) => [...w][0].toUpperCase() + [...w].slice(1).join(""));
+  return words.join(" ") || local;
 }
 
 /**
  * The name to put on a person's tile.
  *
- * Three answers, in order: what the host published, what the room already
- * knows, and — only when the room's answer is a bare Matrix id — the local
- * part of it. The last is a floor, not a fix: `cyrus` is a username and not
- * a name, but it is the half of `@cyrus:oriso.org` that is not addressing
- * information, and it is what a call running against a host too old to
- * publish names can honestly show.
+ * Three answers, in order: what the room already knows when it is a real
+ * name, what the host published, and — only when neither is usable — a
+ * cleaned username (`cleanedUsername`). The last is a floor, not a fix, but
+ * it never shows the login name as it is: `hugo.simpson_at_trail.ist` is
+ * shown as `Hugo Simpson`.
  *
  * `undefined` identity means this is not an ORISO call at all — the lobby,
  * the standalone build — and upstream's name is returned untouched.
@@ -424,6 +472,7 @@ function readName(raw: unknown): string | undefined {
 export function shownNameFor(
   displayName: string,
   identity: OrisoIdentity | undefined,
+  userId?: string,
 ): string {
   if (identity === undefined) return displayName;
   /*
@@ -447,9 +496,8 @@ export function shownNameFor(
    * standing, which is a deliberate answer to two people called Alex and not
    * ours to overrule.
    */
-  const bare = MATRIX_ID_ONLY.exec(displayName.trim());
-  if (bare === null) return displayName;
-  return identity.name ?? bare[1];
+  if (!isUsernameShaped(displayName, userId)) return displayName;
+  return identity.name ?? cleanedUsername(displayName);
 }
 
 /**
@@ -579,5 +627,10 @@ export function fallbackIdentity(
  * profile has not arrived yet still gets a mark rather than a blank circle.
  */
 export function initialsFor(userId: string, displayName: string): string {
-  return initialsOf(displayName) || initialsOf(userId.replace(/^@/, ""));
+  // A username gives its letters from the cleaned form: `krusty.clown_at_…`
+  // is "KC", not the "K" of one long token.
+  const name = isUsernameShaped(displayName, userId)
+    ? cleanedUsername(displayName)
+    : displayName;
+  return initialsOf(name) || initialsOf(cleanedUsername(userId));
 }

@@ -247,6 +247,31 @@ describe("the artwork, which is inherited", () => {
     expect(screen.queryByTestId("oriso-artwork")).toBeNull();
   });
 
+  /*
+   * S1: an animal whose drawing never arrived used to render
+   * `initials ?? ""`, an empty coloured circle. It takes the letters of the
+   * name it carries, and a mark of last resort, but never nothing.
+   */
+  it("never leaves an animal without artwork as an empty circle", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+    const { rerender } = render(
+      <OrisoFace
+        identity={{ ...FOX, name: "ruhiger Fuchs Mika" }}
+        size={200}
+        parentUrl="https://oriso.test"
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("oriso-initials").textContent).toBe("FM"),
+    );
+    rerender(
+      <OrisoFace identity={FOX} size={200} parentUrl="https://oriso.test" />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("oriso-initials").textContent).toBe("?"),
+    );
+  });
+
   it("never fetches for an identity that carries no file", () => {
     serveArtwork();
     render(<OrisoFace identity={NAMELESS} size={200} />);

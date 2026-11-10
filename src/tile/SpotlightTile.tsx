@@ -142,7 +142,7 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
     ...props,
     // After the spread, deliberately: it replaces the name that came in.
     // See `shownNameFor` — the spotlight shows the same person as the rail.
-    displayName: shownNameFor(props.displayName, orisoIdentity),
+    displayName: shownNameFor(props.displayName, orisoIdentity, vm.userId),
   };
 
   return vm instanceof LocalUserMediaViewModel ? (
@@ -231,7 +231,7 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
     userId: vm.userId,
     unencryptedWarning,
     focusUrl,
-    displayName: shownNameFor(displayName, spotlightIdentity),
+    displayName: shownNameFor(displayName, spotlightIdentity, vm.userId),
     mxcAvatarUrl,
     focusable,
     encryptionStatus,

@@ -125,5 +125,5 @@ test("no Matrix id reaches the tag when nothing was published", () => {
     bg: "#F7CAC9",
     ink: "#1A1A1A",
   });
-  expect(tagText()).toBe("cyrus");
+  expect(tagText()).toBe("Cyrus");
 });

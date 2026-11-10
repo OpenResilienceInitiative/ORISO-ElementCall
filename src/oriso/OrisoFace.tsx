@@ -9,7 +9,7 @@ import { type CSSProperties, type FC, type ReactNode, useMemo } from "react";
 import classNames from "classnames";
 
 import styles from "./OrisoFace.module.css";
-import { type OrisoIdentity } from "./identity";
+import { initialsOf, type OrisoIdentity } from "./identity";
 import { useArtwork } from "./artwork";
 import { HALO_LIFT_PX, SPEAKING_EASING, haloFor } from "./halo";
 import { liftFor } from "./lift";
@@ -52,6 +52,18 @@ export function artworkPaddingFor(file?: string): number {
 const BORDER_SHARE_AT_REFERENCE = 0.04;
 const artworkFraction = (padding: number): number =>
   1 - 2 * padding - BORDER_SHARE_AT_REFERENCE;
+
+/**
+ * The letters a form shows while it has no artwork — never nothing.
+ *
+ * An animal whose drawing did not arrive used to render `initials ?? ""`: a
+ * coloured circle with nothing in it, which reads as a broken tile. The
+ * record's own letters first, then the letters of the name it carries, and
+ * a question mark as the last resort so the form is never blank.
+ */
+export function lettersFor(identity: OrisoIdentity): string {
+  return identity.initials || initialsOf(identity.name ?? "") || "?";
+}
 
 interface Props {
   identity: OrisoIdentity;
@@ -246,7 +258,7 @@ export const OrisoFace: FC<Props> = ({
             data-testid="oriso-initials"
             aria-hidden="true"
           >
-            {identity.initials ?? ""}
+            {lettersFor(identity)}
           </span>
         ) : (
           /*
