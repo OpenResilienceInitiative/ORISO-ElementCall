@@ -1,0 +1,162 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* The call header, 2a/2b (light) and 5a (dark). */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  min-block-size: 64px;
+  padding-block: 8px;
+  padding-inline: var(--oriso-header-gutter, 20px);
+}
+
+/* The host still draws its own window buttons over the iframe's top right
+   corner (four 32px buttons, 10px from the edge, the last ending 162px in;
+   two on a phone). Nothing of the header may sit under them. */
+.header[data-host-chrome="host"] {
+  padding-inline-end: calc(var(--oriso-header-gutter, 20px) + 172px);
+}
+
+@media (max-width: 550px) {
+  .header[data-host-chrome="host"] {
+    padding-inline-end: calc(var(--oriso-header-gutter, 20px) + 96px);
+  }
+}
+
+.header[data-tone="light"] {
+  background: rgb(255 255 255 / 94%);
+  color: rgb(45 44 40);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 6%);
+}
+
+.header[data-tone="dark"] {
+  background: var(--oriso-video-surface, #222423);
+  color: var(--oriso-video-ink, #fbf4d3);
+}
+
+.lead {
+  display: flex;
+  min-inline-size: 0;
+  gap: 2px 12px;
+}
+
+/* 2b: the title above, "verschlüsselt · 12:04" under it. */
+.header[data-tone="light"] .lead {
+  flex-direction: column;
+}
+
+/* 5a: title and chip on one line. */
+.header[data-tone="dark"] .lead {
+  align-items: center;
+}
+
+.title {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.0625rem;
+  font-weight: 500;
+}
+
+.meta {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.header[data-tone="light"] .meta {
+  color: rgb(96 94 99);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-block-size: 24px;
+  padding-inline: 8px;
+  border-radius: 12px;
+}
+
+.header[data-tone="light"] .chip {
+  padding-inline: 0;
+}
+
+.header[data-tone="dark"] .chip {
+  background: rgb(251 244 211 / 14%);
+}
+
+.chip svg {
+  inline-size: 12px;
+  block-size: 12px;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+
+.windowButton {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 36px;
+  block-size: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 18px;
+  cursor: pointer;
+}
+
+.windowButton svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.header[data-tone="light"] .windowButton {
+  background: rgb(73 69 79);
+  color: #fff;
+}
+
+.header[data-tone="dark"] .windowButton {
+  background: rgb(251 244 211 / 14%);
+  color: inherit;
+}
+
+@media (hover) {
+  .header[data-tone="light"] .windowButton:hover {
+    background: rgb(45 44 40);
+  }
+
+  .header[data-tone="dark"] .windowButton:hover {
+    background: rgb(251 244 211 / 28%);
+  }
+}
+
+.windowButton:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
+}
+
+@media (max-width: 550px) {
+  .chipText {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}

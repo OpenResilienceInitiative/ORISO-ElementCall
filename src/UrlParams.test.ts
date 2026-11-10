@@ -491,6 +491,23 @@ describe("UrlParams", () => {
       );
     });
   });
+  describe("orisoHostChrome", () => {
+    it("is off unless the ORISO host asks for it", () => {
+      expect(computeUrlParams().orisoHostChrome).toBe(false);
+      expect(
+        computeUrlParams("", "#?orisoHostChrome=false").orisoHostChrome,
+      ).toBe(false);
+    });
+
+    it("is on when the host leaves the window buttons to the call", () => {
+      expect(computeUrlParams("", "#?orisoHostChrome=1").orisoHostChrome).toBe(
+        true,
+      );
+      expect(computeUrlParams("?orisoHostChrome=true").orisoHostChrome).toBe(
+        true,
+      );
+    });
+  });
   describe("getUrlParams", () => {
     it("uses cached values", () => {
       const spy = vi.spyOn(logger, "info");

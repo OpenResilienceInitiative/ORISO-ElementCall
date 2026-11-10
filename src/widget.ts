@@ -54,6 +54,13 @@ export enum OrisoWidgetActions {
   // fromWidget: the person flipped "Anklopfen" in the call menu. The link
   //   belongs to the host, so the call only asks: { knock: boolean }.
   SetKnock = "org.oriso.call.set_knock",
+  // fromWidget: a window button in the call's header (`orisoHostChrome`).
+  //   The window belongs to the host, so the call only asks:
+  //   { command: "minimise" | "toggle_fullscreen" }, response {}.
+  Window = "org.oriso.call.window",
+  // toWidget: whether the host shows the call full screen, so the header's
+  //   button can say which way it goes: { fullscreen: boolean }.
+  WindowState = "org.oriso.call.window_state",
 }
 
 export interface JoinCallData {
@@ -104,6 +111,7 @@ export const widget = ((): WidgetHelpers | null => {
         ElementWidgetActions.SpotlightLayout,
         ElementWidgetActions.DeviceMute,
         OrisoWidgetActions.KnockState,
+        OrisoWidgetActions.WindowState,
       ].forEach((action) => {
         api.on(`action:${action}`, (ev: CustomEvent<IWidgetApiRequest>) => {
           ev.preventDefault();

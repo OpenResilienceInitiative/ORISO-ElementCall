@@ -70,6 +70,16 @@ export interface UrlProperties {
    */
   orisoDesign: boolean;
   /**
+   * Whether the ORISO host leaves the window controls to the call.
+   *
+   * Set by ORISO-Frontend (`orisoHostChrome=1`) when it draws no window
+   * buttons of its own over the iframe. The call's header then carries
+   * "Verkleinern" and "Vollbild" and asks the host to act on them through
+   * the `org.oriso.call.window` widget action. Without it the host still has
+   * its own corner buttons, and the header keeps their corner free.
+   */
+  orisoHostChrome: boolean;
+  /**
    * Anything about what room we're pointed to should be from useRoomIdentifier which
    * parses the path and resolves alias with respect to the default server name, however
    * roomId is an exception as we need the room ID in embedded (matroyska) mode, and not
@@ -421,6 +431,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const parentUrl = parser.getParam("parentUrl");
   const orisoAtmosphere = parser.getParam("orisoAtmosphere");
   const orisoDesign = parser.getFlagParam("orisoDesign");
+  const orisoHostChrome = parser.getFlagParam("orisoHostChrome");
   const isWidget = !!widgetId && !!parentUrl;
 
   /**
@@ -539,6 +550,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     parentUrl,
     orisoAtmosphere,
     orisoDesign,
+    orisoHostChrome,
     // NB. we don't validate roomId here as we do in getRoomIdentifierFromUrl:
     // what would we do if it were invalid? If the widget API says that's what
     // the room ID is, then that's what it is.

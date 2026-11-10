@@ -155,6 +155,7 @@
   "microphone_on": "Mikrofon an",
   "mute_microphone_button_label": "Mikrofon stumm schalten",
   "oriso": {
+    "audio_stage_title": "Telefongespräch",
     "call_menu_label": "Menü",
     "controls_label": "Anrufsteuerung",
     "knock_label": "Anklopfen",
@@ -211,7 +212,10 @@
     "view_one_on_one": "Einzelgespräch",
     "view_switcher_label": "Bühnenansicht",
     "waiting_count_one": "{{count, number}} wartet",
-    "waiting_count_other": "{{count, number}} warten"
+    "waiting_count_other": "{{count, number}} warten",
+    "window_exit_fullscreen": "Vollbild beenden",
+    "window_fullscreen": "Vollbild",
+    "window_minimise": "Verkleinern"
   },
   "participant_count_one": "{{count, number}}",
   "participant_count_other": "{{count, number}}",

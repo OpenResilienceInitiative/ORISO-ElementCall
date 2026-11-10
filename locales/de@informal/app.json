@@ -1,5 +1,6 @@
 {
   "oriso": {
+    "audio_stage_title": "Telefongespräch",
     "notes_close": "Schließen",
     "notes_copied": "Kopiert",
     "notes_copy": "Als Text kopieren",
@@ -36,6 +37,9 @@
     "notes_send_as": "Als {{kind}} senden",
     "notes_send_group": "Sofort senden als",
     "notes_title": "Schmierzettel",
-    "notes_up": "Nach oben"
+    "notes_up": "Nach oben",
+    "window_exit_fullscreen": "Vollbild beenden",
+    "window_fullscreen": "Vollbild",
+    "window_minimise": "Verkleinern"
   }
 }

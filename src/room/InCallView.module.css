@@ -317,6 +317,7 @@ Please see LICENSE in the repository root for full details.
   --oriso-notes-dock-width: var(--oriso-video-notes-width);
   --oriso-notes-dock-end: var(--oriso-stage-gutter);
   --oriso-notes-inset: 0px;
+  --oriso-header-gutter: var(--oriso-stage-gutter);
 
   background: var(--oriso-video-surface);
 }
@@ -325,27 +326,6 @@ Please see LICENSE in the repository root for full details.
   --oriso-notes-inset: var(--oriso-video-notes-inset);
 }
 
-.inRoom[data-oriso-video-stage="true"] > .videoHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--cpd-space-3x);
-  box-sizing: border-box;
-  min-block-size: var(--cpd-space-16x);
-  padding-inline: var(--oriso-stage-gutter);
-  background: var(--oriso-video-surface);
-  color: var(--oriso-video-ink);
-}
-
-.videoTitle {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 1.0625rem;
-  font-weight: 500;
-}
-
-.videoEncryption,
 .videoNotesButton {
   display: inline-flex;
   flex-shrink: 0;
@@ -356,21 +336,6 @@ Please see LICENSE in the repository root for full details.
   background: rgb(251 244 211 / 14%);
   color: inherit;
   white-space: nowrap;
-}
-
-.videoEncryption {
-  min-block-size: var(--cpd-space-6x);
-  padding-inline: var(--cpd-space-2x);
-  font-size: 0.75rem;
-}
-
-.videoEncryption svg {
-  inline-size: var(--cpd-space-3x);
-  block-size: var(--cpd-space-3x);
-}
-
-.videoNotesButton {
-  margin-inline-start: auto;
   min-block-size: var(--cpd-space-9x);
   padding-inline: var(--cpd-space-3x);
   font: inherit;
@@ -402,14 +367,4 @@ Please see LICENSE in the repository root for full details.
   box-sizing: border-box;
   padding-inline-end: 0;
   padding-block: 2px 26px;
-}
-
-@media (max-width: 550px) {
-  .videoEncryption span {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
 }

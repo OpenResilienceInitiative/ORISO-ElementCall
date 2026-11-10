@@ -28,7 +28,6 @@ import { useObservable } from "observable-hooks";
 import { logger as rootLogger } from "matrix-js-sdk/lib/logger";
 import {
   ListBulletedIcon,
-  LockSolidIcon,
   VoiceCallSolidIcon,
   VolumeOnSolidIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
@@ -85,6 +84,8 @@ import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
 import { type StageView } from "../oriso/ViewSwitcher";
 import { OrisoToolbar } from "../oriso/OrisoToolbar";
 import { OrisoNotes } from "../oriso/OrisoNotes";
+import { OrisoHeader } from "../oriso/OrisoHeader";
+import { useOrisoWindow } from "../oriso/useOrisoWindow";
 import { useOrisoKnock } from "../oriso/useOrisoKnock";
 import {
   OrisoStageContext,
@@ -470,12 +471,19 @@ export const InCallView: FC<InCallViewProps> = ({
    * Read before the bounds below, because they depend on it: see the ORISO
    * section further down for what the gate means.
    */
-  const { parentUrl, orisoAtmosphere, orisoDesign, callIntent } =
-    useUrlParams();
+  const {
+    parentUrl,
+    orisoAtmosphere,
+    orisoDesign,
+    orisoHostChrome,
+    callIntent,
+  } = useUrlParams();
   const orisoEnabled = orisoDesign;
   const orisoAudioOnly = orisoEnabled && callIntent === "audio";
   const orisoVideoCall = orisoEnabled && callIntent === "video";
   const orisoVideoOneOnOne = orisoVideoCall && layout.type === "one-on-one";
+  // The window buttons in the header, when the host leaves them to the call.
+  const orisoWindow = useOrisoWindow(orisoEnabled && orisoHostChrome);
 
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
@@ -727,36 +735,51 @@ export const InCallView: FC<InCallViewProps> = ({
   useAppBarHidden(!showHeader);
 
   let header: ReactNode = null;
-  if (orisoVideoOneOnOne && showControls) {
+  if (orisoEnabled && showControls && windowMode !== "pip") {
+    /*
+     * The ORISO header, whatever header style the host asked for: the
+     * design has one in every call (2a, 2b, 5a), and with `orisoHostChrome`
+     * it is where the window buttons live — without it the call would have
+     * none at all.
+     */
     header = (
-      <header
-        className={classNames(styles.header, styles.videoHeader)}
+      <OrisoHeader
         ref={headerRef}
-      >
-        <span className={styles.videoTitle}>
-          {matrixInfo.roomName || t("oriso.video_stage_title")}
-        </span>
-        {matrixInfo.e2eeSystem.kind !== E2eeType.NONE && (
-          <span className={styles.videoEncryption}>
-            <LockSolidIcon aria-hidden />
-            <span>{t("oriso.video_stage_encrypted")}</span>
-          </span>
-        )}
-        <button
-          type="button"
-          className={styles.videoNotesButton}
-          onClick={toggleNotes}
-          onTouchEnd={onControlsTouchEnd}
-          aria-pressed={notesOpen}
-          data-testid="incall_video_header_notes"
-        >
-          <ListBulletedIcon aria-hidden />
-          {t("oriso.video_stage_notes")}
-        </button>
-        {headerStyle === "standard" && onShareClick !== null && (
-          <InviteButton className={styles.invite} onClick={onShareClick} />
-        )}
-      </header>
+        className={styles.header}
+        tone={orisoVideoOneOnOne ? "dark" : "light"}
+        title={
+          matrixInfo.roomName ||
+          t(
+            orisoVideoCall
+              ? "oriso.video_stage_title"
+              : "oriso.audio_stage_title",
+          )
+        }
+        encrypted={matrixInfo.e2eeSystem.kind !== E2eeType.NONE}
+        onWindow={orisoWindow.send}
+        fullscreen={orisoWindow.fullscreen}
+        onTouchEnd={onControlsTouchEnd}
+        actions={
+          <>
+            {orisoVideoOneOnOne && (
+              <button
+                type="button"
+                className={styles.videoNotesButton}
+                onClick={toggleNotes}
+                onTouchEnd={onControlsTouchEnd}
+                aria-pressed={notesOpen}
+                data-testid="incall_video_header_notes"
+              >
+                <ListBulletedIcon aria-hidden />
+                {t("oriso.video_stage_notes")}
+              </button>
+            )}
+            {headerStyle === "standard" && onShareClick !== null && (
+              <InviteButton className={styles.invite} onClick={onShareClick} />
+            )}
+          </>
+        }
+      />
     );
   } else if (showHeader) {
     switch (headerStyle) {

@@ -470,6 +470,22 @@ describe("the call, in the ORISO design", () => {
     expect(headerButton).toHaveAttribute("aria-pressed", "false");
   });
 
+  /*
+   * S2. On Dev the host's window buttons lay over the video header's
+   * "Notizen". Without `orisoHostChrome` the host still draws them, so the
+   * header keeps their corner free; the notes button sits inside it.
+   */
+  it("keeps the host's window corner free of the header's own buttons", () => {
+    createInCallView({ callIntent: "video", published: {} });
+    const header = screen.getByTestId("oriso-header");
+    expect(header.dataset.hostChrome).toBe("host");
+    expect(header.dataset.tone).toBe("dark");
+    expect(
+      within(header).getByTestId("incall_video_header_notes"),
+    ).toBeInTheDocument();
+    expect(within(header).queryByTestId("oriso-window-minimise")).toBeNull();
+  });
+
   it("inherits the artwork from the host rather than drawing its own", async () => {
     // The artwork never arrives. The point is only that it was asked for,
     // and asked for from the host rather than from anywhere in here.
