@@ -14,7 +14,8 @@ Please see LICENSE in the repository root for full details.
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 12%;
+  /* In px: a percentage would resolve against the stage, not the disc. */
+  padding: 16px;
   border-radius: 50%;
   background: rgb(255 255 255 / 78%);
   box-shadow: 0 8px 28px rgb(0 0 0 / 8%);

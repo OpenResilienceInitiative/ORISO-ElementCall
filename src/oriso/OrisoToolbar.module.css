@@ -254,6 +254,7 @@ Please see LICENSE in the repository root for full details.
     400 15px / 20px Inter,
     sans-serif;
   color: rgb(150 148 152);
+  white-space: nowrap;
 }
 
 /* People knocking (#108): a count on ⋮, as a notification badge on an M3 icon. */
