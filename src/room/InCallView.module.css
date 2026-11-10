@@ -261,6 +261,11 @@ Please see LICENSE in the repository root for full details.
 .inRoom[data-oriso="true"] {
   --oriso-primary: #a5000a;
   --oriso-primary-hover: #820006;
+  /* The error colour, for what ends or destroys (hang up, leave). The light
+     scheme's `--cpd-color-bg-critical-primary`, fixed here on purpose: the
+     call is dark, whose critical token is a pale pink that cannot carry text
+     on the light menu card. oriso-theme.css is checked against this value. */
+  --oriso-critical: #b1005e;
   --oriso-z-stage: 1;
   --oriso-z-names: 6;
   --oriso-z-notes: 15;

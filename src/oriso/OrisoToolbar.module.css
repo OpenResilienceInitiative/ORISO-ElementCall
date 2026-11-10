@@ -115,7 +115,9 @@ Please see LICENSE in the repository root for full details.
   padding: 0;
   border: none;
   border-radius: 28px;
-  background: var(--oriso-primary, #a5000a);
+  /* Leaving a call is the one destructive action here: always the error
+     colour, never the brand's or the tenant's. */
+  background: var(--oriso-critical, #b1005e);
   color: #fff;
   cursor: pointer;
   box-shadow:
@@ -125,7 +127,11 @@ Please see LICENSE in the repository root for full details.
 
 @media (hover) {
   .hangup:hover {
-    background: var(--oriso-primary-hover, #820006);
+    background: color-mix(
+      in srgb,
+      var(--oriso-critical, #b1005e) 85%,
+      rgb(0 0 0)
+    );
   }
 }
 
@@ -297,7 +303,7 @@ Please see LICENSE in the repository root for full details.
 }
 
 .danger {
-  color: var(--oriso-primary, #a5000a);
+  color: var(--oriso-critical, #b1005e);
 }
 
 /* A phone: five buttons and the hang-up must fit 320px with the gutters. */
