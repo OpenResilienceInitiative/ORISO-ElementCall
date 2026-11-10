@@ -9,13 +9,14 @@ import { logger } from "matrix-js-sdk/lib/logger";
 import { createRoomWidgetClient } from "matrix-js-sdk";
 import {
   MatrixCapabilities,
-  WidgetApi,
+  type WidgetApi,
   WidgetApiToWidgetAction,
 } from "matrix-widget-api";
 
 import type { MatrixClient } from "matrix-js-sdk";
 import type { IWidgetApiRequest } from "matrix-widget-api";
 import { LazyEventEmitter } from "./LazyEventEmitter";
+import { OrisoWidgetApi } from "./OrisoWidgetApi";
 import { getUrlParams } from "./UrlParams";
 import { Config } from "./config/Config";
 import { clearStandaloneMatrixSession } from "./matrixSessionStorage";
@@ -82,7 +83,7 @@ export const widget = ((): WidgetHelpers | null => {
       clearStandaloneMatrixSession();
       const parentOrigin = new URL(parentUrl).origin;
       logger.info("Widget API is available");
-      const api = new WidgetApi(widgetId, parentOrigin);
+      const api = new OrisoWidgetApi(widgetId, parentOrigin);
 
       // A widget owns no access token, so it cannot call the authenticated
       // media endpoints itself. MSC4039 lets us ask the *host* to fetch media
