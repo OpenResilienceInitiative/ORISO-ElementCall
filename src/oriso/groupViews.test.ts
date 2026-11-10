@@ -7,7 +7,7 @@ Please see LICENSE in the repository root for full details.
 
 import { describe, expect, it } from "vitest";
 
-import { KREIS_CENTRE_SHARE, kreisPlan } from "./kreis";
+import { KREIS_CENTRE_MIN, KREIS_CENTRE_SHARE, kreisPlan } from "./kreis";
 import { KACHEL_MIN_WIDTH, kachelSize, orderForKacheln } from "./kacheln";
 import { formatHandDuration } from "./handDuration";
 import {
@@ -34,6 +34,39 @@ describe("the Kreis (S6)", () => {
     expect(centre.size).toBe(Math.round(600 * KREIS_CENTRE_SHARE));
     expect(centre.x + centre.size / 2).toBeCloseTo(450, 0);
     expect(centre.y + centre.size / 2).toBeCloseTo(300, 0);
+  });
+
+  it("drops the indicator where it would be too small to read (S9)", () => {
+    // A phone with the notes sheet open leaves a stage about 375 x 290: the
+    // indicator would be 87px, its name cut and its forms crowding over it.
+    // The wave band above already says who speaks.
+    const small = kreisPlan(6, { width: 375, height: 290 });
+    expect(Math.round(290 * KREIS_CENTRE_SHARE)).toBeLessThan(KREIS_CENTRE_MIN);
+    expect(small.indicator).toBe(false);
+    expect(small.centre.size).toBe(0);
+    // The ring no longer keeps room for it, so the forms are not pushed out.
+    const withCentre = kreisPlan(6, { width: 600, height: 600 });
+    expect(withCentre.indicator).toBe(true);
+    expect(withCentre.centre.size).toBeGreaterThanOrEqual(KREIS_CENTRE_MIN);
+  });
+
+  it("uses a wide, low stage's width once the indicator is gone", () => {
+    const stage = { width: 375, height: 290 };
+    const { seats } = kreisPlan(6, stage, new Set([1]));
+    const xs = seats.map((s) => s.x + s.size / 2);
+    const ys = seats.map((s) => s.y + s.size / 2);
+    const spanX = Math.max(...xs) - Math.min(...xs);
+    const spanY = Math.max(...ys) - Math.min(...ys);
+    expect(spanX).toBeGreaterThan(spanY);
+    for (const seat of seats) {
+      expect(seat.x).toBeGreaterThanOrEqual(0);
+      expect(seat.y).toBeGreaterThanOrEqual(0);
+      expect(seat.x + seat.size).toBeLessThanOrEqual(stage.width);
+      expect(seat.y + seat.size).toBeLessThanOrEqual(stage.height);
+    }
+    for (let i = 0; i < seats.length; i++)
+      for (let j = i + 1; j < seats.length; j++)
+        expect(overlap(seats[i], seats[j])).toBe(false);
   });
 
   it("seats the first person at twelve o'clock and everybody on one circle", () => {

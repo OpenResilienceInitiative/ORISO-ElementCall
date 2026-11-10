@@ -43,13 +43,20 @@ Please see LICENSE in the repository root for full details.
   opacity: 0.4;
 }
 
+/* Two lines before it is cut: the disc is narrow at its top and bottom,
+   and "Susanne P. · Beraterin" in a 175px disc came out "Susanne P. · Bera…"
+   on one line with room under it. */
 .name {
+  display: -webkit-box;
   max-inline-size: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
   font-size: 15px;
   font-weight: 500;
+  line-height: 1.25;
 }
 
 .status {

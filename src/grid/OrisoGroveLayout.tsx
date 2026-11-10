@@ -32,9 +32,10 @@ import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { useOrisoPins, useOrisoView } from "../oriso/useOrisoView";
 import { kreisPlan } from "../oriso/kreis";
+import { useMediaQuery } from "../useMediaQuery";
 import { kachelSize, orderForKacheln } from "../oriso/kacheln";
 import { KreisCentre } from "../oriso/KreisCentre";
-import { FIELD_RADIUS, type TileShape } from "../oriso/shape";
+import { FIELD_RADIUS, nameSideFor, type TileShape } from "../oriso/shape";
 import {
   type SpotlightSide,
   stageBesideSpotlight,
@@ -445,6 +446,8 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
       height: Math.round(FIELD_MIN_WIDTH / FIELD_ASPECT),
     };
 
+    // The same breakpoint as the capsule's phone cap in `MediaView.module.css`.
+    const phone = useMediaQuery("(max-width: 550px)");
     const shapes = useMemo(() => {
       const map = new Map<string, TileShape>();
       if (scrolls)
@@ -455,9 +458,22 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
             body: false,
             contentShare: FIELD_FACE_SHARE,
           });
-      else for (const p of placed) map.set(p.mediaId, p.shape);
+      else
+        for (const p of placed)
+          map.set(
+            p.mediaId,
+            // The grove's and the circle's forms are small, and their
+            // capsules may be wider than they are: centred, or hung inward
+            // near the stage's edge.
+            view === "hain" || view === "kreis"
+              ? {
+                  ...p.shape,
+                  nameSide: nameSideFor(p.x, p.width, stage.width, phone),
+                }
+              : p.shape,
+          );
       return map;
-    }, [scrolls, sheet, placed]);
+    }, [scrolls, sheet, placed, view, stage.width, phone]);
     usePublishOrisoShapes(shapes);
 
     if (scrolls)
@@ -506,6 +522,8 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         </div>
       );
 
+    // Left out where the stage is too small for it (`KREIS_CENTRE_MIN`).
+    const kreis = view === "kreis" ? kreisPlan(seats.length, stage) : null;
     return (
       <div
         ref={ref}
@@ -515,13 +533,24 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         data-mode="split"
         style={{ width, height }}
       >
-        {view === "kreis" && (
+        {kreis?.indicator && (
           <KreisCentre
-            plan={kreisPlan(seats.length, stage).centre}
+            plan={kreis.centre}
             speaker={seats.find((s) => s.speaking)}
           />
         )}
-        {placed.map((p) => (
+        {/*
+         * Top to bottom, so that a form further down paints later. A name
+         * capsule sits at its form's top and may be wider than the form; a
+         * neighbour BELOW does not reach up there, a neighbour beside it
+         * used to — and painted over the name ("Susanne P. · Berateri").
+         * Each tile is its own stacking context, so the capsule cannot be
+         * lifted out of it; the order is what decides.
+         */}
+        {(view === "hain" || view === "kreis"
+          ? [...placed].sort((a, b) => a.y - b.y)
+          : placed
+        ).map((p) => (
           <Slot
             key={p.id}
             className={styles.slot}

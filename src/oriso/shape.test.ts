@@ -7,7 +7,14 @@ Please see LICENSE in the repository root for full details.
 
 import { describe, expect, it } from "vitest";
 
-import { coverScale, splitName, NAME_TAIL_CHARS } from "./shape";
+import {
+  coverScale,
+  nameSideFor,
+  splitName,
+  NAME_CAPSULE_HALF,
+  NAME_CAPSULE_HALF_PHONE,
+  NAME_TAIL_CHARS,
+} from "./shape";
 
 describe("cutting a name that does not fit", () => {
   it("keeps the number that tells two foxes apart", () => {
@@ -76,5 +83,27 @@ describe("covering a leaning frame", () => {
 
   it("does not care which way the form leans", () => {
     expect(coverScale(-7.3)).toBeCloseTo(coverScale(7.3), 10);
+  });
+});
+
+describe("where a form hangs its name", () => {
+  it("centres the capsule where it fits between the form and both edges", () => {
+    expect(nameSideFor(400, 100, 1000)).toBe("centre");
+  });
+
+  it("hangs it inward near either edge, so it does not run off the stage", () => {
+    expect(nameSideFor(0, 100, 1000)).toBe("start");
+    expect(nameSideFor(900, 100, 1000)).toBe("end");
+    // Exactly at the edge still fits.
+    expect(nameSideFor(NAME_CAPSULE_HALF - 50, 100, 1000)).toBe("centre");
+  });
+
+  it("allows for a phone's shorter capsule", () => {
+    // The 5b circle: a 61px form at x 66 on a 375px stage.
+    expect(nameSideFor(66, 61, 375)).toBe("start");
+    expect(nameSideFor(66, 61, 375, true)).toBe("centre");
+    expect(nameSideFor(375 - NAME_CAPSULE_HALF_PHONE - 31, 62, 375, true)).toBe(
+      "centre",
+    );
   });
 });

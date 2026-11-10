@@ -9,7 +9,7 @@ import { type FC } from "react";
 import { useTranslation } from "react-i18next";
 
 import styles from "./KreisCentre.module.css";
-import { type KreisSpot } from "./kreis";
+import { KREIS_CENTRE_TEXT_MIN, type KreisSpot } from "./kreis";
 import { useOrisoIdentity, useShownName } from "./useOrisoIdentities";
 
 interface Speaker {
@@ -56,7 +56,13 @@ export const KreisCentre: FC<{ plan: KreisSpot; speaker?: Speaker }> = ({
         />
       ))}
     </span>
-    {speaker === undefined ? <Quiet /> : <Speaking speaker={speaker} />}
+    {/* A small disc keeps its bars only: the name and "spricht" no longer
+        fit, and on a phone the wave band above says who speaks. */}
+    {plan.size < KREIS_CENTRE_TEXT_MIN ? null : speaker === undefined ? (
+      <Quiet />
+    ) : (
+      <Speaking speaker={speaker} />
+    )}
   </div>
 );
 

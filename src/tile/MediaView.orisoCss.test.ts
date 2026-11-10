@@ -109,8 +109,15 @@ describe("the names stand under the circle", () => {
     const end = bodiesWhere((selector) =>
       selector.includes('[data-oriso-side="end"] > .fg'),
     );
-    expect(start.join()).toMatch(/inset-inline-start:\s*0/);
-    expect(end.join()).toMatch(/inset-inline-end:\s*0/);
+    // Each half's names stand from the circle's middle outward, so on a
+    // small circle they may reach past its edge but never into the other
+    // half's.
+    expect(start.join()).toMatch(/inset-inline-end:\s*50%/);
+    expect(end.join()).toMatch(/inset-inline-start:\s*50%/);
+    for (const side of [start, end])
+      expect(side.join()).toMatch(
+        /inline-size:\s*max\(50%, min\(200px, 50vw - 16px\)\)/,
+      );
     expect(end.join()).toMatch(/flex-direction:\s*row-reverse/);
   });
 

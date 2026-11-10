@@ -66,6 +66,16 @@ export interface TileShape {
    * than an edge. The layout draws the circle's lift once, behind them.
    */
   lifted?: boolean;
+  /**
+   * Where the name capsule hangs on the form.
+   *
+   * The capsule may be wider than its form — a 24-character pseudonym is
+   * wider than a listener's blob — so it is centred on the form and spills
+   * over both sides evenly, as the design's capsules do. A form too close to
+   * the stage's edge for that hangs it from its start or end instead, so it
+   * grows inward rather than off the stage. Absent: the start.
+   */
+  nameSide?: "start" | "centre" | "end";
 }
 
 /**
@@ -81,6 +91,29 @@ export interface TileShape {
  * three-digit number and the space before it.
  */
 export const NAME_TAIL_CHARS = 4;
+
+/**
+ * Half the widest capsule a form expects to carry, in pixels: a name at its
+ * cap (`--oriso-name-max`, 184px; 112px on a phone) with its padding and the
+ * raised hand beside it. Used to decide whether a centred capsule still fits
+ * between a form and the stage's edge.
+ */
+export const NAME_CAPSULE_HALF = 130;
+export const NAME_CAPSULE_HALF_PHONE = 94;
+
+/** Where a form of this box hangs its name on a stage this wide. */
+export function nameSideFor(
+  x: number,
+  width: number,
+  stageWidth: number,
+  phone = false,
+): "start" | "centre" | "end" {
+  const half = phone ? NAME_CAPSULE_HALF_PHONE : NAME_CAPSULE_HALF;
+  const mid = x + width / 2;
+  if (mid - half < 0) return "start";
+  if (mid + half > stageWidth) return "end";
+  return "centre";
+}
 
 /** A display name split into the part that may be cut and the part that may not. */
 export function splitName(name: string): { head: string; tail: string } {
