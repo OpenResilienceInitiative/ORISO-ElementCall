@@ -85,6 +85,7 @@ import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
 import { type StageView } from "../oriso/ViewSwitcher";
 import { OrisoToolbar } from "../oriso/OrisoToolbar";
 import { OrisoNotes } from "../oriso/OrisoNotes";
+import { OrisoHeaderLogo } from "../oriso/OrisoHeaderLogo";
 import { useOrisoKnock } from "../oriso/useOrisoKnock";
 import {
   OrisoStageContext,
@@ -472,7 +473,7 @@ export const InCallView: FC<InCallViewProps> = ({
    * Read before the bounds below, because they depend on it: see the ORISO
    * section further down for what the gate means.
    */
-  const { parentUrl, orisoAtmosphere, orisoDesign, callIntent } =
+  const { parentUrl, orisoAtmosphere, orisoDesign, orisoLogo, callIntent } =
     useUrlParams();
   const orisoEnabled = orisoDesign;
   const orisoAudioOnly = orisoEnabled && callIntent === "audio";
@@ -735,6 +736,7 @@ export const InCallView: FC<InCallViewProps> = ({
         className={classNames(styles.header, styles.videoHeader)}
         ref={headerRef}
       >
+        <OrisoHeaderLogo src={orisoLogo} />
         <span className={styles.videoTitle}>
           {matrixInfo.roomName || t("oriso.video_stage_title")}
         </span>

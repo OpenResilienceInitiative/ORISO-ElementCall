@@ -220,6 +220,7 @@ function createInCallView({
   orisoDesign = true,
   crowd = false,
   callIntent,
+  orisoLogo,
 }: {
   mediaError?: ElementCallError | null;
   published?: Record<string, Record<string, string>>;
@@ -230,6 +231,8 @@ function createInCallView({
   /** Three or more puts the grove on; two gives the Einzelgespräch. */
   crowd?: boolean;
   callIntent?: "audio" | "video";
+  /** The Träger's logo, as the app puts it into the call address. */
+  orisoLogo?: string;
 } = {}): RenderResult & {
   rtcSession: MockRTCSession;
   retryMedia: ReturnType<typeof vi.fn>;
@@ -316,7 +319,10 @@ function createInCallView({
         embedded
           ? `/room/#?widgetId=w${orisoDesign ? "&orisoDesign=true" : ""}` +
             `&parentUrl=${encodeURIComponent(HOST)}` +
-            (callIntent === undefined ? "" : `&callIntent=${callIntent}`)
+            (callIntent === undefined ? "" : `&callIntent=${callIntent}`) +
+            (orisoLogo === undefined
+              ? ""
+              : `&orisoLogo=${encodeURIComponent(orisoLogo)}`)
           : "/room/",
       ]}
     >
@@ -468,6 +474,102 @@ describe("the call, in the ORISO design", () => {
       screen.queryByRole("region", { name: "My call note" }),
     ).not.toBeInTheDocument();
     expect(headerButton).toHaveAttribute("aria-pressed", "false");
+  });
+
+  describe("the Träger's logo in the header (#137)", () => {
+    // The call page's own origin: where a logo may come from by default.
+    const LOGO = `${window.location.origin}/service/tenant/public/branding/12/logo`;
+
+    it("sits left of the title in the header of an embedded video call", () => {
+      createInCallView({
+        callIntent: "video",
+        published: {},
+        orisoLogo: LOGO,
+      });
+      const header = screen
+        .getByText("Schuldnerberatung")
+        .closest("header") as HTMLElement;
+      const logo = within(header).getByTestId("oriso_header_logo");
+      expect(logo).toHaveAttribute("src", LOGO);
+      fireEvent.load(logo);
+      expect(logo).toBeVisible();
+      // DOCUMENT_POSITION_FOLLOWING: the title comes after the logo.
+      expect(
+        logo.compareDocumentPosition(screen.getByText("Schuldnerberatung")) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("draws no image when the address carries no logo", () => {
+      const { container } = createInCallView({
+        callIntent: "video",
+        published: {},
+      });
+      expect(screen.getByText("Schuldnerberatung")).toBeInTheDocument();
+      expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
+      expect(container.querySelector("header img")).toBeNull();
+    });
+
+    it("draws no image when the logo cannot be loaded", () => {
+      createInCallView({
+        callIntent: "video",
+        published: {},
+        orisoLogo: LOGO,
+      });
+      fireEvent.error(screen.getByTestId("oriso_header_logo"));
+      expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
+    });
+
+    it("rejects a script address instead of putting it into the page", () => {
+      const { container } = createInCallView({
+        callIntent: "video",
+        published: {},
+        orisoLogo: "javascript:alert(1)",
+      });
+      expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
+      expect(container.querySelector("img[src^='javascript']")).toBeNull();
+    });
+
+    it("draws no image for a logo on a host nobody listed", () => {
+      const { container } = createInCallView({
+        callIntent: "video",
+        published: {},
+        orisoLogo:
+          "https://tracker.example.org/service/tenant/public/branding/12/logo",
+      });
+      expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
+      expect(container.querySelector("header img")).toBeNull();
+    });
+
+    it("rejects a data address", () => {
+      createInCallView({
+        callIntent: "video",
+        published: {},
+        orisoLogo: "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+      });
+      expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
+    });
+
+    it("has no ORISO header, and so no logo, in an audio call or a group video call", () => {
+      // Only the two-person video stage has an ORISO header today; the rest
+      // keep the host's `header` setting (none, in the app's case).
+      createInCallView({
+        callIntent: "audio",
+        published: {},
+        orisoLogo: LOGO,
+      });
+      expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
+    });
+
+    it("has no logo in a group video call", () => {
+      createInCallView({
+        callIntent: "video",
+        crowd: true,
+        published: {},
+        orisoLogo: LOGO,
+      });
+      expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
+    });
   });
 
   it("inherits the artwork from the host rather than drawing its own", async () => {

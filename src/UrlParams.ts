@@ -17,6 +17,7 @@ import { pickBy } from "lodash-es";
 import { Config } from "./config/Config";
 import { type EncryptionSystem } from "./e2ee/sharedKeyManagement";
 import { E2eeType } from "./e2ee/e2eeType";
+import { parseBrandLogo } from "./oriso/brandLogo";
 import { platform } from "./Platform";
 
 interface RoomIdentifier {
@@ -50,6 +51,19 @@ export interface UrlProperties {
   // Widget api related params
   widgetId: string | null;
   parentUrl: string | null;
+  /**
+   * The Träger's logo, written into the call address by ORISO-Frontend (epic
+   * ORISO-Frontend#2187, "Call branding"): the TenantService's public logo
+   * route, `https://<host>/service/tenant/public/branding/<id>/logo`.
+   *
+   * The address comes from a link anybody can craft and ends up in an
+   * `<img src>`, so it is fail-closed. Here only its SHAPE is checked (see
+   * `parseBrandLogo`): anything but that route arrives as null. Whether the
+   * HOST is trusted (the call's own origin, or `oriso.brand_logo_origins` in
+   * the config) is decided where the logo is drawn, `OrisoHeaderLogo`, because
+   * this value is parsed and cached before the config has been fetched.
+   */
+  orisoLogo: string | null;
   /**
    * The ORISO backdrop preset, chosen centrally by the counselling centre.
    *
@@ -419,6 +433,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
 
   const widgetId = parser.getParam("widgetId");
   const parentUrl = parser.getParam("parentUrl");
+  const orisoLogo = parseBrandLogo(parser.getParam("orisoLogo"));
   const orisoAtmosphere = parser.getParam("orisoAtmosphere");
   const orisoDesign = parser.getFlagParam("orisoDesign");
   const isWidget = !!widgetId && !!parentUrl;
@@ -537,6 +552,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const properties: UrlProperties = {
     widgetId,
     parentUrl,
+    orisoLogo,
     orisoAtmosphere,
     orisoDesign,
     // NB. we don't validate roomId here as we do in getRoomIdentifierFromUrl:
