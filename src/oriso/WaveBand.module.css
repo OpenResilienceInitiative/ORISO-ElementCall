@@ -1,0 +1,82 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* 5b: a white pill under the header, bars left, the speaker right. */
+.band {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  margin-inline: 16px;
+  block-size: 56px;
+  padding-inline: 20px;
+  border-radius: 28px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 5%);
+}
+
+.bars {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 3px;
+  min-inline-size: 0;
+  block-size: 28px;
+  overflow: hidden;
+}
+
+.bar {
+  flex: none;
+  inline-size: 3px;
+  border-radius: 2px;
+  background: var(--oriso-primary, #a5000a);
+  opacity: 0.85;
+  transition: block-size 0.3s ease;
+}
+
+.band[data-speaking="true"] .bar {
+  animation: wave 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes wave {
+  to {
+    transform: scaleY(0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .band[data-speaking="true"] .bar {
+    animation: none;
+  }
+}
+
+.who {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  max-inline-size: 45%;
+  line-height: 1.25;
+}
+
+.name {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  color: rgb(45 44 40);
+}
+
+.status {
+  font-size: 0.8125rem;
+  color: var(--oriso-primary, #a5000a);
+}
+
+.band[data-speaking="false"] .status {
+  color: rgb(96 94 99);
+}

@@ -94,6 +94,18 @@ vi.mock("livekit-client/e2ee-worker?worker");
 vi.mock("../e2ee/sharedKeyManagement");
 vi.mock("../livekit/MatrixAudioRenderer");
 /*
+ * The host's window channel. Null (no buttons) unless a test says the host
+ * leaves the window to the call; there is no widget in this file.
+ */
+const hostWindow = vi.hoisted(() => ({
+  send: null as null | ((command: string) => void),
+  fullscreen: true,
+}));
+vi.mock("../oriso/useOrisoWindow", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useOrisoWindow: (): typeof hostWindow => hostWindow,
+}));
+/*
  * The grid asks how big it is and lays nothing out if the answer is nothing.
  *
  * `InCallView` measures three things in order — the container, the header and
@@ -102,12 +114,14 @@ vi.mock("../livekit/MatrixAudioRenderer");
  * that order with sizes a real window would give.
  */
 let measured = 0;
+// A phone's width for S9's tests; reset to a desktop's before each test.
+const view = vi.hoisted(() => ({ width: 960 }));
 vi.mock("react-use-measure", () => ({
   default: (): [() => void, object] => {
     const rect = [
-      { width: 960, height: 760 },
-      { width: 960, height: 60 },
-      { width: 960, height: 100 },
+      { width: view.width, height: 760 },
+      { width: view.width, height: 60 },
+      { width: view.width, height: 100 },
     ][measured++ % 3];
     return [(): void => {}, { ...rect, top: 0, left: 0 }];
   },
@@ -192,6 +206,9 @@ let useRoomEncryptionSystemMock: MockedFunction<typeof useRoomEncryptionSystem>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  view.width = 960;
+  hostWindow.send = null;
+  hostWindow.fullscreen = true;
   // Views, atmosphere and name style are remembered per person (S5, S6);
   // one test's choice must not become the next test's start.
   localStorage.clear();
@@ -961,6 +978,104 @@ describe("the call, in the ORISO design", () => {
 });
 
 /** The view rail sits in the call header (S5), no longer in the `⋮` menu. */
+/*
+ * S9, designs 5b/5d: a phone in full screen. Compact header with the ⋮,
+ * the wave band for a group, a bar of four or five buttons; the view rail
+ * and the window move into the header's ⋮.
+ */
+describe("the call on a phone (S9)", () => {
+  beforeEach(() => {
+    view.width = 375;
+  });
+
+  it("gives a group the compact header, the wave band and the short bar", async () => {
+    createInCallView({ crowd: true, callIntent: "audio" });
+    const header = await screen.findByTestId("oriso-header");
+    expect(header.dataset.compact).toBe("true");
+    expect(
+      within(header).getByTestId("oriso-header-participants"),
+    ).toHaveTextContent("3 participants");
+    // The rail and the window buttons are not in a phone's header.
+    expect(within(header).queryByTestId("view-switcher")).toBeNull();
+    expect(within(header).queryByTestId("oriso-window-fullscreen")).toBeNull();
+    expect(within(header).getByTestId("oriso-mobile-menu")).toBeInTheDocument();
+    expect(screen.getByTestId("oriso-wave-band")).toBeInTheDocument();
+
+    const toolbar = screen.getByTestId("oriso-toolbar");
+    expect(toolbar.dataset.compact).toBe("true");
+    expect(within(toolbar).queryByTestId("incall_menu")).toBeNull();
+    // An audio group: microphone, hand, notes, hang-up — no camera.
+    expect(within(toolbar).getByTestId("incall_mute")).toBeInTheDocument();
+    expect(within(toolbar).queryByTestId("incall_videomute")).toBeNull();
+    expect(within(toolbar).getByTestId("incall_notes")).toBeInTheDocument();
+    expect(within(toolbar).getByTestId("incall_leave")).toBeInTheDocument();
+  });
+
+  it("puts the view rail and Schweben into the header's ⋮, and asks the host", async () => {
+    const send = vi.fn();
+    hostWindow.send = send;
+    hostWindow.fullscreen = true;
+    createInCallView({ crowd: true });
+    fireEvent.click(await screen.findByTestId("oriso-mobile-menu"));
+    const menu = screen.getByTestId("oriso-call-menu");
+    expect(menu.dataset.placement).toBe("header");
+    expect(within(menu).getByTestId("view-switcher")).toBeInTheDocument();
+    const float = within(menu).getByRole("button", { name: "Float" });
+    fireEvent.click(float);
+    expect(send).toHaveBeenCalledWith("toggle_fullscreen");
+    expect(screen.queryByTestId("oriso-call-menu")).toBeNull();
+  });
+
+  it("offers Vollbild while the call floats", async () => {
+    hostWindow.send = vi.fn();
+    hostWindow.fullscreen = false;
+    createInCallView({ crowd: true });
+    fireEvent.click(await screen.findByTestId("oriso-mobile-menu"));
+    expect(
+      within(screen.getByTestId("oriso-call-menu")).getByRole("button", {
+        name: "Full screen",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("has no window entry while the host keeps its own buttons", async () => {
+    createInCallView({ crowd: true });
+    fireEvent.click(await screen.findByTestId("oriso-mobile-menu"));
+    expect(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-entry="window"]'),
+    ).toBeNull();
+  });
+
+  it("keeps the 1:1 in the shared circle, without a wave band", async () => {
+    const { container } = createInCallView({
+      callIntent: "audio",
+      published: {},
+      encrypted: true,
+    });
+    await screen.findByTestId("einzelgespraech");
+    // 5d: "verschlüsselt · 12:04".
+    expect(
+      within(screen.getByTestId("oriso-header")).getByText("encrypted"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("oriso-wave-band")).toBeNull();
+    expect(container.querySelector('[data-testid="oriso-grove"]')).toBeNull();
+  });
+
+  it("gives a video 1:1 the camera in the bar, and no screen share there", async () => {
+    createInCallView({ callIntent: "video", published: {} });
+    const toolbar = await screen.findByTestId("oriso-toolbar");
+    expect(within(toolbar).getByTestId("incall_videomute")).toBeInTheDocument();
+    expect(within(toolbar).queryByTestId("incall_screenshare")).toBeNull();
+    expect(
+      within(screen.getByTestId("oriso-header")).queryByTestId(
+        "incall_video_header_notes",
+      ),
+    ).toBeNull();
+  });
+});
+
 async function openViewRail(): Promise<HTMLElement> {
   const header = await screen.findByTestId("oriso-header");
   return within(header).getByTestId("view-switcher");

@@ -94,7 +94,12 @@ import {
   type NameStyle,
   readNameStyle,
 } from "../oriso/nameStyle";
-import { OrisoToolbar } from "../oriso/OrisoToolbar";
+import {
+  type CallMenuProps,
+  OrisoMobileMenu,
+  OrisoToolbar,
+} from "../oriso/OrisoToolbar";
+import { WaveBand } from "../oriso/WaveBand";
 import { OrisoNotes } from "../oriso/OrisoNotes";
 import { OrisoHeader } from "../oriso/OrisoHeader";
 import { useOrisoWindow } from "../oriso/useOrisoWindow";
@@ -166,6 +171,12 @@ const NOTES_DOCK_MIN_WIDTH = 900;
 const VIDEO_NOTES_DOCK_MIN_WIDTH = 720;
 // The phone card, the same width at which the toolbar turns compact.
 const NOTES_COMPACT_MAX_WIDTH = 400;
+/*
+ * A phone (S9, designs 5b/5d): at or below this width the call is the
+ * mobile full screen — compact header with the ⋮, the wave band for groups,
+ * a four-to-five button bar. The header's own breakpoint is the same.
+ */
+const MOBILE_MAX_WIDTH = 550;
 // What the docked card takes from the stage: 352px plus 16px either side.
 const NOTES_DOCK_INSET = 352 + 2 * 16;
 const VIDEO_NOTES_WIDTH = 312;
@@ -526,10 +537,15 @@ export const InCallView: FC<InCallViewProps> = ({
   const [notesRef, notesBounds] = useMeasure();
   const alone = useBehavior(vm.orisoOneOnOne$);
   // The call's duration in the header of a 1:1 over the atmosphere (2b).
+  const orisoMobile =
+    orisoEnabled && bounds.width > 0 && bounds.width <= MOBILE_MAX_WIDTH;
+  // 2b on a desktop; on a phone the video 1:1 shows it too (5d).
   const callDuration = useCallDuration(
     rtcSession,
-    orisoEnabled && showControls && !orisoVideoCall && alone,
+    orisoEnabled && showControls && (!orisoVideoCall || orisoMobile) && alone,
   );
+  // The wave band names whoever speaks (5b).
+  const orisoSpeaker = useBehavior(vm.orisoSpeaker$);
 
   /*
    * Where the notepad opens (#112), as in the design: beside the stage of a
@@ -607,6 +623,12 @@ export const InCallView: FC<InCallViewProps> = ({
         orisoVideoCall ? { inline: "end", block: "end" } : defaultPipAlignment,
       ),
   );
+
+  // 5d: on a phone my own picture sits top right, the other person fills.
+  useEffect(() => {
+    if (orisoMobile && orisoVideoCall)
+      pipAlignment$.next({ inline: "end", block: "start" });
+  }, [orisoMobile, orisoVideoCall, pipAlignment$]);
 
   const setGridMode = useCallback(
     (mode: GridMode) => vm.setGridMode(mode),
@@ -818,6 +840,34 @@ export const InCallView: FC<InCallViewProps> = ({
 
   useAppBarHidden(!showHeader);
 
+  // The call menu's contents, in the bar's ⋮ or the phone header's (S9).
+  const callMenu: CallMenuProps = {
+    onToggleNotes: toggleNotes,
+    waitingCount: orisoKnock.waiting,
+    knock: orisoKnock.knock,
+    onKnockChange: orisoKnock.setKnock,
+    onHangup: (): void => vm.hangup(),
+    participantCount,
+    // Over a camera names are always capsules, so a video call offers no
+    // choice.
+    nameStyle,
+    onNameStyleChange: orisoVideoCall ? null : chooseNameStyle,
+    // A phone's header has no room for the atmosphere popover (5b).
+    backgroundLabel:
+      atmosphereShown && !orisoMobile
+        ? atmosphereChoice === "traeger"
+          ? t("oriso.atmosphere_carrier")
+          : t(`oriso.atmosphere_${atmosphereChoice}`)
+        : null,
+    onOpenBackground: atmosphereShown && !orisoMobile ? openAtmosphere : null,
+    onToggleScreenShare: vm.toggleScreenSharing,
+    sharingScreen,
+    // The SettingsModal is not mounted in pip or flat mode.
+    onOpenSoundSettings: isPopupMode ? null : openSoundSettings,
+    onOpenSettings: isPopupMode ? null : openSettings,
+    onTouchEnd: onControlsTouchEnd,
+  };
+
   let header: ReactNode = null;
   if (orisoEnabled && showControls && windowMode !== "pip") {
     /*
@@ -826,10 +876,11 @@ export const InCallView: FC<InCallViewProps> = ({
      * it is where the window buttons live — without it the call would have
      * none at all.
      */
-    header = (
+    const orisoHeader = (
       <OrisoHeader
-        ref={headerRef}
-        className={styles.header}
+        ref={orisoMobile ? undefined : headerRef}
+        className={orisoMobile ? undefined : styles.header}
+        compact={orisoMobile}
         tone={orisoVideoOneOnOne ? "dark" : "light"}
         title={
           matrixInfo.roomName ||
@@ -841,7 +892,7 @@ export const InCallView: FC<InCallViewProps> = ({
         }
         encrypted={matrixInfo.e2eeSystem.kind !== E2eeType.NONE}
         meta={
-          callDuration !== null && (
+          callDuration !== null ? (
             <span
               role="timer"
               aria-label={t("oriso.call_duration", { duration: callDuration })}
@@ -849,6 +900,13 @@ export const InCallView: FC<InCallViewProps> = ({
             >
               {callDuration}
             </span>
+          ) : (
+            // 5b: "verschlüsselt · 6 Teilnehmende" on a phone.
+            orisoMobile && (
+              <span data-testid="oriso-header-participants">
+                {t("oriso.participants_count", { count: participantCount })}
+              </span>
+            )
           )
         }
         onWindow={orisoWindow.send}
@@ -856,7 +914,7 @@ export const InCallView: FC<InCallViewProps> = ({
         onTouchEnd={onControlsTouchEnd}
         actions={
           <>
-            {atmosphereShown && (
+            {atmosphereShown && !orisoMobile && (
               <AtmospherePicker
                 choice={atmosphereChoice}
                 current={atmosphere}
@@ -868,7 +926,7 @@ export const InCallView: FC<InCallViewProps> = ({
             )}
             {/* S5: the view rail is in the header (2a), inactive views as an
                 icon, the active one with its word. */}
-            {orisoOffer.length > 1 && (
+            {orisoOffer.length > 1 && !orisoMobile && (
               <ViewSwitcher
                 tone={orisoVideoOneOnOne ? "dark" : "light"}
                 active={stageView}
@@ -877,7 +935,7 @@ export const InCallView: FC<InCallViewProps> = ({
                 onTouchEnd={onControlsTouchEnd}
               />
             )}
-            {orisoVideoOneOnOne && (
+            {orisoVideoOneOnOne && !orisoMobile && (
               <button
                 type="button"
                 className={styles.videoNotesButton}
@@ -895,10 +953,29 @@ export const InCallView: FC<InCallViewProps> = ({
               <InviteLinkButton
                 request={orisoInviteRequest}
                 tone={orisoVideoOneOnOne ? "dark" : "light"}
+                compact={orisoMobile}
                 onTouchEnd={onControlsTouchEnd}
               />
             )}
+            {/* S9: the ⋮ moves from the bar into a phone's header. */}
+            {orisoMobile && (
+              <OrisoMobileMenu
+                {...callMenu}
+                views={{
+                  offer: orisoOffer,
+                  active: stageView,
+                  onChange: setStageView,
+                }}
+                onToggleWindow={
+                  orisoWindow.send === null
+                    ? null
+                    : (): void => orisoWindow.send?.("toggle_fullscreen")
+                }
+                fullscreen={orisoWindow.fullscreen}
+              />
+            )}
             {orisoInviteRequest === null &&
+              !orisoMobile &&
               headerStyle === "standard" &&
               onShareClick !== null && (
                 <InviteButton
@@ -909,6 +986,16 @@ export const InCallView: FC<InCallViewProps> = ({
           </>
         }
       />
+    );
+    header = orisoMobile ? (
+      // A phone: the header and, for a group, the wave band under it are
+      // measured together, so the stage starts below both.
+      <div ref={headerRef} className={styles.orisoMobileHeader}>
+        {orisoHeader}
+        {!alone && <WaveBand speaker={orisoSpeaker} />}
+      </div>
+    ) : (
+      orisoHeader
     );
   } else if (showHeader) {
     switch (headerStyle) {
@@ -1206,7 +1293,12 @@ export const InCallView: FC<InCallViewProps> = ({
             ? `${footerBounds.height}px`
             : undefined,
           "--oriso-footer-h": `${footerBounds.height}px`,
-          "--oriso-toolbar-h": notesCompact ? "56px" : "64px",
+          // The phone's bar is one 72px pill (S9).
+          "--oriso-toolbar-h": orisoMobile
+            ? "72px"
+            : notesCompact
+              ? "56px"
+              : "64px",
         } as CSSProperties
       }
     />
@@ -1229,7 +1321,9 @@ export const InCallView: FC<InCallViewProps> = ({
       {showControls &&
         (orisoEnabled ? (
           <OrisoToolbar
+            {...callMenu}
             className={styles.orisoToolbar}
+            compact={orisoMobile}
             audioMuted={!audioEnabled || mediaError !== null}
             onToggleAudio={mediaError === null ? toggleAudio : null}
             showVideo={!orisoAudioOnly}
@@ -1241,32 +1335,8 @@ export const InCallView: FC<InCallViewProps> = ({
                 ? (): void => void toggleRaisedHand()
                 : null
             }
-            onToggleNotes={toggleNotes}
             notesOpen={notesOpen}
-            waitingCount={orisoKnock.waiting}
-            knock={orisoKnock.knock}
-            onKnockChange={orisoKnock.setKnock}
-            onHangup={() => vm.hangup()}
-            participantCount={participantCount}
-            // Over a camera names are always capsules, so a video call
-            // offers no choice.
-            nameStyle={nameStyle}
-            onNameStyleChange={orisoVideoCall ? null : chooseNameStyle}
-            backgroundLabel={
-              atmosphereShown
-                ? atmosphereChoice === "traeger"
-                  ? t("oriso.atmosphere_carrier")
-                  : t(`oriso.atmosphere_${atmosphereChoice}`)
-                : null
-            }
-            onOpenBackground={atmosphereShown ? openAtmosphere : null}
-            onToggleScreenShare={vm.toggleScreenSharing}
-            sharingScreen={sharingScreen}
             screenShareInBar={orisoVideoCall}
-            // The SettingsModal is not mounted in pip or flat mode.
-            onOpenSoundSettings={isPopupMode ? null : openSoundSettings}
-            onOpenSettings={isPopupMode ? null : openSettings}
-            onTouchEnd={onControlsTouchEnd}
           />
         ) : (
           <>

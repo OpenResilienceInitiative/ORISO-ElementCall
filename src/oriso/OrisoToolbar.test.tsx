@@ -10,7 +10,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
-import { OrisoToolbar } from "./OrisoToolbar";
+import { OrisoMobileMenu, OrisoToolbar } from "./OrisoToolbar";
 
 const props = (
   overrides: Partial<ComponentProps<typeof OrisoToolbar>> = {},
@@ -362,5 +362,101 @@ describe("knocking in the call (#108)", () => {
     );
     fireEvent.click(screen.getByTestId("incall_menu"));
     expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+/*
+ * S9, designs 5b/5d: the phone's bar holds four or five buttons — the
+ * microphone, the camera only in a video call, the hand, the notes and the
+ * hang-up at its end. The ⋮ lives in the header there.
+ */
+describe("the phone's control bar (S9)", () => {
+  it("holds microphone, camera, hand, notes and the hang-up in a video call", () => {
+    render(
+      <OrisoToolbar {...props({ compact: true, screenShareInBar: true })} />,
+    );
+    expect(barButtons()).toEqual([
+      "incall_mute",
+      "incall_videomute",
+      "incall_raise_hand",
+      "incall_notes",
+      "incall_leave",
+    ]);
+  });
+
+  it("holds four in an audio call: no camera, no ⋮", () => {
+    render(<OrisoToolbar {...props({ compact: true, showVideo: false })} />);
+    expect(barButtons()).toEqual([
+      "incall_mute",
+      "incall_raise_hand",
+      "incall_notes",
+      "incall_leave",
+    ]);
+  });
+
+  it("keeps the hang-up's word as its name", () => {
+    render(<OrisoToolbar {...props({ compact: true })} />);
+    expect(screen.getByTestId("incall_leave")).toHaveAccessibleName(/hang up/i);
+  });
+});
+
+describe("the call menu in a phone's header (S9)", () => {
+  const menuProps = (
+    overrides: Partial<ComponentProps<typeof OrisoMobileMenu>> = {},
+  ): ComponentProps<typeof OrisoMobileMenu> => {
+    const {
+      audioMuted: _a,
+      onToggleAudio: _b,
+      videoMuted: _c,
+      onToggleVideo: _d,
+      handRaised: _e,
+      onToggleHand: _f,
+      ...menu
+    } = props();
+    return { ...menu, ...overrides };
+  };
+
+  it("holds the view rail and the usual entries", () => {
+    const onChange = vi.fn();
+    render(
+      <OrisoMobileMenu
+        {...menuProps({
+          views: {
+            offer: ["kreis", "hain", "felder", "kacheln", "spotlight"],
+            active: "kreis",
+            onChange,
+          },
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("oriso-mobile-menu"));
+    const menu = screen.getByTestId("oriso-call-menu");
+    expect(menu.dataset.placement).toBe("header");
+    const rail = within(menu).getByTestId("view-switcher");
+    fireEvent.click(within(rail).getAllByRole("radio")[1]);
+    expect(onChange).toHaveBeenCalledWith("hain");
+    expect(menu.querySelector('[data-entry="leave"]')).not.toBeNull();
+  });
+
+  it("sends Schweben while full screen and Vollbild while floating", () => {
+    const onToggleWindow = vi.fn();
+    const { rerender } = render(
+      <OrisoMobileMenu {...menuProps({ onToggleWindow, fullscreen: true })} />,
+    );
+    fireEvent.click(screen.getByTestId("oriso-mobile-menu"));
+    fireEvent.click(screen.getByRole("button", { name: "Float" }));
+    expect(onToggleWindow).toHaveBeenCalledOnce();
+    rerender(
+      <OrisoMobileMenu {...menuProps({ onToggleWindow, fullscreen: false })} />,
+    );
+    fireEvent.click(screen.getByTestId("oriso-mobile-menu"));
+    expect(
+      screen.getByRole("button", { name: "Full screen" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows who is waiting on the ⋮", () => {
+    render(<OrisoMobileMenu {...menuProps({ waitingCount: 2 })} />);
+    expect(screen.getByTestId("oriso-waiting-badge")).toHaveTextContent("2");
   });
 });

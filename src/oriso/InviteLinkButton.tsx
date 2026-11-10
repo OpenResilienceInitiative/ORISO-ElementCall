@@ -36,6 +36,8 @@ interface Props {
   request: () => Promise<InviteLinkReply>;
   /** Dark on the video stage (5a), light over the atmosphere. */
   tone: "light" | "dark";
+  /** A phone's header (S9): the icon alone, the words its name. */
+  compact?: boolean;
   onTouchEnd?: (e: TouchEvent) => void;
 }
 
@@ -57,7 +59,12 @@ async function copy(text: string): Promise<boolean> {
  * happens next — whoever opens it knocks and is let in by this person. When
  * the host cannot make one, the popover says so instead.
  */
-export const InviteLinkButton: FC<Props> = ({ request, tone, onTouchEnd }) => {
+export const InviteLinkButton: FC<Props> = ({
+  request,
+  tone,
+  compact = false,
+  onTouchEnd,
+}) => {
   const { t } = useTranslation();
   const id = useId();
   const [state, setState] = useState<State>({ kind: "closed" });
@@ -130,19 +137,26 @@ export const InviteLinkButton: FC<Props> = ({ request, tone, onTouchEnd }) => {
   const label = t("oriso.invite_button");
 
   return (
-    <div className={styles.invite} data-tone={tone}>
+    <div
+      className={styles.invite}
+      data-tone={tone}
+      data-compact={compact || undefined}
+    >
       <button
         ref={triggerRef}
         type="button"
         className={styles.trigger}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
+        aria-label={compact ? label : undefined}
+        title={compact ? label : undefined}
+        data-compact={compact || undefined}
         onClick={onClick}
         onTouchEnd={onTouchEnd}
         data-testid="oriso-invite-button"
       >
         <LinkIcon aria-hidden width={20} height={20} />
-        <span>{label}</span>
+        {!compact && <span>{label}</span>}
       </button>
       {open && (
         <div

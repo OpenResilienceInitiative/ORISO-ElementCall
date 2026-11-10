@@ -798,6 +798,34 @@ describe.each([
     },
   );
 
+  it("names whoever speaks for the phone's wave band (S9)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          speaking: new Map([
+            // Bob starts speaking; Alice joins in and the band names the
+            // first in the call; when she stops it is Bob again.
+            [aliceParticipant, behavior("n-yn", yesNo)],
+            [bobParticipant, behavior("ny", yesNo)],
+          ]),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoSpeaker$.pipe(map((s) => s?.userId ?? "none")),
+          ).toBe("abcd", {
+            a: "none",
+            b: bobRtcMember.userId,
+            c: aliceRtcMember.userId,
+            d: bobRtcMember.userId,
+          });
+        },
+        { orisoDesign: true },
+      );
+    });
+  });
+
   test("spotlight speakers swap places", () => {
     withTestScheduler(({ behavior, schedule, expectObservable }) => {
       // Go immediately into spotlight mode for the test

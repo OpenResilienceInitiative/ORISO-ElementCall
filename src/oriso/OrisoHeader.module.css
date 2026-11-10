@@ -160,3 +160,39 @@ Please see LICENSE in the repository root for full details.
     clip-path: inset(50%);
   }
 }
+
+/* A phone in full screen (5b/5d, S9): over the stage, title above,
+   "verschlüsselt · 6 Teilnehmende" under it, the ⋮ at the end. */
+.header[data-compact] {
+  min-block-size: 72px;
+  padding-inline: 16px;
+  padding-block: 12px 8px;
+  box-shadow: none;
+}
+
+.header[data-compact][data-tone="light"] {
+  background: transparent;
+}
+
+.header[data-compact][data-tone="dark"] {
+  background: linear-gradient(rgb(0 0 0 / 45%), transparent);
+}
+
+.header[data-compact] .lead {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.header[data-compact] .title {
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.header[data-compact] .chip {
+  padding-inline: 0;
+  background: none;
+}
+
+.header[data-compact] .meta {
+  font-size: 0.8125rem;
+}

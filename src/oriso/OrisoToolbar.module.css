@@ -420,3 +420,83 @@ Please see LICENSE in the repository root for full details.
     translate: -50% 0;
   }
 }
+
+/* A phone in full screen (5b/5d, S9): one white bar across the width, the
+   hang-up round at its end. The call menu is in the header there. */
+.toolbar[data-compact] {
+  inline-size: 100%;
+  box-sizing: border-box;
+}
+
+.toolbar[data-compact] .bar {
+  flex: 1;
+  justify-content: space-between;
+  block-size: 72px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 36px;
+}
+
+.toolbar[data-compact] .hangup {
+  min-inline-size: 56px;
+  inline-size: 56px;
+  block-size: 56px;
+  padding: 0;
+  border-radius: 28px;
+  box-shadow: none;
+}
+
+.toolbar[data-compact] .hangupLabel {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* The call menu under the header's ⋮ on a phone (S9). */
+.menu[data-placement="header"] {
+  inset-block-start: calc(100% + 8px);
+  inset-block-end: auto;
+  inset-inline-end: 0;
+  inset-inline-start: auto;
+  translate: none;
+  z-index: 30;
+  max-block-size: calc(100dvh - 96px);
+}
+
+.menuSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px 8px;
+}
+
+.mobileMenu {
+  position: relative;
+  display: flex;
+}
+
+.mobileTrigger {
+  appearance: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 44px;
+  block-size: 44px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 50%;
+  background: #fff;
+  color: rgb(45 44 40);
+  cursor: pointer;
+}
+
+.mobileTrigger[aria-expanded="true"] {
+  border-color: var(--oriso-primary, #a5000a);
+}
+
+.mobileTrigger:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
+}

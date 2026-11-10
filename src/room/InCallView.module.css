@@ -368,3 +368,31 @@ Please see LICENSE in the repository root for full details.
   padding-inline-end: 0;
   padding-block: 2px 26px;
 }
+
+/* A phone (S9): the compact header and, for a group, the wave band under
+   it, over the stage rather than on a bar of their own. */
+.orisoMobileHeader {
+  position: sticky;
+  flex-shrink: 0;
+  inset-block-start: 0;
+  z-index: var(--oriso-z-header, 30);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block-end: 8px;
+}
+
+.inRoom[data-oriso="true"] > .orisoMobileHeader {
+  z-index: var(--oriso-z-header);
+}
+
+.footer.orisoFooter .orisoToolbar[data-compact] {
+  justify-self: stretch;
+}
+
+/* The phone's bar runs across the width with 16px gutters (5b/5d): no grid
+   gaps eating into it, and less air below than the desktop's 40px. */
+.footer.orisoFooter:has(.orisoToolbar[data-compact]) {
+  column-gap: 0;
+  padding-block: var(--cpd-space-4x);
+}

@@ -35,6 +35,12 @@ interface Props {
   onWindow: ((command: OrisoWindowCommand) => void) | null;
   fullscreen: boolean;
   onTouchEnd?: (e: TouchEvent) => void;
+  /**
+   * A phone in full screen (5b/5d, S9): title, "verschlüsselt · …" under it
+   * and the header's own buttons (the ⋮ among them). No window buttons:
+   * "Schweben/Vollbild" is an entry of the ⋮ there.
+   */
+  compact?: boolean;
   className?: string;
 }
 
@@ -59,6 +65,7 @@ export const OrisoHeader: FC<Props> = ({
   onWindow,
   fullscreen,
   onTouchEnd,
+  compact = false,
   className,
 }) => {
   const { t } = useTranslation();
@@ -72,6 +79,7 @@ export const OrisoHeader: FC<Props> = ({
       className={classNames(styles.header, className)}
       data-tone={tone}
       data-host-chrome={onWindow === null ? "host" : "call"}
+      data-compact={compact || undefined}
       data-testid="oriso-header"
     >
       <div className={styles.lead}>
@@ -81,9 +89,13 @@ export const OrisoHeader: FC<Props> = ({
             {encrypted && (
               <span className={styles.chip} data-testid="oriso-header-e2ee">
                 <LockSolidIcon aria-hidden />
-                <span className={styles.chipText}>
-                  {t("oriso.video_stage_encrypted")}
-                </span>
+                {compact ? (
+                  <span>{t("oriso.encrypted_short")}</span>
+                ) : (
+                  <span className={styles.chipText}>
+                    {t("oriso.video_stage_encrypted")}
+                  </span>
+                )}
               </span>
             )}
             {encrypted && meta && <span aria-hidden="true">·</span>}
@@ -91,10 +103,10 @@ export const OrisoHeader: FC<Props> = ({
           </span>
         )}
       </div>
-      {(actions || onWindow) && (
+      {(actions || (onWindow && !compact)) && (
         <div className={styles.actions}>
           {actions}
-          {onWindow && (
+          {onWindow && !compact && (
             <>
               <button
                 type="button"

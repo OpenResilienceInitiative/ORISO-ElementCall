@@ -226,6 +226,12 @@ type AudioLivekitItem = {
  *
  * (Mocking this interface should allow building a full view in all states.)
  */
+/** A speaker as the ORISO wave band names them. */
+export interface OrisoSpeaker {
+  userId: string;
+  displayName: string;
+}
+
 export interface CallViewModel {
   // lifecycle
   autoLeave$: Observable<AutoLeaveReason>;
@@ -358,6 +364,11 @@ export interface CallViewModel {
    * `stagePlan`.
    */
   orisoPlan$: Behavior<StagePlan>;
+  /**
+   * Who is speaking right now, for the mobile wave band (S9): a remote
+   * speaker before myself, null while nobody speaks.
+   */
+  orisoSpeaker$: Behavior<OrisoSpeaker | null>;
   /**
    * The current generation of the tile store, exposed for debugging purposes.
    */
@@ -923,6 +934,37 @@ export function createCallViewModel$(
         null,
       ),
       map((speaker) => speaker?.vm ?? null),
+    ),
+  );
+
+  const orisoSpeaker$ = scope.behavior<OrisoSpeaker | null>(
+    userMedia$.pipe(
+      switchMap((mediaItems) =>
+        mediaItems.length === 0
+          ? of(null)
+          : combineLatest(
+              mediaItems.map((m) =>
+                combineLatest([m.vm.speaking$, m.vm.displayName$]).pipe(
+                  map(([speaking, displayName]) => ({
+                    speaking,
+                    local: m.vm.local,
+                    speaker: { userId: m.vm.userId, displayName },
+                  })),
+                ),
+              ),
+            ).pipe(
+              map((all) => {
+                const speaking = all.filter((m) => m.speaking);
+                return (
+                  (speaking.find((m) => !m.local) ?? speaking[0])?.speaker ??
+                  null
+                );
+              }),
+            ),
+      ),
+      distinctUntilChanged(
+        (a, b) => a?.userId === b?.userId && a?.displayName === b?.displayName,
+      ),
     ),
   );
 
@@ -1646,6 +1688,7 @@ export function createCallViewModel$(
         ),
       ),
     ),
+    orisoSpeaker$,
     tileStoreGeneration$: tileStoreGeneration$,
     showSpotlightIndicators$: showSpotlightIndicators$,
     showSpeakingIndicators$: showSpeakingIndicators$,

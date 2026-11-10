@@ -140,3 +140,20 @@ Please see LICENSE in the repository root for full details.
   font-size: 0.875rem;
   color: #cc0000;
 }
+
+.trigger[data-compact] {
+  justify-content: center;
+  inline-size: 44px;
+  block-size: 44px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+/* A phone: the popover spans the screen under the header rather than
+   hanging off a button that is not at the edge. */
+.invite[data-compact] .popover {
+  position: fixed;
+  inset-block-start: 76px;
+  inset-inline: 16px;
+  inline-size: auto;
+}
