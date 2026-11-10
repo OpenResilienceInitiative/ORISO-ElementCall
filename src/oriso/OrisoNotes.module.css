@@ -152,10 +152,11 @@ Please see LICENSE in the repository root for full details.
   block-size: 18px;
 }
 
-.compact .copy {
+.copy[data-copied="false"] {
   justify-content: center;
   inline-size: 36px;
   padding: 0;
+  gap: 0;
 }
 
 .close {

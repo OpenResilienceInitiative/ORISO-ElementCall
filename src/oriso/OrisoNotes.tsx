@@ -69,7 +69,7 @@ interface Props {
    * "sheet": inside the view above the control bar (2b, and narrow screens).
    */
   layout: "docked" | "sheet";
-  /** The phone card: icon-only copy. */
+  /** The phone card: tighter insets and padding. */
   compact: boolean;
   className?: string;
   style?: CSSProperties;
@@ -299,6 +299,11 @@ export const OrisoNotes: FC<Props> = ({
       ref={ref}
       className={classNames(
         styles.card,
+        // The card is a light surface in every call, the design's white
+        // sheet beside a dark video too. Its colours are Compound's roles,
+        // so it takes the light theme's: under the default dark theme the
+        // title came out #e4e2e2 on #f5f5f5 and the copy pill near-black.
+        "cpd-theme-light",
         layout === "docked" ? styles.docked : styles.sheet,
         { [styles.compact]: compact },
         className,
@@ -310,19 +315,21 @@ export const OrisoNotes: FC<Props> = ({
         <h2 id={titleId} className={styles.title}>
           {t("oriso.notes_title")}
         </h2>
+        {/* An icon with its name as the tooltip, on the docked card too: at
+            the dock's 352px the pill "Als Text kopieren" left the title
+            "Schmierz…". Only the confirmation is spelled out, briefly. */}
         <button
           type="button"
           className={styles.copy}
+          data-copied={copied}
           onClick={copy}
-          aria-label={compact ? copyName : undefined}
-          title={compact ? copyName : undefined}
+          aria-label={copyName}
+          title={copyName}
         >
           <CopyIcon aria-hidden />
-          {!compact && (
-            <span aria-live="polite">
-              {copied ? t("oriso.notes_copied") : copyName}
-            </span>
-          )}
+          <span aria-live="polite">
+            {copied ? t("oriso.notes_copied") : ""}
+          </span>
         </button>
         {/* The docked card closes here too: design 2a draws the × beside
             "Als Text kopieren", and with the card docked in every view (S5)
