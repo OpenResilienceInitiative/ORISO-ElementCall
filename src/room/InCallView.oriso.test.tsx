@@ -192,6 +192,9 @@ let useRoomEncryptionSystemMock: MockedFunction<typeof useRoomEncryptionSystem>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Views, atmosphere and name style are remembered per person (S5, S6);
+  // one test's choice must not become the next test's start.
+  localStorage.clear();
 
   // MatrixAudioRenderer is tested separately.
   (
@@ -549,12 +552,17 @@ describe("the call, in the ORISO design", () => {
     ).toBe(true);
   });
 
-  it("offers the three views, with one of them spelled out", async () => {
+  it("offers the five views, with one of them spelled out", async () => {
     createInCallView({ crowd: true });
     const rail = await openViewRail();
     expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
+    expect(
       rail.querySelectorAll('[role="radio"][aria-checked="false"]'),
-    ).toHaveLength(2);
+    ).toHaveLength(4);
     expect(
       rail.querySelector('[role="radio"][aria-checked="true"]')?.textContent,
     ).toBeTruthy();
@@ -615,12 +623,13 @@ describe("the call, in the ORISO design", () => {
     createInCallView({ crowd: true });
     const rail = await openViewRail();
     const buttons = [...rail.querySelectorAll<HTMLElement>('[role="radio"]')];
-    buttons[0].focus();
+    // The Hain is on (nothing stored), the second of five.
+    buttons[1].focus();
 
     fireEvent.keyDown(rail, { key: "ArrowRight" });
-    expect(document.activeElement).toBe(buttons[1]);
-    fireEvent.keyDown(rail, { key: "End" });
     expect(document.activeElement).toBe(buttons[2]);
+    fireEvent.keyDown(rail, { key: "End" });
+    expect(document.activeElement).toBe(buttons[4]);
   });
 
   it("shows initials for somebody nobody published anything for", async () => {
@@ -741,6 +750,55 @@ describe("the call, in the ORISO design", () => {
     expect(container.querySelector('[data-oriso-names="dezent"]')).toBeTruthy();
     expect(localStorage.getItem("oriso-call-names")).toBe("dezent");
     localStorage.removeItem("oriso-call-names");
+  });
+
+  /*
+   * S6: the Kreis has the room's sound in the middle; the choice survives
+   * the next call, the spotlight included (it used to be memory only).
+   */
+  it("draws the Kreis with its centre and remembers it", async () => {
+    localStorage.removeItem("oriso-call-view");
+    const { container, unmount } = createInCallView({ crowd: true });
+    const rail = await openViewRail();
+    fireEvent.click(rail.querySelector('[data-view="kreis"]')!);
+    expect(
+      container.querySelector('[data-view="kreis"][data-testid="oriso-grove"]'),
+    ).toBeTruthy();
+    expect(screen.getByTestId("oriso-kreis-centre")).toBeTruthy();
+    expect(localStorage.getItem("oriso-call-view")).toBe("kreis");
+    unmount();
+
+    createInCallView({ crowd: true });
+    const again = await openViewRail();
+    expect(
+      again
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("kreis");
+    localStorage.removeItem("oriso-call-view");
+  });
+
+  it("starts in the spotlight when the spotlight was the last choice", async () => {
+    localStorage.setItem("oriso-call-view", "spotlight");
+    createInCallView({ crowd: true });
+    const rail = await openViewRail();
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("spotlight");
+    localStorage.removeItem("oriso-call-view");
+  });
+
+  it("lays the Kacheln out as equal tiles", async () => {
+    localStorage.setItem("oriso-call-view", "kacheln");
+    const { container } = createInCallView({ crowd: true });
+    await openViewRail();
+    const sheet = container.querySelector(
+      '[data-testid="oriso-grove"][data-view="kacheln"]',
+    );
+    expect(sheet?.getAttribute("data-mode")).toBe("scroll");
+    localStorage.removeItem("oriso-call-view");
   });
 
   it("opens my call note in the call itself, and closes it again (#112)", async () => {

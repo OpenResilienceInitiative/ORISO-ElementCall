@@ -106,10 +106,17 @@ import {
 } from "../oriso/useOrisoIdentities";
 import { OrisoShapeStore, OrisoShapesContext } from "../oriso/useOrisoShape";
 import {
-  ORISO_VIEW_STORAGE_KEY,
+  type OrisoPins,
+  OrisoPinsContext,
   OrisoViewContext,
   type OrisoView,
 } from "../oriso/useOrisoView";
+import {
+  ORISO_VIEW_STORAGE_KEY,
+  arrangementFor,
+  resolveStageView,
+  stagePlan,
+} from "../oriso/stageViews";
 import { useLocalStorage } from "../useLocalStorage";
 import { Atmosphere } from "../oriso/Atmosphere";
 import { GridTileViewModel, type TileViewModel } from "../state/TileViewModel";
@@ -649,46 +656,30 @@ export const InCallView: FC<InCallViewProps> = ({
     [setStoredNameStyle],
   );
 
-  // The arrangement is remembered, because it is a preference about how
-  // somebody likes to see a room rather than a property of this call.
+  /*
+   * The view is remembered, because it is a preference about how somebody
+   * likes to see a room rather than a property of this call — the spotlight
+   * included (S6; it used to live in memory only).
+   *
+   * What the rail offers and what a stored choice means come from
+   * `stagePlan`: at exactly two people the stage is the Einzelgespräch
+   * whichever arrangement is stored, so the rail names that and offers the
+   * one real alternative, the spotlight. The machinery underneath holds two
+   * orthogonal settings — the arrangement in grid mode, and spotlight mode;
+   * see `useOrisoView.ts` for why they are not one enum.
+   *
+   * Two people are counted as the VIEW MODEL counts them, not as the stage
+   * happens to look: in spotlight mode the layout is a spotlight, and a rail
+   * that read the layout offered the grove again at two people.
+   */
   const [storedView, setStoredView] = useLocalStorage(ORISO_VIEW_STORAGE_KEY);
-  const orisoView: OrisoView = storedView === "felder" ? "felder" : "hain";
-
-  /*
-   * What the rail offers, and what it says is on.
-   *
-   * The machinery underneath holds two orthogonal settings: Kreis and Kacheln
-   * are both grid mode with a different arrangement, Spotlight is the other
-   * mode. See `useOrisoView.ts` for why they are not one enum.
-   *
-   * But at exactly two people `layoutMedia$` reaches for the one-on-one
-   * layout first and it matches, so the stage is the Einzelgespräch whichever
-   * arrangement is selected — and Kreis and Kacheln were BOTH no-ops there:
-   * the radio moved and nothing else did. The rail now names the arrangement
-   * that is actually on and offers the one real alternative, which is the
-   * spotlight. Choosing the Einzelgespräch means grid mode, exactly as Kreis
-   * does; the stored arrangement is left alone so that it comes back when a
-   * third person arrives.
-   */
-  /*
-   * Two people, as the VIEW MODEL counts them rather than as the stage
-   * happens to look.
-   *
-   * This read `layout.type === "one-on-one"`, which is the same thing only
-   * in grid mode: pick the spotlight at two people and the layout becomes a
-   * spotlight, so the rail decided it was no longer a two-person call and
-   * offered the grove and the fields again — both of which land straight
-   * back on the Einzelgespräch. The control went back to naming arrangements
-   * it cannot honour, which is the thing it was fixed to stop doing.
-   */
+  const orisoPlan = useMemo(() => stagePlan({ alone }), [alone]);
   // A stable array, so the rail can memoise its entries on it and its
   // keyboard handler cannot close over a list that has moved on.
-  const orisoOffer: readonly StageView[] = useMemo(
-    () =>
-      alone
-        ? ["einzelgespraech", "spotlight"]
-        : ["hain", "felder", "spotlight"],
-    [alone],
+  const orisoOffer = orisoPlan.offer;
+  const orisoView: OrisoView = arrangementFor(
+    resolveStageView(storedView, orisoPlan),
+    orisoPlan,
   );
   const stageView: StageView =
     gridMode === "spotlight"
@@ -698,16 +689,42 @@ export const InCallView: FC<InCallViewProps> = ({
         : orisoView;
   const setStageView = useCallback(
     (view: StageView) => {
-      if (view === "spotlight") {
-        setGridMode("spotlight");
-        return;
-      }
-      // The Einzelgespräch is not a stored arrangement — it is what two
-      // people get — so picking it only says "not the spotlight".
-      if (view !== "einzelgespraech") setStoredView(view);
-      setGridMode("grid");
+      /*
+       * The Einzelgespräch is what two people get, not an arrangement to
+       * keep: picking it only replaces a stored spotlight, so the grove or
+       * the fields come back when a third person arrives.
+       */
+      if (view !== "einzelgespraech" || storedView === "spotlight")
+        setStoredView(view);
+      setGridMode(view === "spotlight" ? "spotlight" : "grid");
     },
-    [setGridMode, setStoredView],
+    [setGridMode, setStoredView, storedView],
+  );
+  // A call that was left in the spotlight starts in it again.
+  const restoredView = useRef(false);
+  useEffect(() => {
+    if (restoredView.current || !orisoEnabled) return;
+    restoredView.current = true;
+    if (storedView === "spotlight") setGridMode("spotlight");
+  }, [orisoEnabled, storedView, setGridMode]);
+
+  // "Anheften — bleibt groß" (S6): mine alone, for this call.
+  const [pinnedIds, setPinnedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const togglePin = useCallback(
+    (mediaId: string) =>
+      setPinnedIds((was) => {
+        const next = new Set(was);
+        if (next.has(mediaId)) next.delete(mediaId);
+        else next.add(mediaId);
+        return next;
+      }),
+    [],
+  );
+  const orisoPins: OrisoPins = useMemo(
+    () => ({ pinned: pinnedIds, toggle: orisoEnabled ? togglePin : null }),
+    [pinnedIds, orisoEnabled, togglePin],
   );
 
   useEffect(() => {
@@ -1236,88 +1253,90 @@ export const InCallView: FC<InCallViewProps> = ({
     <OrisoStageContext value={orisoStage}>
       <OrisoShapesContext value={orisoShapes}>
         <OrisoViewContext value={orisoView}>
-          <div
-            className={styles.inRoom}
-            ref={containerRef}
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
-            onTouchCancel={onTouchCancel}
-            onPointerMove={onPointerMove}
-            onPointerOut={onPointerOut}
-            data-oriso={orisoEnabled ? "true" : undefined}
-            data-oriso-video-stage={orisoVideoOneOnOne ? "true" : undefined}
-            style={
-              orisoVideoOneOnOne
-                ? ({
-                    "--oriso-stage-gutter": `${videoStageGutter}px`,
-                    "--oriso-video-notes-width": `${VIDEO_NOTES_WIDTH}px`,
-                    "--oriso-video-notes-inset": `${dockInset}px`,
-                  } as CSSProperties)
-                : undefined
-            }
-            data-notes-docked={notesShown && notesDocked ? "true" : undefined}
-            data-oriso-names={orisoEnabled ? nameStyle : undefined}
-          >
-            {/* The living backdrop. Behind everything, announced to
+          <OrisoPinsContext value={orisoPins}>
+            <div
+              className={styles.inRoom}
+              ref={containerRef}
+              onTouchStart={onTouchStart}
+              onTouchEnd={onTouchEnd}
+              onTouchCancel={onTouchCancel}
+              onPointerMove={onPointerMove}
+              onPointerOut={onPointerOut}
+              data-oriso={orisoEnabled ? "true" : undefined}
+              data-oriso-video-stage={orisoVideoOneOnOne ? "true" : undefined}
+              style={
+                orisoVideoOneOnOne
+                  ? ({
+                      "--oriso-stage-gutter": `${videoStageGutter}px`,
+                      "--oriso-video-notes-width": `${VIDEO_NOTES_WIDTH}px`,
+                      "--oriso-video-notes-inset": `${dockInset}px`,
+                    } as CSSProperties)
+                  : undefined
+              }
+              data-notes-docked={notesShown && notesDocked ? "true" : undefined}
+              data-oriso-names={orisoEnabled ? nameStyle : undefined}
+            >
+              {/* The living backdrop. Behind everything, announced to
                 nobody: it carries no information, and reading it out would be
                 noise between a counsellor and what they need. The preset is
                 the person's own choice, the carrier's motif by default. */}
-            {atmosphereShown && (
-              <div className={styles.orisoBackdrop} aria-hidden="true">
-                <Atmosphere palette={atmosphere} />
-              </div>
-            )}
-            {header}
-            {mediaError !== null && (
-              <div className={styles.mediaError} role="alert">
-                <div>
-                  <Text as="h2" size="sm" weight="semibold">
-                    {mediaError.localisedTitle}
-                  </Text>
-                  {mediaError.localisedMessage && (
-                    <Text size="sm">{mediaError.localisedMessage}</Text>
-                  )}
+              {atmosphereShown && (
+                <div className={styles.orisoBackdrop} aria-hidden="true">
+                  <Atmosphere palette={atmosphere} />
                 </div>
-                <Button kind="secondary" size="sm" onClick={vm.retryMedia}>
-                  {t("action.try_again")}
-                </Button>
-              </div>
-            )}
-            {audioParticipants.map(({ livekitRoom, url, participants }) => (
-              <LivekitRoomAudioRenderer
-                key={url}
-                url={url}
-                livekitRoom={livekitRoom}
-                validIdentities={participants}
-                muted={muteAllAudio}
-              />
-            ))}
-            {renderContent()}
-            <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
-            <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
-            {reconnectingToast}
-            <InitialDeviceNotice />
-            {earpieceOverlay}
-            <ReactionsOverlay vm={vm} />
-            {waitingOverlay}
-            {footer}
-            {notes}
-            {!isPopupMode && (
-              <>
-                <RageshakeRequestModal {...rageshakeRequestModalProps} />
-                <SettingsModal
-                  client={client}
-                  roomId={matrixRoom.roomId}
-                  open={settingsModalOpen}
-                  onDismiss={closeSettings}
-                  tab={settingsTab}
-                  onTabChange={setSettingsTab}
-                  // TODO expose correct data to setttings modal
-                  livekitRooms={[]}
+              )}
+              {header}
+              {mediaError !== null && (
+                <div className={styles.mediaError} role="alert">
+                  <div>
+                    <Text as="h2" size="sm" weight="semibold">
+                      {mediaError.localisedTitle}
+                    </Text>
+                    {mediaError.localisedMessage && (
+                      <Text size="sm">{mediaError.localisedMessage}</Text>
+                    )}
+                  </div>
+                  <Button kind="secondary" size="sm" onClick={vm.retryMedia}>
+                    {t("action.try_again")}
+                  </Button>
+                </div>
+              )}
+              {audioParticipants.map(({ livekitRoom, url, participants }) => (
+                <LivekitRoomAudioRenderer
+                  key={url}
+                  url={url}
+                  livekitRoom={livekitRoom}
+                  validIdentities={participants}
+                  muted={muteAllAudio}
                 />
-              </>
-            )}
-          </div>
+              ))}
+              {renderContent()}
+              <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
+              <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
+              {reconnectingToast}
+              <InitialDeviceNotice />
+              {earpieceOverlay}
+              <ReactionsOverlay vm={vm} />
+              {waitingOverlay}
+              {footer}
+              {notes}
+              {!isPopupMode && (
+                <>
+                  <RageshakeRequestModal {...rageshakeRequestModalProps} />
+                  <SettingsModal
+                    client={client}
+                    roomId={matrixRoom.roomId}
+                    open={settingsModalOpen}
+                    onDismiss={closeSettings}
+                    tab={settingsTab}
+                    onTabChange={setSettingsTab}
+                    // TODO expose correct data to setttings modal
+                    livekitRooms={[]}
+                  />
+                </>
+              )}
+            </div>
+          </OrisoPinsContext>
         </OrisoViewContext>
       </OrisoShapesContext>
     </OrisoStageContext>

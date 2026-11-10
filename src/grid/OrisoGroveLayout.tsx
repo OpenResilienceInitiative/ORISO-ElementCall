@@ -23,13 +23,17 @@ import {
 import {
   groveBox,
   haloRoomFor,
+  ownShape,
   packShapes,
   pairShapes,
   splitCells,
 } from "../oriso/layout";
 import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
-import { useOrisoView } from "../oriso/useOrisoView";
+import { useOrisoPins, useOrisoView } from "../oriso/useOrisoView";
+import { kreisPlan } from "../oriso/kreis";
+import { kachelSize, orderForKacheln } from "../oriso/kacheln";
+import { KreisCentre } from "../oriso/KreisCentre";
 import { FIELD_RADIUS, type TileShape } from "../oriso/shape";
 import {
   type SpotlightSide,
@@ -100,6 +104,11 @@ interface Seat {
    */
   seed: string;
   speaking: boolean;
+  /** For the Kreis's centre, which names whoever is speaking. */
+  userId: string;
+  displayName: string;
+  /** "Anheften — bleibt groß", this person's own choice. */
+  pinned: boolean;
 }
 
 /**
@@ -166,6 +175,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     useVisibleTiles(model.setVisibleTiles);
     const { width, height } = useObservableEagerState(minBounds$);
     const view = useOrisoView();
+    const { pinned } = useOrisoPins();
 
     /*
      * The shared screen gets its band, and the people get the rest.
@@ -219,11 +229,13 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
                   switchMap((media) =>
                     combineLatest([media.displayName$, media.speaking$]).pipe(
                       map(
-                        ([displayName, speaking]): Seat => ({
+                        ([displayName, speaking]): Omit<Seat, "pinned"> => ({
                           model: tile,
                           mediaId: media.id,
                           seed: displayName || media.userId,
                           speaking,
+                          userId: media.userId,
+                          displayName,
                         }),
                       ),
                     ),
@@ -233,9 +245,21 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
             ),
       [tiles],
     );
-    const seats = useObservableEagerState(seats$);
+    const unpinned = useObservableEagerState(seats$);
+    const seats: Seat[] = useMemo(
+      () =>
+        unpinned.map((seat) => ({
+          ...seat,
+          pinned: pinned.has(seat.mediaId),
+        })),
+      [unpinned, pinned],
+    );
+    // Somebody speaking or pinned stays big.
+    const weightOf = (seat: Seat): number =>
+      seat.speaking || seat.pinned ? SPEAKING_WEIGHT : 1;
 
-    const scrolls = view === "felder" && !splitsInto(seats.length);
+    const scrolls =
+      view === "kacheln" || (view === "felder" && !splitsInto(seats.length));
 
     // What the arrangement actually depends on, as one value. `seats` is
     // rebuilt on every render, so it cannot be a dependency itself; this is
@@ -243,11 +267,41 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     const signature = `${view}:${stage.width}x${stage.height}+${
       stage.offsetY
     }:${seats
-      .map((s) => `${s.mediaId}|${s.seed}|${s.speaking ? 1 : 0}`)
+      .map(
+        (s) =>
+          `${s.mediaId}|${s.seed}|${s.speaking ? 1 : 0}|${s.pinned ? 1 : 0}`,
+      )
       .join(",")}`;
 
     const placed: Placed[] = useMemo(() => {
       if (seats.length === 0) return [];
+
+      if (view === "kreis") {
+        // S6, design 2a: the room's sound in the middle, everybody around it.
+        const plan = kreisPlan(
+          seats.length,
+          stage,
+          new Set(
+            seats.flatMap((seat, i) =>
+              seat.speaking || seat.pinned ? [i] : [],
+            ),
+          ),
+        );
+        return plan.seats.map((spot, i) => {
+          const shape = ownShape(seats[i].seed);
+          return {
+            id: seats[i].model.id,
+            mediaId: seats[i].mediaId,
+            model: seats[i].model,
+            x: spot.x,
+            y: spot.y,
+            width: spot.size,
+            height: spot.size,
+            shape: { radius: shape.blob, tilt: Number(shape.tilt) },
+            speaking: seats[i].speaking,
+          };
+        });
+      }
 
       if (view === "hain") {
         /*
@@ -273,7 +327,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               w: Math.max(0, stage.width - 2 * room),
               h: Math.max(0, stage.height - 2 * room),
             },
-            seats.map((s) => (s.speaking ? SPEAKING_WEIGHT : 1)),
+            seats.map(weightOf),
           ).map((spot, i) => ({
             id: seats[i].model.id,
             mediaId: seats[i].mediaId,
@@ -296,7 +350,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         return packShapes(
           seats.map((s) => s.seed),
           box,
-          seats.map((s) => (s.speaking ? SPEAKING_WEIGHT : 1)),
+          seats.map(weightOf),
         ).map((spot, i) => ({
           id: seats[i].model.id,
           mediaId: seats[i].mediaId,
@@ -319,7 +373,9 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
        * first and left the others at a listener's size.
        */
       const speakers = new Set(
-        seats.flatMap((seat, index) => (seat.speaking ? [index] : [])),
+        seats.flatMap((seat, index) =>
+          seat.speaking || seat.pinned ? [index] : [],
+        ),
       );
       /*
        * The fields divide an INSET rectangle, for the grove's reason.
@@ -366,15 +422,28 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     // of twenty unreadable. See `felder.ts`.
     const sheet = useMemo(
       () =>
-        scrolls
-          ? orderForFelder(
-              seats,
-              seats.filter((s) => s.speaking),
-            )
-          : [],
+        !scrolls
+          ? []
+          : view === "kacheln"
+            ? orderForKacheln(seats, (s) => s.pinned)
+            : orderForFelder(
+                seats,
+                seats.filter((s) => s.speaking || s.pinned),
+              ),
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [scrolls, signature],
     );
+    // The Kacheln's one tile size, fitted to the width; the Felder's sheet
+    // keeps its fixed field.
+    const room = Math.round(haloRoomFor(width, height));
+    const kachel =
+      view === "kacheln"
+        ? kachelSize(seats.length, width - 2 * room, FIELD_GUTTER)
+        : null;
+    const sheetTile = kachel ?? {
+      width: FIELD_MIN_WIDTH,
+      height: Math.round(FIELD_MIN_WIDTH / FIELD_ASPECT),
+    };
 
     const shapes = useMemo(() => {
       const map = new Map<string, TileShape>();
@@ -397,7 +466,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
           ref={ref}
           className={styles.sheet}
           data-testid="oriso-grove"
-          data-view="felder"
+          data-view={view}
           data-mode="scroll"
           style={
             {
@@ -429,8 +498,8 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               model={seat.model}
               layer={seat.speaking ? SPEAKING_LAYER : undefined}
               style={{
-                inlineSize: FIELD_MIN_WIDTH,
-                blockSize: Math.round(FIELD_MIN_WIDTH / FIELD_ASPECT),
+                inlineSize: sheetTile.width,
+                blockSize: sheetTile.height,
               }}
             />
           ))}
@@ -446,6 +515,12 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         data-mode="split"
         style={{ width, height }}
       >
+        {view === "kreis" && (
+          <KreisCentre
+            plan={kreisPlan(seats.length, stage).centre}
+            speaker={seats.find((s) => s.speaking)}
+          />
+        )}
         {placed.map((p) => (
           <Slot
             key={p.id}

@@ -30,6 +30,7 @@ import {
   ExpandIcon,
   VolumeOffSolidIcon,
   SwitchCameraSolidIcon,
+  PinIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import {
   ContextMenu,
@@ -58,6 +59,7 @@ import {
   useShownName,
 } from "../oriso/useOrisoIdentities";
 import { useOrisoShape } from "../oriso/useOrisoShape";
+import { useOrisoPins } from "../oriso/useOrisoView";
 
 interface TileProps {
   ref?: Ref<HTMLDivElement>;
@@ -135,8 +137,31 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
       : t("microphone_off");
 
   const [menuOpen, setMenuOpen] = useState(false);
+  /*
+   * "Anheften — bleibt groß" (S6, design 2a). Stummschalten and Entfernen,
+   * which the design gives counsellors, are not here: Element Call and the
+   * widget API offer no way to mute or remove another person without new
+   * work in the host and the backend.
+   */
+  const pins = useOrisoPins();
+  const pinned = pins.pinned.has(vm.id);
+  const onSelectPin = useCallback(
+    (e: Event) => {
+      e.preventDefault();
+      pins.toggle?.(vm.id);
+    },
+    [pins, vm.id],
+  );
   const menu = (
     <>
+      {pins.toggle !== null && (
+        <ToggleMenuItem
+          Icon={PinIcon}
+          label={t("oriso.participant_pin")}
+          checked={pinned}
+          onSelect={onSelectPin}
+        />
+      )}
       {menuStart}
       <ToggleMenuItem
         Icon={ExpandIcon}

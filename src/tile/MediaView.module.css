@@ -357,6 +357,26 @@ unconditionally select the container so we can use cqmin units */
   color: rgb(45 44 40);
 }
 
+/* S6, design 2a: the status stands in the name's own dark capsule — the
+   microphone only when it is off, the raised hand with how long it has been
+   up. A live microphone says nothing worth a symbol. */
+.media.oriso:not([data-oriso-half="true"])
+  .nameTag
+  > svg:not([data-muted="true"]) {
+  display: none;
+}
+
+.media.oriso .orisoHand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding-inline-end: 6px;
+  border-inline-end: 1px solid rgb(255 255 255 / 30%);
+  color: #ffd27a;
+  font-variant-numeric: tabular-nums;
+}
+
 .media.oriso .nameTag > .name {
   padding-inline: 0;
 }

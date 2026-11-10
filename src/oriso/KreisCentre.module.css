@@ -1,0 +1,57 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* The Kreis's middle, 2a: a pale disc with the sound and the speaker. */
+.centre {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12%;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 78%);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 8%);
+  color: rgb(45 44 40);
+  text-align: center;
+  pointer-events: none;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  block-size: 18%;
+  min-block-size: 14px;
+}
+
+.bar {
+  inline-size: 3px;
+  border-radius: 1.5px;
+  background: var(--oriso-primary, #a5000a);
+  transition: block-size 0.32s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.centre[data-speaking="false"] .bar {
+  opacity: 0.4;
+}
+
+.name {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.status {
+  font-size: 12px;
+  color: rgb(110 108 112);
+}

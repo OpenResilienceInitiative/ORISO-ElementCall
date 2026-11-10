@@ -12,12 +12,16 @@ import { useTranslation } from "react-i18next";
 import classNames from "classnames";
 import { VideoTrack } from "@livekit/components-react";
 import { Text, Tooltip } from "@vector-im/compound-web";
-import { ErrorSolidIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
+import {
+  ErrorSolidIcon,
+  RaisedHandSolidIcon,
+} from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import styles from "./MediaView.module.css";
 import { Avatar } from "../Avatar";
 import { type EncryptionStatus } from "../state/MediaViewModel";
 import { RaisedHandIndicator } from "../reactions/RaisedHandIndicator";
+import { useHandDuration } from "../oriso/handDuration";
 import { showHandRaisedTimer, useSetting } from "../settings/settings";
 import { type ReactionOption } from "../reactions";
 import { ReactionIndicator } from "../reactions/ReactionIndicator";
@@ -115,6 +119,17 @@ export const MediaView: FC<Props> = ({
   const [handRaiseTimerVisible] = useSetting(showHandRaisedTimer);
 
   const { audioOnly, rectangular } = useOrisoStage();
+  /*
+   * S6: on an ORISO form the raised hand is a status in the name's capsule,
+   * with how long it has been up ("1:40"), rather than upstream's badge in
+   * the corner. The Einzelgespräch's names are text under the circle and keep
+   * the badge.
+   */
+  const handInCapsule =
+    orisoIdentity !== undefined && layoutShape?.focusX === undefined;
+  const handDuration = useHandDuration(
+    handInCapsule ? raisedHandTime : undefined,
+  );
   const orisoRectangular = orisoIdentity !== undefined && rectangular;
   const videoEnabled =
     cameraEnabled && !(orisoIdentity !== undefined && audioOnly);
@@ -319,7 +334,7 @@ export const MediaView: FC<Props> = ({
       <div className={styles.fg}>
         <div className={styles.reactions}>
           <RaisedHandIndicator
-            raisedHandTime={raisedHandTime}
+            raisedHandTime={handInCapsule ? undefined : raisedHandTime}
             miniature={avatarSize < 96}
             showTimer={handRaiseTimerVisible}
             onClick={raisedHandOnClick}
@@ -360,6 +375,19 @@ export const MediaView: FC<Props> = ({
             </div>
           )*/}
         <div className={styles.nameTag}>
+          {orisoHalfSide === undefined && handDuration !== null && (
+            <span
+              className={styles.orisoHand}
+              data-testid="oriso-hand"
+              role="img"
+              aria-label={t("oriso.hand_raised_for", {
+                duration: handDuration,
+              })}
+            >
+              <RaisedHandSolidIcon aria-hidden width={14} height={14} />
+              <span aria-hidden="true">{handDuration}</span>
+            </span>
+          )}
           {orisoHalfSide === undefined && nameTagLeadingIcon}
           {orisoHalfSide === undefined ? (
             nameText
