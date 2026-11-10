@@ -24,9 +24,10 @@ const props = (
   onToggleNotes: vi.fn(),
   onHangup: vi.fn(),
   participantCount: 2,
-  view: "einzelgespraech",
-  offer: ["einzelgespraech", "spotlight"],
-  onViewChange: vi.fn(),
+  nameStyle: "popout",
+  onNameStyleChange: vi.fn(),
+  backgroundLabel: "Fluss von oben",
+  onOpenBackground: vi.fn(),
   onToggleScreenShare: vi.fn(),
   sharingScreen: false,
   onOpenSoundSettings: vi.fn(),
@@ -185,9 +186,10 @@ describe("the call menu behind ⋮", () => {
       (el) => (el as HTMLElement).dataset.entry,
     );
     expect(entries).toEqual([
+      "names",
       "participants",
-      "view",
       "share_screen",
+      "background",
       "notes",
       "sound",
       "settings",
@@ -216,11 +218,51 @@ describe("the call menu behind ⋮", () => {
     );
   });
 
-  it("offers the views as the rail, and changes the view", () => {
+  // S5: the rail moved into the call header; the menu no longer holds it.
+  it("no longer holds the view rail", () => {
+    open();
+    expect(screen.queryByTestId("view-switcher")).toBeNull();
+  });
+
+  it("offers Namen & Symbole as two cards and keeps the menu open", () => {
     const p = open();
-    const rail = screen.getByTestId("view-switcher");
-    fireEvent.click(rail.querySelector('[data-view="spotlight"]')!);
-    expect(p.onViewChange).toHaveBeenCalledWith("spotlight");
+    const menu = screen.getByTestId("oriso-call-menu");
+    const cards = menu.querySelectorAll('[data-entry="names"] [role="radio"]');
+    expect(cards).toHaveLength(2);
+    const popout = menu.querySelector('[data-name-style="popout"]')!;
+    expect(popout.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(menu.querySelector('[data-name-style="dezent"]')!);
+    expect(p.onNameStyleChange).toHaveBeenCalledWith("dezent");
+    expect(screen.getByTestId("oriso-call-menu")).toBeTruthy();
+  });
+
+  it("leaves Namen & Symbole out where there is no choice", () => {
+    open({ onNameStyleChange: null });
+    expect(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-entry="names"]'),
+    ).toBeNull();
+  });
+
+  it("opens the background from the menu, naming the motif that is on", () => {
+    const p = open();
+    const entry = screen
+      .getByTestId("oriso-call-menu")
+      .querySelector('[data-entry="background"]')!;
+    expect(entry.textContent).toContain("Fluss von oben");
+    fireEvent.click(entry);
+    expect(p.onOpenBackground).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId("oriso-call-menu")).toBeNull();
+  });
+
+  it("leaves Hintergrund out where there is no atmosphere", () => {
+    open({ onOpenBackground: null });
+    expect(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-entry="background"]'),
+    ).toBeNull();
   });
 
   it("opens the sound settings and the settings, and closes behind them", () => {

@@ -329,6 +329,34 @@ unconditionally select the container so we can use cqmin units */
   background: rgb(34 36 35);
 }
 
+/* "Namen dezent" (S5, 2a): plain text on the atmosphere instead of the
+   capsule. Never over a running camera or on the video stage, where bare text
+   cannot be read; never in the Einzelgespräch, whose names are already text
+   under the circle. */
+[data-oriso-names="dezent"]
+  .media.oriso:not(
+    [data-oriso-camera="true"],
+    [data-oriso-rectangular="true"],
+    [data-oriso-half="true"]
+  )
+  .nameTag {
+  background: transparent;
+  backdrop-filter: none;
+  color: rgb(45 44 40);
+  text-shadow: 0 0 6px rgb(255 255 255 / 90%);
+}
+
+[data-oriso-names="dezent"]
+  .media.oriso:not(
+    [data-oriso-camera="true"],
+    [data-oriso-rectangular="true"],
+    [data-oriso-half="true"]
+  )
+  .nameTag
+  .muteIcon {
+  color: rgb(45 44 40);
+}
+
 .media.oriso .nameTag > .name {
   padding-inline: 0;
 }

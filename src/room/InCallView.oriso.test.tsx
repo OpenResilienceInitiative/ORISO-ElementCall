@@ -675,9 +675,72 @@ describe("the call, in the ORISO design", () => {
     expect(bar.contains(hangup)).toBe(false);
 
     // Upstream's settings button and the rail are gone from the footer; the
-    // rail lives in the menu now.
-    expect(container.querySelector('[data-testid="view-switcher"]')).toBeNull();
+    // rail lives in the header now (S5).
+    expect(toolbar.querySelector('[data-testid="view-switcher"]')).toBeNull();
+    expect(
+      within(screen.getByTestId("oriso-header")).getByTestId("view-switcher"),
+    ).toBeTruthy();
+    void container;
     expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+  });
+
+  /*
+   * S5, design 2a: the header carries the view rail, the atmosphere and the
+   * window; the call menu holds "Namen & Symbole" and "Hintergrund".
+   */
+  it("puts the view rail and the atmosphere into the header", async () => {
+    createInCallView({ crowd: true });
+    const header = await screen.findByTestId("oriso-header");
+    expect(within(header).getByTestId("view-switcher")).toBeTruthy();
+    expect(within(header).getByTestId("oriso-atmosphere-button")).toBeTruthy();
+    fireEvent.click(await screen.findByTestId("incall_menu"));
+    const menu = screen.getByTestId("oriso-call-menu");
+    expect(menu.querySelector('[data-entry="view"]')).toBeNull();
+    expect(menu.querySelector('[data-entry="names"]')).toBeTruthy();
+  });
+
+  it("keeps the chosen atmosphere for the person, carrier's motif by default", async () => {
+    localStorage.removeItem("oriso-call-atmosphere");
+    const { container, unmount } = createInCallView({ crowd: true });
+    await screen.findByTestId("oriso-header");
+    const pond = (): string | null =>
+      container.querySelector("oriso-pond")?.getAttribute("palette") ?? null;
+    expect(pond()).toBe("fluss");
+
+    // "Hintergrund" in the menu opens the header's popover.
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    fireEvent.click(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-entry="background"]')!,
+    );
+    const popover = screen.getByTestId("oriso-atmosphere-popover");
+    fireEvent.click(popover.querySelector('[data-motif="lichtung"]')!);
+    expect(pond()).toBe("lichtung");
+    expect(localStorage.getItem("oriso-call-atmosphere")).toBe("lichtung");
+    unmount();
+
+    // The next call starts in it.
+    const again = createInCallView({ crowd: true });
+    await screen.findByTestId("oriso-header");
+    expect(
+      again.container.querySelector("oriso-pond")?.getAttribute("palette"),
+    ).toBe("lichtung");
+    localStorage.removeItem("oriso-call-atmosphere");
+  });
+
+  it("switches the names to dezent and remembers it", async () => {
+    localStorage.removeItem("oriso-call-names");
+    const { container } = createInCallView({ crowd: true });
+    fireEvent.click(await screen.findByTestId("incall_menu"));
+    fireEvent.click(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-name-style="dezent"]')!,
+    );
+    expect(container.querySelector('[data-oriso-names="dezent"]')).toBeTruthy();
+    expect(localStorage.getItem("oriso-call-names")).toBe("dezent");
+    localStorage.removeItem("oriso-call-names");
   });
 
   it("opens my call note in the call itself, and closes it again (#112)", async () => {
@@ -697,8 +760,8 @@ describe("the call, in the ORISO design", () => {
   });
 });
 
-/** The view rail moved into the toolbar's `⋮` menu. */
+/** The view rail sits in the call header (S5), no longer in the `⋮` menu. */
 async function openViewRail(): Promise<HTMLElement> {
-  fireEvent.click(await screen.findByTestId("incall_menu"));
-  return screen.findByTestId("view-switcher");
+  const header = await screen.findByTestId("oriso-header");
+  return within(header).getByTestId("view-switcher");
 }

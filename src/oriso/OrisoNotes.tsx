@@ -324,18 +324,18 @@ export const OrisoNotes: FC<Props> = ({
             </span>
           )}
         </button>
-        {/* 2a has no close: the docked card folds from the control bar. */}
-        {layout === "sheet" && (
-          <button
-            type="button"
-            className={styles.close}
-            onClick={onClose}
-            aria-label={t("oriso.notes_close")}
-            title={t("oriso.notes_close")}
-          >
-            <CloseIcon aria-hidden />
-          </button>
-        )}
+        {/* The docked card closes here too: design 2a draws the × beside
+            "Als Text kopieren", and with the card docked in every view (S5)
+            it must not depend on finding the bar's notes button. */}
+        <button
+          type="button"
+          className={styles.close}
+          onClick={onClose}
+          aria-label={t("oriso.notes_close")}
+          title={t("oriso.notes_close")}
+        >
+          <CloseIcon aria-hidden />
+        </button>
       </div>
       <div className={styles.info}>
         <LockSolidIcon aria-hidden />

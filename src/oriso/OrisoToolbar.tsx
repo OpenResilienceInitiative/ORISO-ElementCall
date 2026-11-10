@@ -22,6 +22,7 @@ import classNames from "classnames";
 import {
   EndCallIcon,
   GroupIcon,
+  ImageIcon,
   ListBulletedIcon,
   MicOffSolidIcon,
   MicOnSolidIcon,
@@ -35,7 +36,7 @@ import {
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import styles from "./OrisoToolbar.module.css";
-import { type StageView, ViewSwitcher } from "./ViewSwitcher";
+import { type NameStyle } from "./nameStyle";
 
 interface Props {
   audioMuted: boolean;
@@ -53,9 +54,18 @@ interface Props {
   notesOpen?: boolean;
   onHangup: () => void;
   participantCount: number;
-  view: StageView;
-  offer: readonly StageView[];
-  onViewChange: (view: StageView) => void;
+  /**
+   * "Namen & Symbole" (design 2a): dezent or as a capsule. Null hides the
+   * section, e.g. on the video stage where names are always capsules.
+   */
+  nameStyle?: NameStyle;
+  onNameStyleChange?: ((style: NameStyle) => void) | null;
+  /**
+   * "Hintergrund": opens the atmosphere popover in the header. The label is
+   * the motif that is on; null hides the entry (no atmosphere on this stage).
+   */
+  backgroundLabel?: string | null;
+  onOpenBackground?: (() => void) | null;
   /** Null hides it: screen sharing is not available here. */
   onToggleScreenShare: (() => void) | null;
   sharingScreen: boolean;
@@ -81,8 +91,9 @@ interface Props {
  *
  * One white bar with the microphone, the camera, the hand, the notes and a
  * `⋮`, and the hang-up beside it as a round button of its own. Upstream's
- * black buttons and the view rail are gone from the footer; the rail moved
- * into the `⋮` menu under "Ansicht".
+ * black buttons and the view rail are gone from the footer; the rail lives
+ * in the call header (S5), the `⋮` menu holds "Namen & Symbole" and
+ * "Hintergrund" as in design 2a.
  *
  * The menu is rendered INSIDE the toolbar rather than in a portal, so the
  * toolbar's own z-index is the menu's too. That is the stacking order's rule
@@ -100,9 +111,10 @@ export const OrisoToolbar: FC<Props> = ({
   notesOpen = false,
   onHangup,
   participantCount,
-  view,
-  offer,
-  onViewChange,
+  nameStyle = "popout",
+  onNameStyleChange = null,
+  backgroundLabel = null,
+  onOpenBackground = null,
   onToggleScreenShare,
   sharingScreen,
   screenShareInBar = false,
@@ -295,6 +307,40 @@ export const OrisoToolbar: FC<Props> = ({
           // hides the footer, menu and all.
           onTouchEnd={onTouchEnd}
         >
+          {onNameStyleChange !== null && (
+            <div className={styles.section} data-entry="names">
+              <span className={styles.sectionTitle} id={`${menuId}-names`}>
+                {t("oriso.names_title")}
+              </span>
+              <div
+                className={styles.nameCards}
+                role="radiogroup"
+                aria-labelledby={`${menuId}-names`}
+              >
+                {(["dezent", "popout"] as const).map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    role="radio"
+                    aria-checked={nameStyle === style}
+                    className={styles.nameCard}
+                    data-name-style={style}
+                    // The menu stays open: the person sees the names change.
+                    onClick={() => onNameStyleChange(style)}
+                    onTouchEnd={onTouchEnd}
+                  >
+                    <span className={styles.nameSample} aria-hidden="true">
+                      {t("oriso.names_sample")}
+                    </span>
+                    <span>{t(`oriso.names_${style}`)}</span>
+                  </button>
+                ))}
+              </div>
+              <span className={styles.rowDescription}>
+                {t("oriso.names_hint")}
+              </span>
+            </div>
+          )}
           <div className={styles.section}>
             <div className={styles.row} data-entry="participants">
               <span className={styles.rowLabel}>
@@ -336,18 +382,6 @@ export const OrisoToolbar: FC<Props> = ({
                 </button>
               </div>
             )}
-            <div className={styles.row} data-entry="view">
-              <span className={styles.rowLabel}>{t("oriso.menu_view")}</span>
-              <ViewSwitcher
-                tone="light"
-                active={view}
-                offer={offer}
-                // The menu stays open: the arrows move the selection too,
-                // and the person sees the stage change behind it.
-                onChange={onViewChange}
-                onTouchEnd={onTouchEnd}
-              />
-            </div>
           </div>
           <div className={styles.section}>
             {onToggleScreenShare !== null && (
@@ -357,6 +391,16 @@ export const OrisoToolbar: FC<Props> = ({
                 onClick={pick(onToggleScreenShare)}
               >
                 <ShareScreenSolidIcon aria-hidden width={21} height={21} />
+              </MenuEntry>
+            )}
+            {onOpenBackground !== null && (
+              <MenuEntry
+                entry="background"
+                label={t("oriso.menu_background")}
+                hint={backgroundLabel ?? undefined}
+                onClick={pick(onOpenBackground)}
+              >
+                <ImageIcon aria-hidden width={21} height={21} />
               </MenuEntry>
             )}
             {onToggleNotes !== null && (
@@ -456,10 +500,12 @@ const ToolbarButton: FC<ToolbarButtonProps> = ({
 const MenuEntry: FC<{
   entry: string;
   label: string;
+  /** Grey, at the row's end: what is on ("Lichtung"). */
+  hint?: string;
   onClick: () => void;
   danger?: boolean;
   children: ReactNode;
-}> = ({ entry, label, onClick, danger, children }) => (
+}> = ({ entry, label, hint, onClick, danger, children }) => (
   <button
     type="button"
     className={classNames(styles.row, styles.entry, {
@@ -469,6 +515,7 @@ const MenuEntry: FC<{
     onClick={onClick}
   >
     <span className={styles.rowLabel}>{label}</span>
+    {hint !== undefined && <span className={styles.rowHint}>{hint}</span>}
     {children}
   </button>
 );

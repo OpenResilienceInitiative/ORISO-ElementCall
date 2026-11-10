@@ -85,8 +85,8 @@ describe("the Schmierzettel's card (#112)", () => {
     const card = screen.getByRole("region", { name: "Scratchpad" });
     expect(card.classList).toContain(styles.docked);
     within(card).getByRole("button", { name: "Copy as text" });
-    // 2a folds from the control bar; only the card in the view has a close.
-    expect(within(card).queryByRole("button", { name: "Close" })).toBeNull();
+    // 2a draws the × beside "Als Text kopieren" on the docked card too (S5).
+    expect(within(card).getByRole("button", { name: "Close" })).toBeTruthy();
     within(card).getByText("Only I can see this · Deleted when closed");
     within(card).getByText("Nothing noted yet.");
   });

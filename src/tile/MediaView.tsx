@@ -254,6 +254,13 @@ export const MediaView: FC<Props> = ({
       data-oriso-half={orisoFocusShift === undefined ? undefined : "true"}
       data-oriso-side={orisoHalfSide}
       data-oriso-circle={orisoCircle === undefined ? undefined : "true"}
+      // A running camera under the name: then the name is always a capsule,
+      // whatever "Namen & Symbole" says (S5).
+      data-oriso-camera={
+        orisoIdentity !== undefined && hasVideo && videoEnabled
+          ? "true"
+          : undefined
+      }
       {...props}
     >
       {orisoIdentity === undefined ? (

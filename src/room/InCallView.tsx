@@ -81,7 +81,19 @@ import { makeSpotlightLandscapeLayout } from "../grid/SpotlightLandscapeLayout";
 import { makeSpotlightPortraitLayout } from "../grid/SpotlightPortraitLayout";
 import { makeOrisoGroveLayout } from "../grid/OrisoGroveLayout";
 import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
-import { type StageView } from "../oriso/ViewSwitcher";
+import { type StageView, ViewSwitcher } from "../oriso/ViewSwitcher";
+import { AtmospherePicker } from "../oriso/AtmospherePicker";
+import {
+  ATMOSPHERE_CHOICE_KEY,
+  type AtmosphereChoice,
+  readAtmosphereChoice,
+  resolveAtmosphere,
+} from "../oriso/atmosphereChoice";
+import {
+  NAME_STYLE_KEY,
+  type NameStyle,
+  readNameStyle,
+} from "../oriso/nameStyle";
 import { OrisoToolbar } from "../oriso/OrisoToolbar";
 import { OrisoNotes } from "../oriso/OrisoNotes";
 import { OrisoHeader } from "../oriso/OrisoHeader";
@@ -99,11 +111,7 @@ import {
   type OrisoView,
 } from "../oriso/useOrisoView";
 import { useLocalStorage } from "../useLocalStorage";
-import {
-  Atmosphere,
-  DEFAULT_ATMOSPHERE,
-  isAtmosphereName,
-} from "../oriso/Atmosphere";
+import { Atmosphere } from "../oriso/Atmosphere";
 import { GridTileViewModel, type TileViewModel } from "../state/TileViewModel";
 import {
   ReactionsSenderProvider,
@@ -507,10 +515,14 @@ export const InCallView: FC<InCallViewProps> = ({
    * gives the card its room — the circle steps back rather than being
    * covered.
    */
+  /*
+   * S5: on a desktop-wide window the card is docked fixed on the right in
+   * every view — the 1:1 over the atmosphere too, where it used to open
+   * inside the view. Narrower windows keep the sheet above the bar.
+   */
   const notesDocked = orisoVideoOneOnOne
     ? bounds.width >= VIDEO_NOTES_DOCK_MIN_WIDTH
-    : (gridMode === "spotlight" || !alone) &&
-      bounds.width >= NOTES_DOCK_MIN_WIDTH;
+    : bounds.width >= NOTES_DOCK_MIN_WIDTH;
   const notesCompact = bounds.width <= NOTES_COMPACT_MAX_WIDTH;
   const notesShown = orisoEnabled && showControls && notesOpen;
   const videoStageGutter = orisoVideoOneOnOne
@@ -610,13 +622,32 @@ export const InCallView: FC<InCallViewProps> = ({
   );
   const orisoShapes = useInitial(() => new OrisoShapeStore());
 
-  // The backdrop world. Configured centrally by the counselling centre, so it
-  // arrives on the URL rather than being chosen in the call; an unknown name
-  // falls back to the handoff's default rather than rendering nothing.
-  const atmosphere =
-    orisoAtmosphere !== null && isAtmosphereName(orisoAtmosphere)
-      ? orisoAtmosphere
-      : DEFAULT_ATMOSPHERE;
+  /*
+   * The backdrop world (S5, design 2a). The person chooses in the header's
+   * popover; the default is "Motiv des Trägers", the motif the counselling
+   * centre put on the URL. The choice is kept in this browser only.
+   */
+  const [storedAtmosphere, setStoredAtmosphere] = useLocalStorage(
+    ATMOSPHERE_CHOICE_KEY,
+  );
+  const atmosphereChoice = readAtmosphereChoice(storedAtmosphere);
+  const atmosphere = resolveAtmosphere(atmosphereChoice, orisoAtmosphere);
+  const [atmosphereOpen, setAtmosphereOpen] = useState(false);
+  const chooseAtmosphere = useCallback(
+    (choice: AtmosphereChoice) => setStoredAtmosphere(choice),
+    [setStoredAtmosphere],
+  );
+  const openAtmosphere = useCallback(() => setAtmosphereOpen(true), []);
+  // Only where the atmosphere is the stage: the video 1:1 is a dark stage.
+  const atmosphereShown = orisoEnabled && !orisoVideoOneOnOne;
+
+  // "Namen & Symbole" (S5): dezent or as a capsule, kept in this browser.
+  const [storedNameStyle, setStoredNameStyle] = useLocalStorage(NAME_STYLE_KEY);
+  const nameStyle = readNameStyle(storedNameStyle);
+  const chooseNameStyle = useCallback(
+    (style: NameStyle) => setStoredNameStyle(style),
+    [setStoredNameStyle],
+  );
 
   // The arrangement is remembered, because it is a preference about how
   // somebody likes to see a room rather than a property of this call.
@@ -783,6 +814,27 @@ export const InCallView: FC<InCallViewProps> = ({
         onTouchEnd={onControlsTouchEnd}
         actions={
           <>
+            {atmosphereShown && (
+              <AtmospherePicker
+                choice={atmosphereChoice}
+                current={atmosphere}
+                onChoose={chooseAtmosphere}
+                open={atmosphereOpen}
+                onOpenChange={setAtmosphereOpen}
+                onTouchEnd={onControlsTouchEnd}
+              />
+            )}
+            {/* S5: the view rail is in the header (2a), inactive views as an
+                icon, the active one with its word. */}
+            {orisoOffer.length > 1 && (
+              <ViewSwitcher
+                tone={orisoVideoOneOnOne ? "dark" : "light"}
+                active={stageView}
+                offer={orisoOffer}
+                onChange={setStageView}
+                onTouchEnd={onControlsTouchEnd}
+              />
+            )}
             {orisoVideoOneOnOne && (
               <button
                 type="button"
@@ -1141,9 +1193,18 @@ export const InCallView: FC<InCallViewProps> = ({
             onKnockChange={orisoKnock.setKnock}
             onHangup={() => vm.hangup()}
             participantCount={participantCount}
-            view={stageView}
-            offer={orisoOffer}
-            onViewChange={setStageView}
+            // Over a camera names are always capsules, so a video call
+            // offers no choice.
+            nameStyle={nameStyle}
+            onNameStyleChange={orisoVideoCall ? null : chooseNameStyle}
+            backgroundLabel={
+              atmosphereShown
+                ? atmosphereChoice === "traeger"
+                  ? t("oriso.atmosphere_carrier")
+                  : t(`oriso.atmosphere_${atmosphereChoice}`)
+                : null
+            }
+            onOpenBackground={atmosphereShown ? openAtmosphere : null}
             onToggleScreenShare={vm.toggleScreenSharing}
             sharingScreen={sharingScreen}
             screenShareInBar={orisoVideoCall}
@@ -1195,13 +1256,13 @@ export const InCallView: FC<InCallViewProps> = ({
                 : undefined
             }
             data-notes-docked={notesShown && notesDocked ? "true" : undefined}
+            data-oriso-names={orisoEnabled ? nameStyle : undefined}
           >
             {/* The living backdrop. Behind everything, announced to
                 nobody: it carries no information, and reading it out would be
                 noise between a counsellor and what they need. The preset is
-                the counselling centre's choice and travels on the URL — an
-                advice seeker never picks it. */}
-            {orisoEnabled && !orisoVideoOneOnOne && (
+                the person's own choice, the carrier's motif by default. */}
+            {atmosphereShown && (
               <div className={styles.orisoBackdrop} aria-hidden="true">
                 <Atmosphere palette={atmosphere} />
               </div>
