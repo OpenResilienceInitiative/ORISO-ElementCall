@@ -30,6 +30,11 @@ Please see LICENSE in the repository root for full details.
  *   ?notes=1                      the notes card docked on the right
  *   ?names=dezent|popout          "Namen & Symbole"
  *   ?atmosphere=<motif>|traeger   the person's stored choice
+ *   ?invite=1|error               "Link teilen" in the header (S8); the fake
+ *                                 host answers with a link, or with an error
+ *   ?mobile=1                     the phone's full screen (S9, 5b): compact
+ *                                 header with ⋮, wave band, short bar;
+ *                                 ?notes=1 then opens the bottom sheet
  */
 import {
   type CSSProperties,
@@ -40,13 +45,10 @@ import {
   useState,
 } from "react";
 import { createRoot } from "react-dom/client";
+import useMeasure from "react-use-measure";
 import { BehaviorSubject } from "rxjs";
 import { animated } from "@react-spring/web";
-import {
-  Menu,
-  ToggleMenuItem,
-  TooltipProvider,
-} from "@vector-im/compound-web";
+import { Menu, ToggleMenuItem, TooltipProvider } from "@vector-im/compound-web";
 import {
   MicOffSolidIcon,
   MicOnSolidIcon,
@@ -79,7 +81,10 @@ import {
   resolveAtmosphere,
 } from "../src/oriso/atmosphereChoice";
 import { readNameStyle } from "../src/oriso/nameStyle";
-import { OrisoToolbar } from "../src/oriso/OrisoToolbar";
+import { OrisoMobileMenu, OrisoToolbar } from "../src/oriso/OrisoToolbar";
+import { InviteLinkButton } from "../src/oriso/InviteLinkButton";
+import { type InviteLinkReply } from "../src/oriso/inviteLink";
+import { WaveBand } from "../src/oriso/WaveBand";
 import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
 import { ViewSwitcher, type StageView } from "../src/oriso/ViewSwitcher";
@@ -125,12 +130,25 @@ const pinnedIndex = params.get("pinned");
 const open = params.get("open");
 const notesShown = params.get("notes") === "1";
 const nameStyle = readNameStyle(params.get("names"));
+const invite = params.get("invite");
+const mobile = params.get("mobile") === "1";
+
+/** The host's side of `org.oriso.call.invite_link`, faked. */
+const fakeInvite = async (): Promise<InviteLinkReply> =>
+  invite === "error"
+    ? { error: "This call has no link to share" }
+    : { url: "https://app.oriso.org/call/join/7f3a9c2e" };
 
 /** The design's group (2a): one counsellor, the rest animals. */
 const CAST: { name: string; identity: OrisoIdentity }[] = [
   {
     name: "ruhiger Fuchs 432",
-    identity: { kind: "animal", file: "fox.svg", bg: "#62937A", ink: "#FBF4D3" },
+    identity: {
+      kind: "animal",
+      file: "fox.svg",
+      bg: "#62937A",
+      ink: "#FBF4D3",
+    },
   },
   {
     name: "Susanne P. · Beraterin",
@@ -147,27 +165,57 @@ const CAST: { name: string; identity: OrisoIdentity }[] = [
   },
   {
     name: "stilles Pferd 907",
-    identity: { kind: "animal", file: "horse.svg", bg: "#E5C66B", ink: "#3D2E00" },
+    identity: {
+      kind: "animal",
+      file: "horse.svg",
+      bg: "#E5C66B",
+      ink: "#3D2E00",
+    },
   },
   {
     name: "heitere Lerche 24",
-    identity: { kind: "animal", file: "lark.svg", bg: "#B5D6A7", ink: "#1E3A12" },
+    identity: {
+      kind: "animal",
+      file: "lark.svg",
+      bg: "#B5D6A7",
+      ink: "#1E3A12",
+    },
   },
   {
     name: "weiter Bär 651",
-    identity: { kind: "animal", file: "bear.svg", bg: "#B8A991", ink: "#2E2418" },
+    identity: {
+      kind: "animal",
+      file: "bear.svg",
+      bg: "#B8A991",
+      ink: "#2E2418",
+    },
   },
   {
     name: "klarer Schwan 77",
-    identity: { kind: "animal", file: "swan.svg", bg: "#C9D8E4", ink: "#1A2B4C" },
+    identity: {
+      kind: "animal",
+      file: "swan.svg",
+      bg: "#C9D8E4",
+      ink: "#1A2B4C",
+    },
   },
   {
     name: "naher Otter 303",
-    identity: { kind: "animal", file: "otter.svg", bg: "#F2C7C0", ink: "#5C1A12" },
+    identity: {
+      kind: "animal",
+      file: "otter.svg",
+      bg: "#F2C7C0",
+      ink: "#5C1A12",
+    },
   },
   {
     name: "später Kauz 512",
-    identity: { kind: "animal", file: "owl.svg", bg: "#4F8A6E", ink: "#FBF4D3" },
+    identity: {
+      kind: "animal",
+      file: "owl.svg",
+      bg: "#4F8A6E",
+      ink: "#FBF4D3",
+    },
   },
   {
     name: "feiner Dachs 255",
@@ -175,11 +223,21 @@ const CAST: { name: string; identity: OrisoIdentity }[] = [
   },
   {
     name: "klare Biene 641",
-    identity: { kind: "animal", file: "bee.svg", bg: "#EAD56B", ink: "#1a1a1a" },
+    identity: {
+      kind: "animal",
+      file: "bee.svg",
+      bg: "#EAD56B",
+      ink: "#1a1a1a",
+    },
   },
   {
     name: "warmer Hase 962",
-    identity: { kind: "animal", file: "hare.svg", bg: "#F6DE9B", ink: "#1a1a1a" },
+    identity: {
+      kind: "animal",
+      file: "hare.svg",
+      bg: "#F6DE9B",
+      ink: "#1a1a1a",
+    },
   },
 ];
 
@@ -297,11 +355,19 @@ function Stage(): React.ReactNode {
     [],
   );
 
-  const HEADER = 72;
-  const FOOTER = 144;
+  // On a phone the header carries the wave band under it (5b).
+  const HEADER = mobile ? 72 + 64 : 72;
+  const FOOTER = mobile ? 104 : 144;
   const DOCK = 352 + 32;
-  const width = window.innerWidth - (notesOpen ? DOCK : 0);
-  const height = window.innerHeight - HEADER - FOOTER;
+  const [sheetRef, sheetBounds] = useMeasure();
+  const width = window.innerWidth - (notesOpen && !mobile ? DOCK : 0);
+  const height =
+    window.innerHeight -
+    HEADER -
+    FOOTER -
+    (mobile && notesOpen && sheetBounds.height > 0
+      ? sheetBounds.height + 12
+      : 0);
   const bounds$ = useMemo(
     () => new BehaviorSubject({ width, height }),
     // Created once; the effect below moves it.
@@ -337,38 +403,100 @@ function Stage(): React.ReactNode {
             <div
               className={styles.inRoom}
               data-oriso="true"
-              data-notes-docked={notesOpen ? "true" : undefined}
+              data-notes-docked={notesOpen && !mobile ? "true" : undefined}
               data-oriso-names={intent === "video" ? "popout" : nameStyle}
             >
               <div className={styles.orisoBackdrop} aria-hidden="true">
                 <Atmosphere palette={atmosphere} />
               </div>
-              <OrisoHeader
-                className={styles.header}
-                tone="light"
-                title="Gruppengespräch"
-                encrypted
-                meta={<span>{count} Teilnehmende</span>}
-                onWindow={(): void => {}}
-                fullscreen={false}
-                actions={
-                  <>
-                    <AtmospherePicker
-                      choice={choice}
-                      current={atmosphere}
-                      onChoose={setChoice}
-                      open={atmosphereOpen}
-                      onOpenChange={setAtmosphereOpen}
-                    />
-                    <ViewSwitcher
-                      tone="light"
-                      active={view}
-                      offer={plan.offer}
-                      onChange={setView}
-                    />
-                  </>
-                }
-              />
+              {mobile ? (
+                <div className={styles.orisoMobileHeader}>
+                  <OrisoHeader
+                    compact
+                    tone="light"
+                    title="Suchtberatung · Gruppe"
+                    encrypted
+                    meta={
+                      <span>
+                        {i18n.t("oriso.participants_count", { count })}
+                      </span>
+                    }
+                    onWindow={(): void => {}}
+                    fullscreen
+                    actions={
+                      <>
+                        {invite !== null && (
+                          <InviteLinkButton
+                            request={fakeInvite}
+                            tone="light"
+                            compact
+                          />
+                        )}
+                        <OrisoMobileMenu
+                          participantCount={count}
+                          onToggleNotes={() => setNotesOpen((o) => !o)}
+                          onHangup={() => {}}
+                          onToggleScreenShare={() => {}}
+                          sharingScreen={false}
+                          onOpenSoundSettings={() => {}}
+                          onOpenSettings={() => {}}
+                          nameStyle={nameStyle}
+                          onNameStyleChange={
+                            intent === "video" ? null : (): void => {}
+                          }
+                          views={{
+                            offer: plan.offer,
+                            active: view,
+                            onChange: setView,
+                          }}
+                          onToggleWindow={(): void => {}}
+                          fullscreen
+                        />
+                      </>
+                    }
+                  />
+                  <WaveBand
+                    speaker={
+                      speakingIndex >= 0 && speakingIndex < count
+                        ? {
+                            userId: idOf(speakingIndex),
+                            displayName: CAST[speakingIndex % CAST.length].name,
+                          }
+                        : null
+                    }
+                  />
+                </div>
+              ) : (
+                <OrisoHeader
+                  className={styles.header}
+                  tone="light"
+                  title="Gruppengespräch"
+                  encrypted
+                  meta={<span>{count} Teilnehmende</span>}
+                  onWindow={(): void => {}}
+                  fullscreen={false}
+                  actions={
+                    <>
+                      <AtmospherePicker
+                        choice={choice}
+                        current={atmosphere}
+                        onChoose={setChoice}
+                        open={atmosphereOpen}
+                        onOpenChange={setAtmosphereOpen}
+                      />
+                      <ViewSwitcher
+                        tone="light"
+                        active={view}
+                        offer={plan.offer}
+                        onChange={setView}
+                      />
+                      {invite !== null && (
+                        <InviteLinkButton request={fakeInvite} tone="light" />
+                      )}
+                    </>
+                  }
+                />
+              )}
               <Grid
                 className={styles.scrollingGrid}
                 model={model}
@@ -377,6 +505,7 @@ function Stage(): React.ReactNode {
               />
               <div className={classNames(styles.footer, styles.orisoFooter)}>
                 <Footer
+                  compact={mobile}
                   notesOpen={notesOpen}
                   onToggleNotes={() => setNotesOpen((o) => !o)}
                   onOpenBackground={() => setAtmosphereOpen(true)}
@@ -388,16 +517,17 @@ function Stage(): React.ReactNode {
                 />
               </div>
               <OrisoNotes
+                ref={sheetRef}
                 open={notesOpen}
                 onClose={() => setNotesOpen(false)}
-                layout="docked"
-                compact={false}
+                layout={mobile ? "sheet" : "docked"}
+                compact={mobile && window.innerWidth <= 400}
                 startedAt={startedAt}
                 style={
                   {
                     "--oriso-notes-top": `${HEADER + 16}px`,
                     "--oriso-footer-h": `${FOOTER}px`,
-                    "--oriso-toolbar-h": "64px",
+                    "--oriso-toolbar-h": mobile ? "72px" : "64px",
                   } as CSSProperties
                 }
               />
@@ -410,11 +540,13 @@ function Stage(): React.ReactNode {
 }
 
 function Footer({
+  compact,
   notesOpen,
   onToggleNotes,
   onOpenBackground,
   backgroundLabel,
 }: {
+  compact: boolean;
   notesOpen: boolean;
   onToggleNotes: () => void;
   onOpenBackground: () => void;
@@ -427,6 +559,7 @@ function Footer({
   return (
     <OrisoToolbar
       className={styles.orisoToolbar}
+      compact={compact}
       audioMuted={audioMuted}
       onToggleAudio={() => setAudioMuted((m) => !m)}
       showVideo={intent === "video"}

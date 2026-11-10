@@ -28,6 +28,9 @@ Please see LICENSE in the repository root for full details.
  *   ?names=login|bare             the homeserver holds the login name; with
  *                                 "bare" nobody published a name either
  *   ?artwork=none                 the animal drawings never arrive
+ *   ?mobile=1                     the phone's full screen (S9, 5d): compact
+ *                                 header with ⋮, short bar; in video my own
+ *                                 picture top right
  */
 import {
   type CSSProperties,
@@ -65,7 +68,7 @@ import {
   useOrisoShape,
 } from "../src/oriso/useOrisoShape";
 import { Atmosphere } from "../src/oriso/Atmosphere";
-import { OrisoToolbar } from "../src/oriso/OrisoToolbar";
+import { OrisoMobileMenu, OrisoToolbar } from "../src/oriso/OrisoToolbar";
 import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { type OrisoIdentity, shownNameFor } from "../src/oriso/identity";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
@@ -99,6 +102,7 @@ const showHeader = params.get("header") === "1";
 const chrome = params.get("chrome");
 const names = params.get("names");
 const noArtwork = params.get("artwork") === "none";
+const mobile = params.get("mobile") === "1";
 
 const PEOPLE: Record<
   string,
@@ -226,6 +230,7 @@ function Footer({
   const [knock, setKnock] = useState(true);
   return (
     <OrisoToolbar
+      compact={mobile}
       waitingCount={Number(waiting ?? 0)}
       knock={waiting === null ? null : knock}
       onKnockChange={waiting === null ? null : setKnock}
@@ -251,9 +256,9 @@ function Footer({
 }
 
 /** What `InCallView` subtracts for its footer before handing on the stage. */
-const FOOTER_BLOCK = 144;
+const FOOTER_BLOCK = mobile ? 104 : 144;
 /** The ORISO header's height, when it is shown. */
-const HEADER_BLOCK = showHeader ? 64 : 0;
+const HEADER_BLOCK = mobile ? 72 : showHeader ? 64 : 0;
 
 /** The four buttons ORISO-Frontend draws over the iframe without `orisoHostChrome`. */
 function HostCornerButtons(): React.ReactNode {
@@ -289,16 +294,34 @@ function Header(): React.ReactNode {
   return (
     <OrisoHeader
       className={styles.header}
+      compact={mobile}
       tone={video ? "dark" : "light"}
       title="Einzelgespräch"
       encrypted
       meta={
-        video ? undefined : (
+        video && !mobile ? undefined : (
           <span>{formatCallDuration(now - startedAt + 724_000)}</span>
         )
       }
       actions={
-        video ? (
+        mobile ? (
+          <OrisoMobileMenu
+            participantCount={2}
+            onToggleNotes={() => {}}
+            onHangup={() => {}}
+            onToggleScreenShare={() => {}}
+            sharingScreen={false}
+            onOpenSoundSettings={() => {}}
+            onOpenSettings={() => {}}
+            views={{
+              offer: ["einzelgespraech", "spotlight"],
+              active: "einzelgespraech",
+              onChange: () => {},
+            }}
+            onToggleWindow={(): void => {}}
+            fullscreen
+          />
+        ) : video ? (
           <button type="button" className={styles.videoNotesButton}>
             Notizen
           </button>
@@ -321,7 +344,7 @@ function Call(): React.ReactNode {
   const width =
     window.innerWidth -
     (docked ? (video ? 312 + 16 : 352 + 32) : 0) -
-    (video ? 2 * 20 : 0);
+    (video ? 2 * (mobile ? 12 : 20) : 0);
   const height =
     window.innerHeight -
     FOOTER_BLOCK -
@@ -341,7 +364,10 @@ function Call(): React.ReactNode {
       minBounds$: bounds$,
       spotlightAlignment$: new BehaviorSubject(defaultSpotlightAlignment),
       pipAlignment$: new BehaviorSubject<typeof defaultPipAlignment>(
-        video ? { inline: "end", block: "end" } : defaultPipAlignment,
+        // 5d: on a phone my own picture sits top right.
+        video
+          ? { inline: "end", block: mobile ? "start" : "end" }
+          : defaultPipAlignment,
       ),
     };
     return video
@@ -358,7 +384,7 @@ function Call(): React.ReactNode {
     }),
     [],
   );
-  const gutter = video ? 20 : 0;
+  const gutter = video ? (mobile ? 12 : 20) : 0;
   return (
     <OrisoStageContext value={stage}>
       <OrisoShapesContext value={shapes}>
@@ -383,7 +409,7 @@ function Call(): React.ReactNode {
               <Atmosphere palette="duene" />
             </div>
           )}
-          {showHeader && <Header />}
+          {(showHeader || mobile) && <Header />}
           <Grid
             className={styles.scrollingGrid}
             style={{
@@ -414,7 +440,11 @@ function Call(): React.ReactNode {
                   ? `${FOOTER_BLOCK}px`
                   : undefined,
                 "--oriso-footer-h": `${FOOTER_BLOCK}px`,
-                "--oriso-toolbar-h": compact ? "56px" : "64px",
+                "--oriso-toolbar-h": mobile
+                  ? "72px"
+                  : compact
+                    ? "56px"
+                    : "64px",
               } as CSSProperties
             }
           />
