@@ -33,9 +33,13 @@ import { GridTileViewModel } from "../state/TileViewModel";
 import { ReactionsSenderProvider } from "../reactions/useReactionsSender";
 import type { CallViewModel } from "../state/CallViewModel/CallViewModel";
 import { constant } from "../state/Behavior";
-import { OrisoStageContext } from "../oriso/useOrisoIdentities";
+import { OrisoStageContext, readIdentities } from "../oriso/useOrisoIdentities";
 import { type OrisoPins, OrisoPinsContext } from "../oriso/useOrisoView";
-import type { OrisoIdentity } from "../oriso/identity";
+import {
+  ORISO_IDENTITY_EVENT_TYPE,
+  type OrisoIdentity,
+} from "../oriso/identity";
+import type { Room } from "matrix-js-sdk";
 
 global.IntersectionObserver = class MockIntersectionObserver {
   public observe(): void {}
@@ -226,3 +230,52 @@ test("without a published role a person's menu has no role line", async () => {
   await screen.findByRole("menu");
   expect(screen.queryByTestId("participant_menu_header")).toBeNull();
 });
+
+/*
+ * The role is self-published. A record claiming "counsellor" from somebody
+ * the room gives only the default power level is read through the same path
+ * the call uses (`readIdentities`) and shows no "Beratung" line.
+ */
+test.each([
+  [0, null],
+  [50, "Counselling"],
+] as const)(
+  "a counsellor claim at power level %s reads %s in the menu",
+  async (level, line) => {
+    const user = userEvent.setup();
+    const room = {
+      roomId: "!call:oriso.org",
+      getLiveTimeline: () => ({
+        getEvents: (): unknown[] => [
+          {
+            getType: (): string => ORISO_IDENTITY_EVENT_TYPE,
+            getSender: (): string => USER,
+            getId: (): string => "$1",
+            getContent: (): unknown => ({
+              kind: "animal",
+              file: "fox.svg",
+              bg: "#F7CAC9",
+              ink: "#1A1A1A",
+              name: "ruhiger Fuchs 432",
+              role: "counsellor",
+            }),
+          },
+        ],
+      }),
+      getMember: (): { powerLevel: number } => ({ powerLevel: level }),
+    } as unknown as Room;
+    renderTile(readIdentities(room).get(USER), (tile) => (
+      <TooltipProvider>{tile}</TooltipProvider>
+    ));
+    await user.click(screen.getByRole("button", { name: "Options" }));
+    await screen.findByRole("menu");
+    if (line === null) {
+      expect(screen.queryByTestId("participant_menu_header")).toBeNull();
+      expect(screen.queryByText("Counselling")).toBeNull();
+    } else {
+      expect(screen.getByTestId("participant_menu_header")).toHaveTextContent(
+        line,
+      );
+    }
+  },
+);

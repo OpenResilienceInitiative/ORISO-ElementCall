@@ -10,6 +10,7 @@ import {
   MatrixEventEvent,
   type Room,
   RoomEvent,
+  RoomStateEvent,
 } from "matrix-js-sdk";
 import {
   createContext,
@@ -61,6 +62,38 @@ export type Identities = ReadonlyMap<string, OrisoIdentity>;
  * the host performs when somebody new joins land as an update rather than a
  * duplicate.
  */
+/**
+ * The room power level a sender needs before their claim to be a counsellor
+ * is believed: moderator, 50.
+ *
+ * `role` is written by the sender's OWN client, so an advice seeker could
+ * publish `role: "counsellor"` and be labelled "Beratung". The power level
+ * is set by whoever controls the room, not by the sender. Below it a
+ * counsellor claim is dropped and the person gets no role line — not
+ * "anonym · ratsuchend", because a real counsellor without the level must
+ * not be mislabelled as an advice seeker either. An `asker` claim needs no
+ * check: nobody gains anything by calling themselves an advice seeker.
+ *
+ * Known limit: in ORISO's dedicated call rooms only the room's CREATOR
+ * holds more than 0 (ORISO-Frontend `CallManager.createElementCallRoom`),
+ * and an advice seeker may start a group call. So this check is necessary,
+ * not sufficient: it stops every participant who did not create the room,
+ * and a counsellor who joins somebody else's call shows no role line.
+ */
+export const COUNSELLOR_MIN_POWER_LEVEL = 50;
+
+function verifiedRole(
+  room: Room,
+  sender: string,
+  identity: OrisoIdentity,
+): OrisoIdentity {
+  if (identity.role !== "counsellor") return identity;
+  const level = room.getMember?.(sender)?.powerLevel ?? 0;
+  if (level >= COUNSELLOR_MIN_POWER_LEVEL) return identity;
+  const { role: _unverified, ...rest } = identity;
+  return rest;
+}
+
 export function readIdentities(room: Room, known?: Identities): Identities {
   /*
    * Starts from what is already known, because the live timeline is a WINDOW
@@ -89,7 +122,7 @@ export function readIdentities(room: Room, known?: Identities): Identities {
     // identities seeded above, skipping would leave the withdrawn record
     // standing, which is the redaction bug over again.
     if (identity === null) identities.delete(sender);
-    else identities.set(sender, identity);
+    else identities.set(sender, verifiedRole(room, sender, identity));
   }
   return identities;
 }
@@ -172,7 +205,9 @@ function same(a: Identities, b: Identities): boolean {
       other.file !== identity.file ||
       other.bg !== identity.bg ||
       other.ink !== identity.ink ||
-      other.initials !== identity.initials
+      other.initials !== identity.initials ||
+      other.name !== identity.name ||
+      other.role !== identity.role
     )
       return false;
   }
@@ -291,6 +326,9 @@ export function useOrisoIdentities(room: Room): Identities {
      * withdrawn. See `readIdentities`.
      */
     room.on(RoomEvent.TimelineReset, onRoomEvent);
+    // A power-level change decides whether a counsellor claim is believed
+    // (`verifiedRole`), so the room's state changing is a reason to re-read.
+    room.on(RoomStateEvent.Update, onRoomEvent);
     /*
      * A redaction is not a timeline event either.
      *
@@ -350,6 +388,7 @@ export function useOrisoIdentities(room: Room): Identities {
     return (): void => {
       room.off(RoomEvent.Timeline, onRoomEvent);
       room.off(RoomEvent.TimelineReset, onRoomEvent);
+      room.off(RoomStateEvent.Update, onRoomEvent);
       room.off(RoomEvent.Redaction, onRedaction);
       room.client?.off?.(MatrixEventEvent.Decrypted, onDecrypted);
     };

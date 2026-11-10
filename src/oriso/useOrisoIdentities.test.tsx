@@ -468,6 +468,63 @@ describe("finding out who everybody is", () => {
   });
 });
 
+/*
+ * `role` is written by the sender's own client. "counsellor" is believed only
+ * from a member the room gives moderator power (>= 50); anybody else claiming
+ * it keeps their face but loses the role, and gets no role line.
+ */
+describe("a published role", () => {
+  const withLevels = (
+    levels: Record<string, number>,
+    records: Record<string, unknown>,
+  ): Room => {
+    const { room } = roomWith(records);
+    return Object.assign(room, {
+      getMember: (userId: string): { powerLevel: number } | null =>
+        userId in levels ? { powerLevel: levels[userId] } : null,
+    }) as Room;
+  };
+  const claim = (role: string): Record<string, unknown> => ({
+    ...FROM_THE_HOST["@anon:oriso.test"],
+    name: "ruhiger Fuchs 432",
+    role,
+  });
+
+  it("drops a counsellor claim from a member at the default power level", () => {
+    const room = withLevels(
+      { "@anon:oriso.test": 0 },
+      { "@anon:oriso.test": claim("counsellor") },
+    );
+    const identity = readIdentities(room).get("@anon:oriso.test");
+    expect(identity?.kind).toBe("animal");
+    expect(identity?.name).toBe("ruhiger Fuchs 432");
+    expect(identity?.role).toBeUndefined();
+  });
+
+  it("drops a counsellor claim from somebody the room does not know", () => {
+    const room = withLevels({}, { "@anon:oriso.test": claim("counsellor") });
+    expect(readIdentities(room).get("@anon:oriso.test")?.role).toBeUndefined();
+  });
+
+  it("believes a counsellor claim from a moderator", () => {
+    const room = withLevels(
+      { "@anon:oriso.test": 50 },
+      { "@anon:oriso.test": claim("counsellor") },
+    );
+    expect(readIdentities(room).get("@anon:oriso.test")?.role).toBe(
+      "counsellor",
+    );
+  });
+
+  it("takes an asker claim as it is", () => {
+    const room = withLevels(
+      { "@anon:oriso.test": 0 },
+      { "@anon:oriso.test": claim("asker") },
+    );
+    expect(readIdentities(room).get("@anon:oriso.test")?.role).toBe("asker");
+  });
+});
+
 describe("what one tile is told", () => {
   const withStage = (
     identities: Map<string, OrisoIdentity>,
