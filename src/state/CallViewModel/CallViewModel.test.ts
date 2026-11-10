@@ -662,6 +662,58 @@ describe.each([
     });
   });
 
+  it("keeps a group conversation a group at two people (S6b)", () => {
+    /*
+     * `orisoCallType=group`: the conversation type, not the head count,
+     * decides. Two people in a group conversation get the group's
+     * arrangement (so the call can start in the Kreis), never the
+     * Einzelgespräch, and the rail is told they are not a pair.
+     */
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(summarizeLayout$(vm.layout$)).toBe("a", {
+            a: {
+              type: "grid",
+              spotlight: undefined,
+              grid: [`${localId}:0`, `${aliceId}:0`],
+            },
+          });
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: false });
+        },
+        { orisoDesign: true, orisoCallType: "group" },
+      );
+    });
+  });
+
+  it("still gives a single conversation of two the Einzelgespräch (S6b)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(summarizeLayout$(vm.layout$)).toBe("a", {
+            a: {
+              type: "one-on-one",
+              local: `${localId}:0`,
+              remote: `${aliceId}:0`,
+            },
+          });
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: true });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
   test("spotlight speakers swap places", () => {
     withTestScheduler(({ behavior, schedule, expectObservable }) => {
       // Go immediately into spotlight mode for the test

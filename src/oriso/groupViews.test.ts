@@ -10,7 +10,12 @@ import { describe, expect, it } from "vitest";
 import { KREIS_CENTRE_SHARE, kreisPlan } from "./kreis";
 import { KACHEL_MIN_WIDTH, kachelSize, orderForKacheln } from "./kacheln";
 import { formatHandDuration } from "./handDuration";
-import { arrangementFor, resolveStageView, stagePlan } from "./stageViews";
+import {
+  arrangementFor,
+  resolveStageView,
+  stagePlan,
+  viewStorageKey,
+} from "./stageViews";
 
 const overlap = (
   a: { x: number; y: number; size: number },
@@ -138,5 +143,32 @@ describe("the views a group offers (S6)", () => {
     const group = stagePlan({ alone: false });
     expect(arrangementFor("spotlight", group)).toBe("hain");
     expect(arrangementFor("kreis", group)).toBe("kreis");
+  });
+});
+
+describe("the start view by conversation type (S6b)", () => {
+  it("starts a group in the Kreis, at two people too", () => {
+    for (const alone of [true, false]) {
+      const plan = stagePlan({ alone, callType: "group" });
+      expect(plan.fallback).toBe("kreis");
+      expect(plan.offer).not.toContain("einzelgespraech");
+      expect(resolveStageView(null, plan)).toBe("kreis");
+    }
+  });
+
+  it("starts a single conversation of two in the Einzelgespräch", () => {
+    const plan = stagePlan({ alone: true, callType: "single" });
+    expect(resolveStageView(null, plan)).toBe("einzelgespraech");
+  });
+
+  it("keeps the head count's answer without a type", () => {
+    expect(stagePlan({ alone: true }).fallback).toBe("einzelgespraech");
+    expect(stagePlan({ alone: false, callType: null }).fallback).toBe("hain");
+  });
+
+  it("stores the choice per type", () => {
+    expect(viewStorageKey("group")).toBe("oriso-call-view-group");
+    expect(viewStorageKey("single")).toBe("oriso-call-view-single");
+    expect(viewStorageKey(null)).toBe("oriso-call-view");
   });
 });

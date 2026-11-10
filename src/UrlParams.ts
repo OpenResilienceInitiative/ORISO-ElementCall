@@ -80,6 +80,16 @@ export interface UrlProperties {
    */
   orisoHostChrome: boolean;
   /**
+   * What kind of counselling conversation this call belongs to, set by
+   * ORISO-Frontend from the conversation type: `group` or `single`.
+   *
+   * It decides the view a call starts in, not the head count: a group
+   * conversation starts in the "Kreis" even when only two people are in it,
+   * a single conversation in the "Einzelgespräch". Without it (an older
+   * host) the head count decides as before. Anything else is ignored.
+   */
+  orisoCallType: "group" | "single" | null;
+  /**
    * Anything about what room we're pointed to should be from useRoomIdentifier which
    * parses the path and resolves alias with respect to the default server name, however
    * roomId is an exception as we need the room ID in embedded (matroyska) mode, and not
@@ -432,6 +442,8 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const orisoAtmosphere = parser.getParam("orisoAtmosphere");
   const orisoDesign = parser.getFlagParam("orisoDesign");
   const orisoHostChrome = parser.getFlagParam("orisoHostChrome");
+  const orisoCallType =
+    parser.getEnumParam("orisoCallType", ["group", "single"] as const) ?? null;
   const isWidget = !!widgetId && !!parentUrl;
 
   /**
@@ -551,6 +563,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     orisoAtmosphere,
     orisoDesign,
     orisoHostChrome,
+    orisoCallType,
     // NB. we don't validate roomId here as we do in getRoomIdentifierFromUrl:
     // what would we do if it were invalid? If the widget API says that's what
     // the room ID is, then that's what it is.

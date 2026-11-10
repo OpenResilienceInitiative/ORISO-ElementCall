@@ -169,6 +169,13 @@ export interface CallViewModelOptions {
    * — and `InCallView`, which constructs this, already has the parameters.
    */
   orisoDesign?: boolean;
+  /**
+   * The ORISO conversation type (`orisoCallType` on the URL). A group
+   * conversation never collapses into the Einzelgespräch: at two people it
+   * keeps the group's arrangements, so it can start in the Kreis. Only read
+   * when `orisoDesign` is on.
+   */
+  orisoCallType?: "group" | "single" | null;
   /** The version & compatibility mode of MatrixRTC that we should use. */
   matrixRTCMode$: Behavior<MatrixRTCMode>;
 }
@@ -1112,11 +1119,15 @@ export function createCallViewModel$(
    * `pip` keeps upstream's: it is a thumbnail of a call happening elsewhere,
    * and the handoff draws nothing for it.
    */
+  const orisoGroup =
+    options.orisoDesign === true && options.orisoCallType === "group";
   const orisoArrangement = (windowMode: WindowMode): Observable<LayoutMedia> =>
     gridMode$.pipe(
       switchMap((gridMode) => {
         switch (gridMode) {
           case "grid":
+            // A group conversation stays a group at two people (S6b).
+            if (orisoGroup) return gridLayoutMedia$;
             return oneOnOneLayoutMedia$.pipe(
               switchMap((oneOnOne) =>
                 oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
@@ -1601,7 +1612,7 @@ export function createCallViewModel$(
      * share makes a third, which is why a count of people would not do.
      */
     orisoOneOnOne$: scope.behavior(
-      oneOnOneLayoutMedia$.pipe(map((media) => media !== null)),
+      oneOnOneLayoutMedia$.pipe(map((media) => media !== null && !orisoGroup)),
       false,
     ),
     tileStoreGeneration$: tileStoreGeneration$,

@@ -508,6 +508,23 @@ describe("UrlParams", () => {
       );
     });
   });
+  describe("orisoCallType", () => {
+    it("is unset unless the host says what kind of conversation it is", () => {
+      expect(computeUrlParams().orisoCallType).toBeNull();
+      expect(
+        computeUrlParams("", "#?orisoCallType=party").orisoCallType,
+      ).toBeNull();
+    });
+
+    it("reads a group and a single conversation", () => {
+      expect(computeUrlParams("", "#?orisoCallType=group").orisoCallType).toBe(
+        "group",
+      );
+      expect(computeUrlParams("?orisoCallType=single").orisoCallType).toBe(
+        "single",
+      );
+    });
+  });
   describe("getUrlParams", () => {
     it("uses cached values", () => {
       const spy = vi.spyOn(logger, "info");

@@ -112,10 +112,10 @@ import {
   type OrisoView,
 } from "../oriso/useOrisoView";
 import {
-  ORISO_VIEW_STORAGE_KEY,
   arrangementFor,
   resolveStageView,
   stagePlan,
+  viewStorageKey,
 } from "../oriso/stageViews";
 import { useLocalStorage } from "../useLocalStorage";
 import { Atmosphere } from "../oriso/Atmosphere";
@@ -198,6 +198,7 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
       waitForCallPickup,
       sendNotificationType,
       orisoDesign,
+      orisoCallType,
     } = urlParams;
     const vm = createCallViewModel$(
       scope,
@@ -211,6 +212,8 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
         waitForCallPickup: waitForCallPickup && sendNotificationType === "ring",
         // Which arrangement each window size gets; see `CallViewModelOptions`.
         orisoDesign,
+        // A group conversation stays a group at two people (S6b).
+        orisoCallType,
         matrixRTCMode$: matrixRTCModeSetting.value$,
       },
       reactionsReader.raisedHands$,
@@ -496,6 +499,7 @@ export const InCallView: FC<InCallViewProps> = ({
     orisoAtmosphere,
     orisoDesign,
     orisoHostChrome,
+    orisoCallType,
     callIntent,
   } = useUrlParams();
   const orisoEnabled = orisoDesign;
@@ -672,8 +676,14 @@ export const InCallView: FC<InCallViewProps> = ({
    * happens to look: in spotlight mode the layout is a spotlight, and a rail
    * that read the layout offered the grove again at two people.
    */
-  const [storedView, setStoredView] = useLocalStorage(ORISO_VIEW_STORAGE_KEY);
-  const orisoPlan = useMemo(() => stagePlan({ alone }), [alone]);
+  // Kept per conversation type (S6b): `oriso-call-view-group` / `-single`.
+  const [storedView, setStoredView] = useLocalStorage(
+    viewStorageKey(orisoCallType),
+  );
+  const orisoPlan = useMemo(
+    () => stagePlan({ alone, callType: orisoCallType }),
+    [alone, orisoCallType],
+  );
   // A stable array, so the rail can memoise its entries on it and its
   // keyboard handler cannot close over a list that has moved on.
   const orisoOffer = orisoPlan.offer;

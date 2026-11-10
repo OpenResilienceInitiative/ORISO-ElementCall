@@ -16,7 +16,13 @@ import { type StageView } from "./ViewSwitcher";
  * Two people in a call that is not a group get the Einzelgespräch, which is
  * not a choice but the name of what two people are in; the alternative is
  * the spotlight. Everybody else gets the five views of design 2a.
+ *
+ * The conversation type (`orisoCallType`, S6b) decides where a call starts,
+ * not the head count: a group conversation starts in the Kreis and stays a
+ * group at two people; a single conversation starts in the Einzelgespräch.
+ * Without a type the head count decides, as it always did.
  */
+export type OrisoCallType = "group" | "single";
 export interface StagePlan {
   offer: readonly StageView[];
   /** The view a call starts in when nothing usable is stored. */
@@ -32,7 +38,15 @@ const GROUP_OFFER: readonly StageView[] = [
 ];
 const ONE_ON_ONE_OFFER: readonly StageView[] = ["einzelgespraech", "spotlight"];
 
-export function stagePlan({ alone }: { alone: boolean }): StagePlan {
+export function stagePlan({
+  alone,
+  callType = null,
+}: {
+  /** Exactly two people, as the view model counts them. */
+  alone: boolean;
+  callType?: OrisoCallType | null;
+}): StagePlan {
+  if (callType === "group") return { offer: GROUP_OFFER, fallback: "kreis" };
   return alone
     ? { offer: ONE_ON_ONE_OFFER, fallback: "einzelgespraech" }
     : { offer: GROUP_OFFER, fallback: "hain" };
@@ -67,3 +81,14 @@ export function arrangementFor(view: StageView, plan: StagePlan): OrisoView {
 }
 
 export const ORISO_VIEW_STORAGE_KEY = "oriso-call-view";
+
+/**
+ * Where the choice is kept: one per conversation type, so somebody who likes
+ * the Kacheln for groups still starts a single conversation in the
+ * Einzelgespräch. Without a type, the key everything used before.
+ */
+export function viewStorageKey(callType: OrisoCallType | null): string {
+  return callType === null
+    ? ORISO_VIEW_STORAGE_KEY
+    : `${ORISO_VIEW_STORAGE_KEY}-${callType}`;
+}

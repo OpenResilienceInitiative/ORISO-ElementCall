@@ -223,6 +223,7 @@ function createInCallView({
   orisoDesign = true,
   crowd = false,
   callIntent,
+  callType,
   encrypted = false,
 }: {
   mediaError?: ElementCallError | null;
@@ -234,6 +235,8 @@ function createInCallView({
   /** Three or more puts the grove on; two gives the Einzelgespräch. */
   crowd?: boolean;
   callIntent?: "audio" | "video";
+  /** `orisoCallType` on the URL, and in the view model as InCallView passes it. */
+  callType?: "group" | "single";
   encrypted?: boolean;
 } = {}): RenderResult & {
   rtcSession: MockRTCSession;
@@ -306,6 +309,7 @@ function createInCallView({
     crowd
       ? [localMember, aliceRtcMember, bobRtcMember]
       : [localMember, aliceRtcMember],
+    { orisoDesign, orisoCallType: callType ?? null },
   );
   const retryMedia = vi.fn();
   Object.assign(vm, {
@@ -321,7 +325,8 @@ function createInCallView({
         embedded
           ? `/room/#?widgetId=w${orisoDesign ? "&orisoDesign=true" : ""}` +
             `&parentUrl=${encodeURIComponent(HOST)}` +
-            (callIntent === undefined ? "" : `&callIntent=${callIntent}`)
+            (callIntent === undefined ? "" : `&callIntent=${callIntent}`) +
+            (callType === undefined ? "" : `&orisoCallType=${callType}`)
           : "/room/",
       ]}
     >
@@ -788,6 +793,66 @@ describe("the call, in the ORISO design", () => {
         ?.getAttribute("data-view"),
     ).toBe("spotlight");
     localStorage.removeItem("oriso-call-view");
+  });
+
+  /*
+   * S6b: the conversation type decides where a call starts, not the head
+   * count. A group conversation of two starts in the Kreis with all five
+   * views; a single conversation of two in the Einzelgespräch.
+   */
+  it("starts a group conversation of two in the Kreis", async () => {
+    const { container } = createInCallView({ callType: "group" });
+    const rail = await openViewRail();
+    expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("kreis");
+    expect(
+      container.querySelector('[data-testid="oriso-grove"][data-view="kreis"]'),
+    ).toBeTruthy();
+  });
+
+  it("starts a single conversation of two in the Einzelgespräch", async () => {
+    createInCallView({ callType: "single" });
+    const rail = await openViewRail();
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("einzelgespraech");
+  });
+
+  it("keeps the choice per conversation type", async () => {
+    const { unmount } = createInCallView({ callType: "group" });
+    fireEvent.click(
+      (await openViewRail()).querySelector('[data-view="kacheln"]')!,
+    );
+    expect(localStorage.getItem("oriso-call-view-group")).toBe("kacheln");
+    expect(localStorage.getItem("oriso-call-view-single")).toBeNull();
+    unmount();
+
+    // A single conversation is not affected by the group's choice…
+    const single = createInCallView({ callType: "single" });
+    expect(
+      (await openViewRail())
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("einzelgespraech");
+    single.unmount();
+
+    // …and the next group conversation starts in the Kacheln.
+    createInCallView({ callType: "group" });
+    expect(
+      (await openViewRail())
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("kacheln");
   });
 
   it("lays the Kacheln out as equal tiles", async () => {
