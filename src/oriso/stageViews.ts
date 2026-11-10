@@ -23,6 +23,7 @@ import { type StageView } from "./ViewSwitcher";
  * Without a type the head count decides, as it always did.
  */
 export type OrisoCallType = "group" | "single";
+export type OrisoCallIntent = "audio" | "video";
 export interface StagePlan {
   offer: readonly StageView[];
   /** The view a call starts in when nothing usable is stored. */
@@ -37,19 +38,35 @@ const GROUP_OFFER: readonly StageView[] = [
   "spotlight",
 ];
 const ONE_ON_ONE_OFFER: readonly StageView[] = ["einzelgespraech", "spotlight"];
+/*
+ * A video group (S7): the arrangements that carry a camera inside their
+ * forms. The Kreis is a voice view — its middle is the room's sound — and is
+ * not offered when people can see each other.
+ */
+const VIDEO_GROUP_OFFER: readonly StageView[] = [
+  "hain",
+  "felder",
+  "kacheln",
+  "spotlight",
+];
 
 export function stagePlan({
   alone,
   callType = null,
+  intent = null,
 }: {
   /** Exactly two people, as the view model counts them. */
   alone: boolean;
   callType?: OrisoCallType | null;
+  intent?: OrisoCallIntent | null;
 }): StagePlan {
-  if (callType === "group") return { offer: GROUP_OFFER, fallback: "kreis" };
-  return alone
-    ? { offer: ONE_ON_ONE_OFFER, fallback: "einzelgespraech" }
-    : { offer: GROUP_OFFER, fallback: "hain" };
+  if (alone && callType !== "group")
+    return { offer: ONE_ON_ONE_OFFER, fallback: "einzelgespraech" };
+  if (intent === "video") return { offer: VIDEO_GROUP_OFFER, fallback: "hain" };
+  return {
+    offer: GROUP_OFFER,
+    fallback: callType === "group" ? "kreis" : "hain",
+  };
 }
 
 const ARRANGEMENTS: readonly string[] = ["kreis", "hain", "felder", "kacheln"];

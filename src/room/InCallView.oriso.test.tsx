@@ -309,7 +309,11 @@ function createInCallView({
     crowd
       ? [localMember, aliceRtcMember, bobRtcMember]
       : [localMember, aliceRtcMember],
-    { orisoDesign, orisoCallType: callType ?? null },
+    {
+      orisoDesign,
+      orisoCallType: callType ?? null,
+      orisoCallIntent: callIntent ?? null,
+    },
   );
   const retryMedia = vi.fn();
   Object.assign(vm, {
@@ -853,6 +857,58 @@ describe("the call, in the ORISO design", () => {
         .querySelector('[role="radio"][aria-checked="true"]')
         ?.getAttribute("data-view"),
     ).toBe("kacheln");
+  });
+
+  /*
+   * S7: a video group gets the arrangements that carry a camera inside
+   * their forms. The Kreis — a sound indicator in the middle — is a voice
+   * view and is not offered; a stored Kreis falls back to the Hain.
+   */
+  it("offers a video group the video arrangements only, without the Kreis", async () => {
+    localStorage.setItem("oriso-call-view-group", "kreis");
+    const { container } = createInCallView({
+      crowd: true,
+      callIntent: "video",
+      callType: "group",
+    });
+    const rail = await openViewRail();
+    expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["hain", "felder", "kacheln", "spotlight"]);
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("hain");
+    expect(
+      container.querySelector('[data-testid="oriso-grove"][data-view="hain"]'),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("oriso-kreis-centre")).toBeNull();
+  });
+
+  it("keeps names as capsules in a video group, whatever is stored", async () => {
+    localStorage.setItem("oriso-call-names", "dezent");
+    const { container } = createInCallView({
+      crowd: true,
+      callIntent: "video",
+      callType: "group",
+    });
+    await openViewRail();
+    expect(container.querySelector('[data-oriso-names="popout"]')).toBeTruthy();
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    expect(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-entry="names"]'),
+    ).toBeNull();
+  });
+
+  it("offers an audio group the Kreis", async () => {
+    createInCallView({ crowd: true, callIntent: "audio", callType: "group" });
+    const rail = await openViewRail();
+    expect(rail.querySelector('[data-view="kreis"]')).toBeTruthy();
   });
 
   it("lays the Kacheln out as equal tiles", async () => {

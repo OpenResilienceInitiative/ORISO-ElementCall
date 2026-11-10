@@ -114,7 +114,6 @@ import {
 import {
   arrangementFor,
   resolveStageView,
-  stagePlan,
   viewStorageKey,
 } from "../oriso/stageViews";
 import { useLocalStorage } from "../useLocalStorage";
@@ -199,6 +198,7 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
       sendNotificationType,
       orisoDesign,
       orisoCallType,
+      callIntent,
     } = urlParams;
     const vm = createCallViewModel$(
       scope,
@@ -212,8 +212,11 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
         waitForCallPickup: waitForCallPickup && sendNotificationType === "ring",
         // Which arrangement each window size gets; see `CallViewModelOptions`.
         orisoDesign,
-        // A group conversation stays a group at two people (S6b).
+        // A group conversation stays a group at two people (S6b), and a
+        // video group is offered the video arrangements only (S7).
         orisoCallType,
+        orisoCallIntent:
+          callIntent === "audio" || callIntent === "video" ? callIntent : null,
         matrixRTCMode$: matrixRTCModeSetting.value$,
       },
       reactionsReader.raisedHands$,
@@ -680,10 +683,9 @@ export const InCallView: FC<InCallViewProps> = ({
   const [storedView, setStoredView] = useLocalStorage(
     viewStorageKey(orisoCallType),
   );
-  const orisoPlan = useMemo(
-    () => stagePlan({ alone, callType: orisoCallType }),
-    [alone, orisoCallType],
-  );
+  // From the view model, which knows the head count, the conversation type
+  // and whether this is a video call (S7).
+  const orisoPlan = useBehavior(vm.orisoPlan$);
   // A stable array, so the rail can memoise its entries on it and its
   // keyboard handler cannot close over a list that has moved on.
   const orisoOffer = orisoPlan.offer;
@@ -1284,7 +1286,15 @@ export const InCallView: FC<InCallViewProps> = ({
                   : undefined
               }
               data-notes-docked={notesShown && notesDocked ? "true" : undefined}
-              data-oriso-names={orisoEnabled ? nameStyle : undefined}
+              // Names over video are always capsules (S7): a video call offers
+              // no "dezent".
+              data-oriso-names={
+                orisoEnabled
+                  ? orisoVideoCall
+                    ? "popout"
+                    : nameStyle
+                  : undefined
+              }
             >
               {/* The living backdrop. Behind everything, announced to
                 nobody: it carries no information, and reading it out would be

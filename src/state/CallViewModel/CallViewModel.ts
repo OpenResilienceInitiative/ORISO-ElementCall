@@ -132,6 +132,7 @@ import {
 import { Publisher } from "./localMember/Publisher.ts";
 import { type Connection } from "./remoteMembers/Connection.ts";
 import { createLayoutModeSwitch } from "./LayoutSwitch.ts";
+import { type StagePlan, stagePlan } from "../../oriso/stageViews.ts";
 
 const logger = rootLogger.getChild("[CallViewModel]");
 //TODO
@@ -176,6 +177,13 @@ export interface CallViewModelOptions {
    * when `orisoDesign` is on.
    */
   orisoCallType?: "group" | "single" | null;
+  /**
+   * Whether the call is a voice or a video call (`callIntent`). A video
+   * group is offered the video-suited arrangements only — Hain, Felder,
+   * Kacheln, Spotlight with the camera inside the forms — and never the
+   * Kreis, whose middle is a sound indicator (S7).
+   */
+  orisoCallIntent?: "audio" | "video" | null;
   /** The version & compatibility mode of MatrixRTC that we should use. */
   matrixRTCMode$: Behavior<MatrixRTCMode>;
 }
@@ -344,6 +352,12 @@ export interface CallViewModel {
    * whatever mode is on. See the comment where it is built.
    */
   orisoOneOnOne$: Behavior<boolean>;
+  /**
+   * The ORISO views this call offers and the one it starts in, from the
+   * head count, the conversation type and the call intent. See
+   * `stagePlan`.
+   */
+  orisoPlan$: Behavior<StagePlan>;
   /**
    * The current generation of the tile store, exposed for debugging purposes.
    */
@@ -1160,6 +1174,15 @@ export function createCallViewModel$(
       }),
     );
 
+  /*
+   * Whether the design's two-person arrangement is the one GRID mode would
+   * choose — whatever mode is actually on. A group conversation never is.
+   */
+  const orisoOneOnOne$ = scope.behavior(
+    oneOnOneLayoutMedia$.pipe(map((media) => media !== null && !orisoGroup)),
+    false,
+  );
+
   const layoutMedia$ = scope.behavior<LayoutMedia>(
     windowMode$.pipe(
       switchMap((windowMode) => {
@@ -1611,9 +1634,17 @@ export function createCallViewModel$(
      * condition: exactly two media items, one local and one remote. A screen
      * share makes a third, which is why a count of people would not do.
      */
-    orisoOneOnOne$: scope.behavior(
-      oneOnOneLayoutMedia$.pipe(map((media) => media !== null && !orisoGroup)),
-      false,
+    orisoOneOnOne$: orisoOneOnOne$,
+    orisoPlan$: scope.behavior(
+      orisoOneOnOne$.pipe(
+        map((alone) =>
+          stagePlan({
+            alone,
+            callType: options.orisoCallType ?? null,
+            intent: options.orisoCallIntent ?? null,
+          }),
+        ),
+      ),
     ),
     tileStoreGeneration$: tileStoreGeneration$,
     showSpotlightIndicators$: showSpotlightIndicators$,

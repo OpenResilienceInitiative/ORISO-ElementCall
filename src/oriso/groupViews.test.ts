@@ -172,3 +172,35 @@ describe("the start view by conversation type (S6b)", () => {
     expect(viewStorageKey(null)).toBe("oriso-call-view");
   });
 });
+
+describe("the views by call intent (S7)", () => {
+  it("offers a video group Hain, Felder, Kacheln and Spotlight, no Kreis", () => {
+    for (const callType of ["group", "single", null] as const) {
+      const plan = stagePlan({ alone: false, callType, intent: "video" });
+      expect(plan.offer).toEqual(["hain", "felder", "kacheln", "spotlight"]);
+      expect(plan.fallback).toBe("hain");
+    }
+  });
+
+  it("does not start a video group of two in the Kreis", () => {
+    const plan = stagePlan({ alone: true, callType: "group", intent: "video" });
+    expect(plan.offer).not.toContain("kreis");
+    expect(resolveStageView("kreis", plan)).toBe("hain");
+  });
+
+  it("keeps the Kreis for an audio group", () => {
+    const plan = stagePlan({
+      alone: false,
+      callType: "group",
+      intent: "audio",
+    });
+    expect(plan.offer[0]).toBe("kreis");
+    expect(plan.fallback).toBe("kreis");
+  });
+
+  it("leaves a video pair its Einzelgespräch", () => {
+    expect(
+      stagePlan({ alone: true, callType: "single", intent: "video" }).offer,
+    ).toEqual(["einzelgespraech", "spotlight"]);
+  });
+});
