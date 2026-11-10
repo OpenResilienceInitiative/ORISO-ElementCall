@@ -66,6 +66,8 @@
     "participant_neutral": "Teilnehmende Person",
     "participant_pin": "Anheften",
     "participant_pin_hint": "bleibt groß",
+    "participant_role_asker": "anonym · ratsuchend",
+    "participant_role_counsellor": "Beratung",
     "participant_unpin": "Lösen",
     "view_circle": "Kreis",
     "view_fields": "Felder",

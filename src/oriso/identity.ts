@@ -269,6 +269,20 @@ export interface OrisoIdentity {
    * then falls back to the display name it has. See `shownNameFor`.
    */
   name?: string;
+  /**
+   * Which side of the conversation this person is on: `counsellor` or
+   * `asker`. Drives the line under the name in a person's ⋮ ("Beratung",
+   * "anonym · ratsuchend"). Absent from older hosts; then no line is shown
+   * rather than a guessed one.
+   */
+  role?: OrisoRole;
+}
+
+/** The two sides of a counselling conversation, as the host names them. */
+export type OrisoRole = "counsellor" | "asker";
+
+function readRole(raw: unknown): OrisoRole | undefined {
+  return raw === "counsellor" || raw === "asker" ? raw : undefined;
 }
 
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -539,7 +553,14 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
     // which is the truth, and the tile then takes the letters from the
     // display name it already has.
     if (letters.length === 0) return null;
-    return { kind, bg, ink, initials: letters, name: readName(raw.name) };
+    return {
+      kind,
+      bg,
+      ink,
+      initials: letters,
+      name: readName(raw.name),
+      role: readRole(raw.role),
+    };
   }
   if (kind !== "animal" && kind !== "motif") return null;
 
@@ -554,7 +575,14 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
     return null;
   }
 
-  return { kind, file, bg, ink, name: readName(raw.name) };
+  return {
+    kind,
+    file,
+    bg,
+    ink,
+    name: readName(raw.name),
+    role: readRole(raw.role),
+  };
 }
 
 /**

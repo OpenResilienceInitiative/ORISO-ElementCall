@@ -231,6 +231,8 @@
     "participant_neutral": "Teilnehmende Person",
     "participant_pin": "Anheften",
     "participant_pin_hint": "bleibt groß",
+    "participant_role_asker": "anonym · ratsuchend",
+    "participant_role_counsellor": "Beratung",
     "participant_unpin": "Lösen",
     "speaking": "spricht",
     "video_stage_encrypted": "Ende-zu-Ende verschlüsselt",

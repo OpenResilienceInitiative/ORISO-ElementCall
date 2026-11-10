@@ -179,3 +179,50 @@ test("outside the ORISO stage a person's menu has no Anheften", async () => {
   await screen.findByRole("menu");
   expect(screen.queryByRole("menuitemcheckbox", { name: "Pin" })).toBeNull();
 });
+
+/*
+ * Design 2a: under the name in a person's ⋮ stands their side of the
+ * conversation, from the role the host published — never guessed.
+ */
+test.each([
+  ["asker", "anonymous · seeking advice"],
+  ["counsellor", "Counselling"],
+] as const)(
+  "a person's menu names the %s role under the name",
+  async (role, line) => {
+    const user = userEvent.setup();
+    renderTile(
+      {
+        kind: "animal",
+        file: "fox.svg",
+        bg: "#F7CAC9",
+        ink: "#1A1A1A",
+        name: "ruhiger Fuchs 432",
+        role,
+      },
+      (tile) => <TooltipProvider>{tile}</TooltipProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Options" }));
+    await screen.findByRole("menu");
+    const header = screen.getByTestId("participant_menu_header");
+    expect(header).toHaveTextContent("ruhiger Fuchs 432");
+    expect(header).toHaveTextContent(line);
+  },
+);
+
+test("without a published role a person's menu has no role line", async () => {
+  const user = userEvent.setup();
+  renderTile(
+    {
+      kind: "animal",
+      file: "fox.svg",
+      bg: "#F7CAC9",
+      ink: "#1A1A1A",
+      name: "ruhiger Fuchs 432",
+    },
+    (tile) => <TooltipProvider>{tile}</TooltipProvider>,
+  );
+  await user.click(screen.getByRole("button", { name: "Options" }));
+  await screen.findByRole("menu");
+  expect(screen.queryByTestId("participant_menu_header")).toBeNull();
+});

@@ -136,6 +136,43 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
       ? t("microphone_on")
       : t("microphone_off");
 
+  // The ORISO form, when the call has an identity for this person. Undefined
+  // means upstream's rectangle, which is still what the lobby and the
+  // standalone build get.
+  //
+  // The identity is per PERSON and looked up by user id; the form is per TILE
+  // and looked up by this media's own id. They differ when somebody is in the
+  // call from two devices: one identity, two forms.
+  const { parentUrl } = useOrisoStage();
+  const orisoIdentity = useOrisoIdentity(vm.userId, displayName);
+  const orisoShape = useOrisoShape(vm.id);
+  /*
+   * The name the ROOM uses, not the one the homeserver happens to hold.
+   *
+   * `displayName` comes from `RoomMember.name`, which matrix-js-sdk answers
+   * with the user id for a profile that has none — the normal state of an
+   * ORISO account, whose pseudonym lives in the userservice. So every tag,
+   * every menu title and every accessible name here said
+   * `@cyrus:oriso.org`. One substitution at the top rather than four at the
+   * use sites: the id must not survive in the menu after being taken off
+   * the tag, which is the half a reviewer would not see in a screenshot.
+   */
+  const shownName = useShownName(displayName, orisoIdentity, vm.userId);
+
+  /*
+   * The line under the name in a person's ⋮ (design 2a): "anonym ·
+   * ratsuchend" for an advice seeker, "Beratung" for a counsellor. Only
+   * from the role the host published; without it there is no line, never a
+   * guessed one.
+   */
+  const role = orisoIdentity?.role;
+  const roleLine =
+    role === "asker"
+      ? t("oriso.participant_role_asker")
+      : role === "counsellor"
+        ? t("oriso.participant_role_counsellor")
+        : null;
+
   const [menuOpen, setMenuOpen] = useState(false);
   /*
    * "Anheften — bleibt groß" (S6, design 2a). Stummschalten and Entfernen,
@@ -154,6 +191,15 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
   );
   const menu = (
     <>
+      {roleLine !== null && (
+        <div
+          className={styles.menuHeader}
+          data-testid="participant_menu_header"
+        >
+          <span className={styles.menuHeaderName}>{shownName}</span>
+          <span className={styles.menuHeaderRole}>{roleLine}</span>
+        </div>
+      )}
       {pins.toggle !== null && (
         <ToggleMenuItem
           Icon={PinIcon}
@@ -178,29 +224,6 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
     : undefined;
 
   const showSpeaking = showSpeakingIndicators && speaking;
-
-  // The ORISO form, when the call has an identity for this person. Undefined
-  // means upstream's rectangle, which is still what the lobby and the
-  // standalone build get.
-  //
-  // The identity is per PERSON and looked up by user id; the form is per TILE
-  // and looked up by this media's own id. They differ when somebody is in the
-  // call from two devices: one identity, two forms.
-  const { parentUrl } = useOrisoStage();
-  const orisoIdentity = useOrisoIdentity(vm.userId, displayName);
-  const orisoShape = useOrisoShape(vm.id);
-  /*
-   * The name the ROOM uses, not the one the homeserver happens to hold.
-   *
-   * `displayName` comes from `RoomMember.name`, which matrix-js-sdk answers
-   * with the user id for a profile that has none — the normal state of an
-   * ORISO account, whose pseudonym lives in the userservice. So every tag,
-   * every menu title and every accessible name here said
-   * `@cyrus:oriso.org`. One substitution at the top rather than four at the
-   * use sites: the id must not survive in the menu after being taken off
-   * the tag, which is the half a reviewer would not see in a screenshot.
-   */
-  const shownName = useShownName(displayName, orisoIdentity, vm.userId);
 
   const tile = (
     <MediaView
@@ -239,6 +262,9 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
             open={menuOpen}
             onOpenChange={setMenuOpen}
             title={shownName}
+            // With a role line the header above draws name and role
+            // together, as the design does; the title stays as the label.
+            showTitle={roleLine === null}
             trigger={
               <button
                 aria-label={t("common.options")}
@@ -287,7 +313,12 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
   );
 
   return (
-    <ContextMenu title={shownName} trigger={tile} hasAccessibleAlternative>
+    <ContextMenu
+      title={shownName}
+      showTitle={roleLine === null}
+      trigger={tile}
+      hasAccessibleAlternative
+    >
       {menu}
     </ContextMenu>
   );

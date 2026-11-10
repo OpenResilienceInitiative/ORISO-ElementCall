@@ -259,6 +259,8 @@
     "participant_neutral": "Participant",
     "participant_pin": "Pin",
     "participant_pin_hint": "stays big",
+    "participant_role_asker": "anonymous · seeking advice",
+    "participant_role_counsellor": "Counselling",
     "participant_unpin": "Unpin",
     "speaking": "speaking",
     "video_stage_encrypted": "End-to-end encrypted",
