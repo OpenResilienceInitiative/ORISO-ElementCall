@@ -281,6 +281,27 @@ export interface OrisoIdentity {
 /** The two sides of a counselling conversation, as the host names them. */
 export type OrisoRole = "counsellor" | "asker";
 
+/**
+ * The role a person is LABELLED with, from what they claimed and what the
+ * host said.
+ *
+ * `role` in the record is written by the sender's own client, and power
+ * levels in an ORISO call room do not tell the sides apart (an advice
+ * seeker may start a group call and is then the room's creator, with the
+ * highest level). So "counsellor" is shown only for a user id the host
+ * listed in `org.oriso.call.counsellors`; until that list arrives, and for
+ * everybody not on it, a counsellor claim shows nothing. An "asker" claim
+ * is shown as it is: nobody gains by calling themselves an advice seeker.
+ */
+export function shownRole(
+  claimed: OrisoRole | undefined,
+  userId: string,
+  counsellors: ReadonlySet<string> | null,
+): OrisoRole | undefined {
+  if (counsellors?.has(userId)) return "counsellor";
+  return claimed === "asker" ? "asker" : undefined;
+}
+
 function readRole(raw: unknown): OrisoRole | undefined {
   return raw === "counsellor" || raw === "asker" ? raw : undefined;
 }

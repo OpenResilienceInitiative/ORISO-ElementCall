@@ -469,59 +469,84 @@ describe("finding out who everybody is", () => {
 });
 
 /*
- * `role` is written by the sender's own client. "counsellor" is believed only
- * from a member the room gives moderator power (>= 50); anybody else claiming
- * it keeps their face but loses the role, and gets no role line.
+ * `role` is written by the sender's own client, and power levels in an ORISO
+ * call room cannot tell the sides apart (an advice seeker may create the
+ * call room). The map keeps the CLAIM; the label is decided per tile from
+ * the host's list (`org.oriso.call.counsellors`), every render.
  */
 describe("a published role", () => {
-  const withLevels = (
-    levels: Record<string, number>,
-    records: Record<string, unknown>,
-  ): Room => {
-    const { room } = roomWith(records);
-    return Object.assign(room, {
-      getMember: (userId: string): { powerLevel: number } | null =>
-        userId in levels ? { powerLevel: levels[userId] } : null,
-    }) as Room;
+  const USER_ID = "@anon:oriso.test";
+  const claim = (role: string): OrisoIdentity =>
+    ({
+      ...FROM_THE_HOST[USER_ID],
+      name: "ruhiger Fuchs 432",
+      role,
+    }) as OrisoIdentity;
+
+  const renderRole = (
+    claimed: string,
+    counsellors: ReadonlySet<string> | null,
+  ): {
+    role: () => string | undefined;
+    setCounsellors: (next: ReadonlySet<string> | null) => void;
+  } => {
+    let current = counsellors;
+    const wrapper: FC<{ children: ReactNode }> = ({ children }) => (
+      <OrisoStageContext
+        value={{
+          identities: new Map([[USER_ID, claim(claimed)]]),
+          parentUrl: null,
+          enabled: true,
+          counsellors: current,
+        }}
+      >
+        {children}
+      </OrisoStageContext>
+    );
+    const { result, rerender } = renderHook(
+      () => useOrisoIdentity(USER_ID, "ruhiger Fuchs 432"),
+      { wrapper },
+    );
+    return {
+      role: (): string | undefined => result.current?.role,
+      setCounsellors: (next): void => {
+        current = next;
+        rerender();
+      },
+    };
   };
-  const claim = (role: string): Record<string, unknown> => ({
-    ...FROM_THE_HOST["@anon:oriso.test"],
-    name: "ruhiger Fuchs 432",
-    role,
+
+  it("keeps the claimed role in the map, unjudged", () => {
+    const { room } = roomWith({ [USER_ID]: claim("counsellor") });
+    expect(readIdentities(room).get(USER_ID)?.role).toBe("counsellor");
   });
 
-  it("drops a counsellor claim from a member at the default power level", () => {
-    const room = withLevels(
-      { "@anon:oriso.test": 0 },
-      { "@anon:oriso.test": claim("counsellor") },
-    );
-    const identity = readIdentities(room).get("@anon:oriso.test");
-    expect(identity?.kind).toBe("animal");
-    expect(identity?.name).toBe("ruhiger Fuchs 432");
-    expect(identity?.role).toBeUndefined();
+  it("shows no counsellor label before the host has sent its list", () => {
+    expect(renderRole("counsellor", null).role()).toBeUndefined();
   });
 
-  it("drops a counsellor claim from somebody the room does not know", () => {
-    const room = withLevels({}, { "@anon:oriso.test": claim("counsellor") });
-    expect(readIdentities(room).get("@anon:oriso.test")?.role).toBeUndefined();
+  it("shows no counsellor label for a claimant the host did not list", () => {
+    expect(
+      renderRole("counsellor", new Set(["@berater:oriso.test"])).role(),
+    ).toBeUndefined();
   });
 
-  it("believes a counsellor claim from a moderator", () => {
-    const room = withLevels(
-      { "@anon:oriso.test": 50 },
-      { "@anon:oriso.test": claim("counsellor") },
-    );
-    expect(readIdentities(room).get("@anon:oriso.test")?.role).toBe(
+  it("shows the counsellor label for somebody the host listed", () => {
+    expect(renderRole("counsellor", new Set([USER_ID])).role()).toBe(
       "counsellor",
     );
   });
 
+  it("gives the label back when the host lists the person again", () => {
+    const tile = renderRole("counsellor", new Set([USER_ID]));
+    tile.setCounsellors(new Set());
+    expect(tile.role()).toBeUndefined();
+    tile.setCounsellors(new Set([USER_ID]));
+    expect(tile.role()).toBe("counsellor");
+  });
+
   it("takes an asker claim as it is", () => {
-    const room = withLevels(
-      { "@anon:oriso.test": 0 },
-      { "@anon:oriso.test": claim("asker") },
-    );
-    expect(readIdentities(room).get("@anon:oriso.test")?.role).toBe("asker");
+    expect(renderRole("asker", null).role()).toBe("asker");
   });
 });
 

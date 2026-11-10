@@ -58,6 +58,7 @@ const USER = "@cyrus:oriso.org";
 const renderTile = (
   identity: OrisoIdentity | undefined,
   wrap: (tile: ReactNode) => ReactNode = (tile): ReactNode => tile,
+  counsellors: ReadonlySet<string> | null = null,
 ): void => {
   const vm = createRemoteMedia(
     mockRtcMembership(USER, "AAAA"),
@@ -96,6 +97,7 @@ const renderTile = (
         identities: new Map(identity ? [[USER, identity]] : []),
         parentUrl: null,
         enabled: true,
+        counsellors,
       }}
     >
       <ReactionsSenderProvider vm={cVm} rtcSession={fakeRtcSession}>
@@ -205,6 +207,8 @@ test.each([
         role,
       },
       (tile) => <TooltipProvider>{tile}</TooltipProvider>,
+      // The host lists the counsellor; an asker needs no list.
+      role === "counsellor" ? new Set([USER]) : null,
     );
     await user.click(screen.getByRole("button", { name: "Options" }));
     await screen.findByRole("menu");
@@ -232,16 +236,17 @@ test("without a published role a person's menu has no role line", async () => {
 });
 
 /*
- * The role is self-published. A record claiming "counsellor" from somebody
- * the room gives only the default power level is read through the same path
- * the call uses (`readIdentities`) and shows no "Beratung" line.
+ * The role is self-published. A record claiming "counsellor" shows no
+ * "Beratung" line unless the host listed that person
+ * (`org.oriso.call.counsellors`), whatever the room's power levels say.
  */
 test.each([
-  [0, null],
-  [50, "Counselling"],
+  ["no list from the host", null, null],
+  ["a list without them", new Set(["@other:oriso.org"]), null],
+  ["a list with them", new Set([USER]), "Counselling"],
 ] as const)(
-  "a counsellor claim at power level %s reads %s in the menu",
-  async (level, line) => {
+  "a counsellor claim with %s reads %s in the menu",
+  async (_case, counsellors, line) => {
     const user = userEvent.setup();
     const room = {
       roomId: "!call:oriso.org",
@@ -262,11 +267,14 @@ test.each([
           },
         ],
       }),
-      getMember: (): { powerLevel: number } => ({ powerLevel: level }),
+      // A creator's level: power cannot vouch for the claim.
+      getMember: (): { powerLevel: number } => ({ powerLevel: 100 }),
     } as unknown as Room;
-    renderTile(readIdentities(room).get(USER), (tile) => (
-      <TooltipProvider>{tile}</TooltipProvider>
-    ));
+    renderTile(
+      readIdentities(room).get(USER),
+      (tile) => <TooltipProvider>{tile}</TooltipProvider>,
+      counsellors,
+    );
     await user.click(screen.getByRole("button", { name: "Options" }));
     await screen.findByRole("menu");
     if (line === null) {

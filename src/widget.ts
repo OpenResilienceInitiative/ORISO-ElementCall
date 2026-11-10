@@ -61,6 +61,11 @@ export enum OrisoWidgetActions {
   // toWidget: whether the host shows the call full screen, so the header's
   //   button can say which way it goes: { fullscreen: boolean }.
   WindowState = "org.oriso.call.window_state",
+  // toWidget: who in this call is a counsellor, from the host's own records
+  //   rather than the self-published identity: { userIds: string[] },
+  //   response {}. Sent once the call is ready and again on every change.
+  //   The only source of a "Beratung" label; see `shownRole`.
+  Counsellors = "org.oriso.call.counsellors",
 }
 
 export interface JoinCallData {
@@ -112,6 +117,7 @@ export const widget = ((): WidgetHelpers | null => {
         ElementWidgetActions.DeviceMute,
         OrisoWidgetActions.KnockState,
         OrisoWidgetActions.WindowState,
+        OrisoWidgetActions.Counsellors,
       ].forEach((action) => {
         api.on(`action:${action}`, (ev: CustomEvent<IWidgetApiRequest>) => {
           ev.preventDefault();

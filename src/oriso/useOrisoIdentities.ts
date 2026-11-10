@@ -10,7 +10,6 @@ import {
   MatrixEventEvent,
   type Room,
   RoomEvent,
-  RoomStateEvent,
 } from "matrix-js-sdk";
 import {
   createContext,
@@ -26,6 +25,7 @@ import {
   ORISO_IDENTITY_EVENT_TYPE,
   type OrisoIdentity,
   fallbackIdentity,
+  shownRole,
   initialsFor,
   readIdentity,
   shownNameFor,
@@ -62,38 +62,6 @@ export type Identities = ReadonlyMap<string, OrisoIdentity>;
  * the host performs when somebody new joins land as an update rather than a
  * duplicate.
  */
-/**
- * The room power level a sender needs before their claim to be a counsellor
- * is believed: moderator, 50.
- *
- * `role` is written by the sender's OWN client, so an advice seeker could
- * publish `role: "counsellor"` and be labelled "Beratung". The power level
- * is set by whoever controls the room, not by the sender. Below it a
- * counsellor claim is dropped and the person gets no role line — not
- * "anonym · ratsuchend", because a real counsellor without the level must
- * not be mislabelled as an advice seeker either. An `asker` claim needs no
- * check: nobody gains anything by calling themselves an advice seeker.
- *
- * Known limit: in ORISO's dedicated call rooms only the room's CREATOR
- * holds more than 0 (ORISO-Frontend `CallManager.createElementCallRoom`),
- * and an advice seeker may start a group call. So this check is necessary,
- * not sufficient: it stops every participant who did not create the room,
- * and a counsellor who joins somebody else's call shows no role line.
- */
-export const COUNSELLOR_MIN_POWER_LEVEL = 50;
-
-function verifiedRole(
-  room: Room,
-  sender: string,
-  identity: OrisoIdentity,
-): OrisoIdentity {
-  if (identity.role !== "counsellor") return identity;
-  const level = room.getMember?.(sender)?.powerLevel ?? 0;
-  if (level >= COUNSELLOR_MIN_POWER_LEVEL) return identity;
-  const { role: _unverified, ...rest } = identity;
-  return rest;
-}
-
 export function readIdentities(room: Room, known?: Identities): Identities {
   /*
    * Starts from what is already known, because the live timeline is a WINDOW
@@ -122,7 +90,7 @@ export function readIdentities(room: Room, known?: Identities): Identities {
     // identities seeded above, skipping would leave the withdrawn record
     // standing, which is the redaction bug over again.
     if (identity === null) identities.delete(sender);
-    else identities.set(sender, verifiedRole(room, sender, identity));
+    else identities.set(sender, identity);
   }
   return identities;
 }
@@ -326,9 +294,6 @@ export function useOrisoIdentities(room: Room): Identities {
      * withdrawn. See `readIdentities`.
      */
     room.on(RoomEvent.TimelineReset, onRoomEvent);
-    // A power-level change decides whether a counsellor claim is believed
-    // (`verifiedRole`), so the room's state changing is a reason to re-read.
-    room.on(RoomStateEvent.Update, onRoomEvent);
     /*
      * A redaction is not a timeline event either.
      *
@@ -388,7 +353,6 @@ export function useOrisoIdentities(room: Room): Identities {
     return (): void => {
       room.off(RoomEvent.Timeline, onRoomEvent);
       room.off(RoomEvent.TimelineReset, onRoomEvent);
-      room.off(RoomStateEvent.Update, onRoomEvent);
       room.off(RoomEvent.Redaction, onRedaction);
       room.client?.off?.(MatrixEventEvent.Decrypted, onDecrypted);
     };
@@ -414,6 +378,12 @@ export interface OrisoStage {
   audioOnly?: boolean;
   /** The 5A video stage uses rectangular participant tiles. */
   rectangular?: boolean;
+  /**
+   * Who the HOST says is a counsellor (`org.oriso.call.counsellors`), or
+   * null until it has said. The only source a "Beratung" label is shown
+   * from; see `shownRole`.
+   */
+  counsellors?: ReadonlySet<string> | null;
 }
 
 const EMPTY: OrisoStage = {
@@ -446,9 +416,9 @@ export function useOrisoIdentity(
   userId: string,
   displayName: string,
 ): OrisoIdentity | undefined {
-  const { identities, enabled } = useOrisoStage();
+  const { identities, enabled, counsellors = null } = useOrisoStage();
   const published = identities.get(userId);
-  return useMemo(() => {
+  const identity = useMemo(() => {
     if (!enabled) return undefined;
     if (published === undefined) return fallbackIdentity(userId, displayName);
     /*
@@ -466,6 +436,23 @@ export function useOrisoIdentity(
         }
       : published;
   }, [enabled, published, userId, displayName]);
+  /*
+   * The role SHOWN, kept apart from the role CLAIMED in the record.
+   *
+   * The record is written by the sender's own client, so its `role` is a
+   * claim. The map above keeps the claim as published; the label is decided
+   * here, on every render, from the host's list — so a counsellor the host
+   * lists later gets the label back, and nobody keeps one the host never
+   * gave them.
+   */
+  const role = identity && shownRole(identity.role, userId, counsellors);
+  return useMemo(
+    () =>
+      identity === undefined || identity.role === role
+        ? identity
+        : { ...identity, role },
+    [identity, role],
+  );
 }
 
 /**

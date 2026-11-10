@@ -98,6 +98,7 @@ import { OrisoToolbar } from "../oriso/OrisoToolbar";
 import { OrisoNotes } from "../oriso/OrisoNotes";
 import { OrisoHeader } from "../oriso/OrisoHeader";
 import { useOrisoWindow } from "../oriso/useOrisoWindow";
+import { useOrisoCounsellors } from "../oriso/useOrisoCounsellors";
 import { useCallDuration } from "../oriso/useCallDuration";
 import { useOrisoKnock } from "../oriso/useOrisoKnock";
 import {
@@ -618,9 +619,12 @@ export const InCallView: FC<InCallViewProps> = ({
    * different question and only asked once the design is on.
    * ---------------------------------------------------------------------- */
   const orisoIdentities = useOrisoIdentities(matrixRoom);
+  // Who the host says is a counsellor: the only source of "Beratung".
+  const orisoCounsellors = useOrisoCounsellors();
   const orisoStage = useMemo(
     () => ({
       identities: orisoIdentities,
+      counsellors: orisoCounsellors,
       parentUrl,
       enabled: orisoEnabled,
       audioOnly: orisoAudioOnly,
@@ -628,6 +632,7 @@ export const InCallView: FC<InCallViewProps> = ({
     }),
     [
       orisoIdentities,
+      orisoCounsellors,
       parentUrl,
       orisoEnabled,
       orisoAudioOnly,
