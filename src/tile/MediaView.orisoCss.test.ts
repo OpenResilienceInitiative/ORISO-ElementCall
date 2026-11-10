@@ -159,3 +159,25 @@ describe("the names stand under the circle", () => {
     }
   });
 });
+
+/*
+ * S4, design 5a: on video the name always stands in a dark capsule — bare
+ * or pale text on a moving picture cannot be read.
+ */
+describe("a name on video", () => {
+  it("always sits in a dark, mostly opaque capsule", () => {
+    const [quiet] = bodiesWhere(
+      (selector) =>
+        selector.includes('[data-oriso-rectangular="true"]') &&
+        !selector.includes("speaking") &&
+        /\.nameTag\s*$/.test(selector.trim()),
+    ).filter((body) => /background:/.test(body));
+    const rgba = /background:\s*rgb\((\d+) (\d+) (\d+) \/ (\d+)%\)/.exec(
+      quiet ?? "",
+    );
+    expect(rgba).not.toBeNull();
+    const [, r, g, b, alpha] = rgba!.map(Number);
+    expect(Math.max(r, g, b)).toBeLessThan(64);
+    expect(alpha).toBeGreaterThanOrEqual(70);
+  });
+});

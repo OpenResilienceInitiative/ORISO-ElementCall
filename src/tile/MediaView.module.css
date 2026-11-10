@@ -316,6 +316,19 @@ unconditionally select the container so we can use cqmin units */
   background: #4c555f;
 }
 
+/* Video (5a): the name is always in the dark capsule, the stage's own
+   surface colour — bare or pale text on a moving picture cannot be read.
+   Speaking still loses the transparency. */
+.media.oriso[data-oriso-rectangular="true"] .nameTag {
+  background: rgb(34 36 35 / 78%);
+  color: #fbf4d3;
+}
+
+.media.oriso[data-oriso-rectangular="true"][data-oriso-speaking="true"]
+  .nameTag {
+  background: rgb(34 36 35);
+}
+
 .media.oriso .nameTag > .name {
   padding-inline: 0;
 }

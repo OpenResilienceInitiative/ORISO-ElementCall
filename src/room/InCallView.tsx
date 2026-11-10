@@ -144,6 +144,9 @@ const maxTapDurationMs = 400;
 // The notepad docks beside a group stage from this width (#112): 352px card
 // plus margins still leave the stage most of a laptop screen.
 const NOTES_DOCK_MIN_WIDTH = 900;
+// The video 1:1 docks its narrower card (5a) from here: a sheet over the
+// video stage would cover the person one is talking to.
+const VIDEO_NOTES_DOCK_MIN_WIDTH = 720;
 // The phone card, the same width at which the toolbar turns compact.
 const NOTES_COMPACT_MAX_WIDTH = 400;
 // What the docked card takes from the stage: 352px plus 16px either side.
@@ -504,9 +507,10 @@ export const InCallView: FC<InCallViewProps> = ({
    * gives the card its room — the circle steps back rather than being
    * covered.
    */
-  const notesDocked =
-    (gridMode === "spotlight" || !alone || orisoVideoOneOnOne) &&
-    bounds.width >= NOTES_DOCK_MIN_WIDTH;
+  const notesDocked = orisoVideoOneOnOne
+    ? bounds.width >= VIDEO_NOTES_DOCK_MIN_WIDTH
+    : (gridMode === "spotlight" || !alone) &&
+      bounds.width >= NOTES_DOCK_MIN_WIDTH;
   const notesCompact = bounds.width <= NOTES_COMPACT_MAX_WIDTH;
   const notesShown = orisoEnabled && showControls && notesOpen;
   const videoStageGutter = orisoVideoOneOnOne
@@ -1142,6 +1146,7 @@ export const InCallView: FC<InCallViewProps> = ({
             onViewChange={setStageView}
             onToggleScreenShare={vm.toggleScreenSharing}
             sharingScreen={sharingScreen}
+            screenShareInBar={orisoVideoCall}
             // The SettingsModal is not mounted in pip or flat mode.
             onOpenSoundSettings={isPopupMode ? null : openSoundSettings}
             onOpenSettings={isPopupMode ? null : openSettings}

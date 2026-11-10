@@ -511,6 +511,25 @@ describe("the call, in the ORISO design", () => {
     expect(within(header).queryByTestId("oriso-window-minimise")).toBeNull();
   });
 
+  /*
+   * S4, design 5a: the video 1:1 names itself in the header, and its notes
+   * dock beside the stage instead of lying over the person on it.
+   */
+  it("titles the video 1:1 and docks the notes beside the stage", () => {
+    const { container } = createInCallView({
+      callIntent: "video",
+      published: {},
+    });
+    const header = screen.getByTestId("oriso-header");
+    expect(within(header).getByText("Schuldnerberatung")).toBeInTheDocument();
+    fireEvent.click(within(header).getByTestId("incall_video_header_notes"));
+    expect(
+      container.querySelector(
+        '[data-oriso-video-stage="true"][data-notes-docked="true"]',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("inherits the artwork from the host rather than drawing its own", async () => {
     // The artwork never arrives. The point is only that it was asked for,
     // and asked for from the host rather than from anywhere in here.

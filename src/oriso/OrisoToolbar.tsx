@@ -59,6 +59,11 @@ interface Props {
   /** Null hides it: screen sharing is not available here. */
   onToggleScreenShare: (() => void) | null;
   sharingScreen: boolean;
+  /**
+   * "Bildschirm teilen" in the bar itself, not only in the menu: the video
+   * call's bar in design 5a. An audio call keeps it in the menu.
+   */
+  screenShareInBar?: boolean;
   /** Null hides both: this window mode mounts no settings dialog. */
   onOpenSoundSettings: (() => void) | null;
   onOpenSettings: (() => void) | null;
@@ -100,6 +105,7 @@ export const OrisoToolbar: FC<Props> = ({
   onViewChange,
   onToggleScreenShare,
   sharingScreen,
+  screenShareInBar = false,
   onOpenSoundSettings,
   onOpenSettings,
   waitingCount = 0,
@@ -168,6 +174,9 @@ export const OrisoToolbar: FC<Props> = ({
   const menuLabel = waiting
     ? `${t("oriso.call_menu_label")}, ${waiting}`
     : t("oriso.call_menu_label");
+  const shareLabel = sharingScreen
+    ? t("stop_screenshare_button_label")
+    : t("screenshare_button_label");
   const handLabel = handRaised
     ? t("action.lower_hand")
     : t("action.raise_hand");
@@ -212,6 +221,18 @@ export const OrisoToolbar: FC<Props> = ({
             testId="incall_raise_hand"
           >
             <RaisedHandSolidIcon />
+          </ToolbarButton>
+        )}
+        {screenShareInBar && onToggleScreenShare !== null && (
+          <ToolbarButton
+            label={shareLabel}
+            state={sharingScreen ? "live" : "off"}
+            pressed={sharingScreen}
+            onClick={onToggleScreenShare}
+            onTouchEnd={onTouchEnd}
+            testId="incall_screenshare"
+          >
+            <ShareScreenSolidIcon />
           </ToolbarButton>
         )}
         {onToggleNotes !== null && (
@@ -332,11 +353,7 @@ export const OrisoToolbar: FC<Props> = ({
             {onToggleScreenShare !== null && (
               <MenuEntry
                 entry="share_screen"
-                label={
-                  sharingScreen
-                    ? t("stop_screenshare_button_label")
-                    : t("screenshare_button_label")
-                }
+                label={shareLabel}
                 onClick={pick(onToggleScreenShare)}
               >
                 <ShareScreenSolidIcon aria-hidden width={21} height={21} />

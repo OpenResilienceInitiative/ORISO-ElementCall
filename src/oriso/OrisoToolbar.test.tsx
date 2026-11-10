@@ -82,6 +82,37 @@ describe("the ORISO control bar", () => {
     expect(hangup).toHaveAccessibleName("Hang up");
   });
 
+  /* S4, design 5a: the video call shares the screen from the bar itself. */
+  it("puts screen sharing in the bar of a video call", () => {
+    const onToggleScreenShare = vi.fn();
+    render(
+      <OrisoToolbar
+        {...props({ screenShareInBar: true, onToggleScreenShare })}
+      />,
+    );
+    expect(barButtons()).toEqual([
+      "incall_mute",
+      "incall_videomute",
+      "incall_raise_hand",
+      "incall_screenshare",
+      "incall_notes",
+      "incall_menu",
+    ]);
+    const share = screen.getByTestId("incall_screenshare");
+    expect(share).toHaveAccessibleName("Share screen");
+    fireEvent.click(share);
+    expect(onToggleScreenShare).toHaveBeenCalledOnce();
+  });
+
+  it("leaves screen sharing out of the bar where it is not available", () => {
+    render(
+      <OrisoToolbar
+        {...props({ screenShareInBar: true, onToggleScreenShare: null })}
+      />,
+    );
+    expect(barButtons()).not.toContain("incall_screenshare");
+  });
+
   it("leaves out what the call cannot do", () => {
     render(
       <OrisoToolbar {...props({ onToggleHand: null, onToggleNotes: null })} />,
