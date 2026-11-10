@@ -453,7 +453,7 @@ describe("the call, in the ORISO design", () => {
     fireEvent.click(headerButton);
 
     expect(
-      screen.getByRole("region", { name: "My call note" }),
+      screen.getByRole("region", { name: "Scratchpad" }),
     ).toBeInTheDocument();
     expect(
       container.querySelector('[data-notes-docked="true"]'),
@@ -465,7 +465,7 @@ describe("the call, in the ORISO design", () => {
 
     fireEvent.click(screen.getByTestId("incall_notes"));
     expect(
-      screen.queryByRole("region", { name: "My call note" }),
+      screen.queryByRole("region", { name: "Scratchpad" }),
     ).not.toBeInTheDocument();
     expect(headerButton).toHaveAttribute("aria-pressed", "false");
   });
@@ -625,14 +625,14 @@ describe("the call, in the ORISO design", () => {
     // no longer asked for a notepad of its own.
     createInCallView();
     const button = await screen.findByTestId("incall_notes");
-    expect(screen.queryByRole("region", { name: "My call note" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Scratchpad" })).toBeNull();
 
     fireEvent.click(button);
-    const card = screen.getByRole("region", { name: "My call note" });
+    const card = screen.getByRole("region", { name: "Scratchpad" });
     expect(button.getAttribute("aria-pressed")).toBe("true");
 
     fireEvent.click(within(card).getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("region", { name: "My call note" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Scratchpad" })).toBeNull();
     expect(button.getAttribute("aria-pressed")).toBe("false");
   });
 });

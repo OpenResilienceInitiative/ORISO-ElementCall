@@ -444,14 +444,12 @@ export const InCallView: FC<InCallViewProps> = ({
   }, [setSettingsTab, setSettingsModalOpen]);
 
   /*
-   * "Meine Gesprächsnotiz" (#112) lives in the call, for everyone in it: the
-   * notes stay in this window and end with the call. Its clock starts when
-   * this person joined.
+   * The Schmierzettel (#112, "Meine Gesprächsnotiz") lives in the call, for
+   * everyone in it: the notes stay in this window and end with the call.
    */
   const [notesOpen, setNotesOpen] = useState(false);
   const toggleNotes = useCallback(() => setNotesOpen((was) => !was), []);
   const closeNotes = useCallback(() => setNotesOpen(false), []);
-  const [joinedAt] = useState(() => Date.now());
 
   // Who knocks on this call's link, and its switch: both from the host (#108).
   const orisoKnock = useOrisoKnock();
@@ -1049,7 +1047,6 @@ export const InCallView: FC<InCallViewProps> = ({
       onClose={closeNotes}
       layout={notesDocked ? "docked" : "sheet"}
       compact={!notesDocked && notesCompact}
-      startedAt={joinedAt}
       style={
         {
           "--oriso-notes-top": `${headerBounds.height + (orisoVideoOneOnOne && notesDocked ? 0 : 16)}px`,
