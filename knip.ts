@@ -19,6 +19,7 @@ export default {
     // right that nothing imports them and wrong that they are unused.
     "harness/orisoStage.tsx",
     "harness/einzelCall.tsx",
+    "harness/buehne.tsx",
     "harness/settings.tsx",
     "harness/videoSpike.ts",
     "harness/vite.harness.config.ts",
