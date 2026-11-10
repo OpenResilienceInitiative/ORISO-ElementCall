@@ -17,7 +17,7 @@ import { logger } from "matrix-js-sdk/lib/logger";
 
 import { parseBrandHex } from "./brandParams";
 import { buildBrandThemeCss, resolveBrandSeeds } from "./brandTheme";
-import { LIGHT, themeBlocks } from "./themeCss.testUtils";
+import { LIGHT, ROOT, themeBlocks } from "./themeCss.testUtils";
 
 interface GoldenCase {
   seed: string | null;
@@ -76,12 +76,16 @@ describe("the call paints what the app's golden fixture says", () => {
       expect(seeds !== null).toBe(golden.accepted);
       if (!golden.accepted) return;
 
-      const light = themeBlocks(buildBrandThemeCss(seeds!))[LIGHT];
+      const blocks = themeBlocks(buildBrandThemeCss(seeds!));
+      const light = blocks[LIGHT];
       expect(light["--cpd-color-bg-action-primary-rest"]).toBe(golden.primary);
       expect(light["--cpd-color-text-on-solid-primary"]).toBe(golden.onPrimary);
       expect(light["--cpd-color-bg-action-primary-hovered"]).toBe(
         golden.primaryHover,
       );
+      // The call's own stylesheets read the same two colours.
+      expect(blocks[ROOT]["--oriso-primary"]).toBe(golden.primary);
+      expect(blocks[ROOT]["--oriso-primary-hover"]).toBe(golden.primaryHover);
     },
   );
 

@@ -30,7 +30,7 @@ import {
   buildBrandThemeCss,
   buildStaticThemeCss,
 } from "./brandTheme";
-import { DARK, LIGHT, themeBlocks } from "./themeCss.testUtils";
+import { DARK, LIGHT, ROOT, themeBlocks } from "./themeCss.testUtils";
 
 const STATIC_PATH = "src/oriso-theme.css";
 const FRONTEND_ARTEFACT =
@@ -50,7 +50,7 @@ describe("the static default palette", () => {
     const fromRuntime = themeBlocks(
       buildBrandThemeCss({ primary: DEFAULT_SEED }),
     );
-    expect(Object.keys(fromFile).sort()).toEqual([DARK, LIGHT]);
+    expect(Object.keys(fromFile).sort()).toEqual([DARK, LIGHT, ROOT].sort());
     expect(fromRuntime).toEqual(fromFile);
   });
 });

@@ -217,7 +217,7 @@ Please see LICENSE in the repository root for full details.
 }
 
 .note[data-done="true"] .box {
-  background: #a5000a;
+  background: var(--oriso-primary, #a5000a);
   box-shadow: none;
   color: #fff;
 }
@@ -289,7 +289,7 @@ Please see LICENSE in the repository root for full details.
 .field:focus-within {
   box-shadow:
     inset 0 2px 0 0 rgb(0 0 0 / 5%),
-    inset 0 0 0 2px #a5000a;
+    inset 0 0 0 2px var(--oriso-primary, #a5000a);
 }
 
 .input {

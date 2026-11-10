@@ -6,14 +6,14 @@ Please see LICENSE in the repository root for full details.
 */
 
 /**
- * Test helper: reads the per-scheme blocks of a generated call-theme
+ * Test helper: reads the `:root` block and the per-scheme blocks of a generated call-theme
  * stylesheet into `{ selector: { property: value } }`, ignoring comments,
  * whitespace and an optional `@layer` wrapper.
  */
 export type ThemeBlocks = Record<string, Record<string, string>>;
 
 const BLOCK =
-  /(\.cpd-theme-(?:light|dark)\.cpd-theme-(?:light|dark))\s*\{([^{}]*)\}/g;
+  /(\.cpd-theme-(?:light|dark)\.cpd-theme-(?:light|dark)|:root)\s*\{([^{}]*)\}/g;
 
 export const themeBlocks = (css: string): ThemeBlocks => {
   const stripped = css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -32,5 +32,6 @@ export const themeBlocks = (css: string): ThemeBlocks => {
   return blocks;
 };
 
+export const ROOT = ":root";
 export const LIGHT = ".cpd-theme-light.cpd-theme-light";
 export const DARK = ".cpd-theme-dark.cpd-theme-dark";
