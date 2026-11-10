@@ -342,6 +342,13 @@ unconditionally select the container so we can use cqmin units */
   max-inline-size: none;
 }
 
+/* The capsule's row keeps its height without it, or the `⋮` in the row
+   below moved up under the capsule. */
+.media.oriso:not([data-oriso-rectangular="true"], [data-oriso-half="true"])
+  > .fg {
+  grid-template-rows: 26px 1fr;
+}
+
 .media.oriso[data-oriso-name-side="centre"] .nameTag {
   inset-inline-start: 50%;
   transform: translateX(-50%);
