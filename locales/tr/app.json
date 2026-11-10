@@ -144,6 +144,7 @@
     "notes_kind_aufgabe": "Görev",
     "notes_kind_frage": "Soru",
     "notes_kind_notiz": "Not",
+    "notes_label": "Karalama kâğıdı",
     "notes_less": "Daha az göster",
     "notes_mark_done": "{{kind}}: tamamlandı olarak işaretle",
     "notes_menu_button": "Görünümü filtrele",

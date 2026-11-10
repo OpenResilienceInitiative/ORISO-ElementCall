@@ -212,7 +212,7 @@
     "notes_kind_aufgabe": "Task",
     "notes_kind_frage": "Question",
     "notes_kind_notiz": "Note",
-    "notes_label": "My note",
+    "notes_label": "Scratchpad",
     "notes_less": "Show less",
     "notes_mark_done": "{{kind}}: mark as done",
     "notes_menu_button": "Filter notes",

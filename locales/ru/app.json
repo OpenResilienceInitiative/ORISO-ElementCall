@@ -155,6 +155,7 @@
     "notes_kind_aufgabe": "Задача",
     "notes_kind_frage": "Вопрос",
     "notes_kind_notiz": "Заметка",
+    "notes_label": "Черновик",
     "notes_less": "Свернуть",
     "notes_mark_done": "{{kind}}: отметить выполненным",
     "notes_menu_button": "Фильтр",
