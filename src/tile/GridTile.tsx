@@ -52,8 +52,11 @@ import { type GridTileViewModel } from "../state/TileViewModel";
 import { useMergedRefs } from "../useMergedRefs";
 import { useReactionsSender } from "../reactions/useReactionsSender";
 import { useBehavior } from "../useBehavior";
-import { useOrisoIdentity, useOrisoStage } from "../oriso/useOrisoIdentities";
-import { shownNameFor } from "../oriso/identity";
+import {
+  useOrisoIdentity,
+  useOrisoStage,
+  useShownName,
+} from "../oriso/useOrisoIdentities";
 import { useOrisoShape } from "../oriso/useOrisoShape";
 
 interface TileProps {
@@ -172,7 +175,7 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
    * use sites: the id must not survive in the menu after being taken off
    * the tag, which is the half a reviewer would not see in a screenshot.
    */
-  const shownName = shownNameFor(displayName, orisoIdentity, vm.userId);
+  const shownName = useShownName(displayName, orisoIdentity, vm.userId);
 
   const tile = (
     <MediaView

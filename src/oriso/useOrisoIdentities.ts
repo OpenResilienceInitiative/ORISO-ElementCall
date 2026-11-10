@@ -19,6 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   ORISO_IDENTITY_EVENT_TYPE,
@@ -26,6 +27,7 @@ import {
   fallbackIdentity,
   initialsFor,
   readIdentity,
+  shownNameFor,
 } from "./identity";
 
 export type Identities = ReadonlyMap<string, OrisoIdentity>;
@@ -425,4 +427,23 @@ export function useOrisoIdentity(
         }
       : published;
   }, [enabled, published, userId, displayName]);
+}
+
+/**
+ * `shownNameFor` with the neutral label in the call's language: the name a
+ * tile shows, which falls back to "Teilnehmende Person" and never to
+ * anything read off the login name.
+ */
+export function useShownName(
+  displayName: string,
+  identity: OrisoIdentity | undefined,
+  userId: string,
+): string {
+  const { t } = useTranslation();
+  return shownNameFor(
+    displayName,
+    identity,
+    userId,
+    t("oriso.participant_neutral"),
+  );
 }

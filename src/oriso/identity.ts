@@ -439,32 +439,26 @@ export function isUsernameShaped(
 }
 
 /**
- * A username made presentable: the mail domain cut off, the separators
- * turned into spaces, every word capitalised. `hugo.simpson_at_trail.ist`
- * becomes `Hugo Simpson`, `@cyrus:oriso.org` becomes `Cyrus`.
+ * What a tile says when the room knows nobody by a real name and the host
+ * published none: a neutral label, never anything derived from the login.
  *
- * Only ever used where nothing better was published — it is the floor, and
- * it is never allowed to be the raw login name.
+ * S1 used to clean the login name up here (`hugo.simpson_at_trail.ist`
+ * became "Hugo Simpson"). For an advice seeker that is their real name on a
+ * surface whose whole purpose is that they stay anonymous, so the floor is
+ * now a label the caller translates ("Teilnehmende Person", "Participant")
+ * and the letters are a question mark.
  */
-export function cleanedUsername(raw: string): string {
-  const local = MATRIX_ID_ONLY.exec(raw.trim())?.[1] ?? raw.trim();
-  const beforeMail = local.split(/_at_/i)[0];
-  const words = beforeMail
-    .split(/[._\-+=/]+/)
-    .map((w) => w.trim())
-    .filter((w) => w.length > 0)
-    .map((w) => [...w][0].toUpperCase() + [...w].slice(1).join(""));
-  return words.join(" ") || local;
-}
+export const NEUTRAL_NAME = "Participant";
+export const NEUTRAL_INITIALS = "?";
 
 /**
  * The name to put on a person's tile.
  *
  * Three answers, in order: what the room already knows when it is a real
- * name, what the host published, and — only when neither is usable — a
- * cleaned username (`cleanedUsername`). The last is a floor, not a fix, but
- * it never shows the login name as it is: `hugo.simpson_at_trail.ist` is
- * shown as `Hugo Simpson`.
+ * name, what the host published, and — only when neither is usable — the
+ * neutral label `neutral` (see `NEUTRAL_NAME`). Nothing of the login name
+ * ever reaches the tile: `hugo.simpson_at_trail.ist` is not shown cleaned
+ * up as "Hugo Simpson", because that is an advice seeker's real name.
  *
  * `undefined` identity means this is not an ORISO call at all — the lobby,
  * the standalone build — and upstream's name is returned untouched.
@@ -473,6 +467,7 @@ export function shownNameFor(
   displayName: string,
   identity: OrisoIdentity | undefined,
   userId?: string,
+  neutral: string = NEUTRAL_NAME,
 ): string {
   if (identity === undefined) return displayName;
   /*
@@ -497,7 +492,7 @@ export function shownNameFor(
    * ours to overrule.
    */
   if (!isUsernameShaped(displayName, userId)) return displayName;
-  return identity.name ?? cleanedUsername(displayName);
+  return identity.name ?? neutral;
 }
 
 /**
@@ -623,14 +618,12 @@ export function fallbackIdentity(
 /**
  * The letters to show for somebody, from whatever we know about them.
  *
- * The display name if there is one, the localpart otherwise — a member whose
- * profile has not arrived yet still gets a mark rather than a blank circle.
+ * The display name if it is a real name; a question mark otherwise. A
+ * username (`krusty.clown_at_…`, the Matrix id, its local part) gives no
+ * letters at all — "HS" for `hugo.simpson_at_…` would put the advice
+ * seeker's real initials on the form.
  */
 export function initialsFor(userId: string, displayName: string): string {
-  // A username gives its letters from the cleaned form: `krusty.clown_at_…`
-  // is "KC", not the "K" of one long token.
-  const name = isUsernameShaped(displayName, userId)
-    ? cleanedUsername(displayName)
-    : displayName;
-  return initialsOf(name) || initialsOf(cleanedUsername(userId));
+  if (isUsernameShaped(displayName, userId)) return NEUTRAL_INITIALS;
+  return initialsOf(displayName) || NEUTRAL_INITIALS;
 }

@@ -42,8 +42,11 @@ import {
 } from "../state/MediaViewModel";
 import { useInitial } from "../useInitial";
 import { useMergedRefs } from "../useMergedRefs";
-import { useOrisoIdentity, useOrisoStage } from "../oriso/useOrisoIdentities";
-import { shownNameFor } from "../oriso/identity";
+import {
+  useOrisoIdentity,
+  useOrisoStage,
+  useShownName,
+} from "../oriso/useOrisoIdentities";
 import { type OrisoIdentity } from "../oriso/identity";
 import { useReactiveState } from "../useReactiveState";
 import { useLatest } from "../useLatest";
@@ -132,6 +135,8 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
   const { parentUrl } = useOrisoStage();
   const orisoIdentity = useOrisoIdentity(vm.userId, props.displayName);
   const speaking = useBehavior(vm.speaking$);
+  // See `shownNameFor` — the spotlight shows the same person as the rail.
+  const shownName = useShownName(props.displayName, orisoIdentity, vm.userId);
 
   const baseProps: SpotlightUserMediaItemBaseProps &
     RefAttributes<HTMLDivElement> = {
@@ -141,8 +146,7 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
     orisoParentUrl: parentUrl,
     ...props,
     // After the spread, deliberately: it replaces the name that came in.
-    // See `shownNameFor` — the spotlight shows the same person as the rail.
-    displayName: shownNameFor(props.displayName, orisoIdentity, vm.userId),
+    displayName: shownName,
   };
 
   return vm instanceof LocalUserMediaViewModel ? (
@@ -199,6 +203,7 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
    * person and the design does not pretend otherwise.
    */
   const spotlightIdentity = useOrisoIdentity(vm.userId, displayName);
+  const spotlightName = useShownName(displayName, spotlightIdentity, vm.userId);
   const mxcAvatarUrl = useBehavior(vm.mxcAvatarUrl$);
   const video = useBehavior(vm.video$);
   const videoEnabled = useBehavior(vm.videoEnabled$);
@@ -231,7 +236,7 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
     userId: vm.userId,
     unencryptedWarning,
     focusUrl,
-    displayName: shownNameFor(displayName, spotlightIdentity, vm.userId),
+    displayName: spotlightName,
     mxcAvatarUrl,
     focusable,
     encryptionStatus,
