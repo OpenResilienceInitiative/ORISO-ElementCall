@@ -84,7 +84,7 @@
     "notes_group_notiz": "Notes",
     "notes_import": "Coller depuis le presse-papiers",
     "notes_import_hint": "Markdown, {{max}} entrées max.",
-    "notes_info": "Visible par moi seul · Supprimé à la fermeture",
+    "notes_info": "Visible par moi seul · Supprimé quand vous quittez l’appel",
     "notes_kind_aufgabe": "Tâche",
     "notes_kind_frage": "Question",
     "notes_kind_notiz": "Note",

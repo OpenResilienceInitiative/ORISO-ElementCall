@@ -140,7 +140,7 @@
     "notes_group_notiz": "Notlar",
     "notes_import": "Panodan yapıştır",
     "notes_import_hint": "Markdown, en fazla {{max}} kayıt",
-    "notes_info": "Yalnızca ben görürüm · Kapatınca silinir",
+    "notes_info": "Yalnızca ben görürüm · Görüşmeden ayrılınca silinir",
     "notes_kind_aufgabe": "Görev",
     "notes_kind_frage": "Soru",
     "notes_kind_notiz": "Not",

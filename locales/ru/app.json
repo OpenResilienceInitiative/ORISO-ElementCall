@@ -151,7 +151,7 @@
     "notes_group_notiz": "Заметки",
     "notes_import": "Вставить из буфера обмена",
     "notes_import_hint": "Markdown, до {{max}} записей",
-    "notes_info": "Вижу только я · Удаляется при закрытии",
+    "notes_info": "Вижу только я · Удаляется, когда вы покидаете звонок",
     "notes_kind_aufgabe": "Задача",
     "notes_kind_frage": "Вопрос",
     "notes_kind_notiz": "Заметка",

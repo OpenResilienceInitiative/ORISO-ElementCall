@@ -180,7 +180,7 @@
     "notes_group_notiz": "Notizen",
     "notes_import": "Aus Zwischenablage einfügen",
     "notes_import_hint": "Markdown, max. {{max}} Einträge",
-    "notes_info": "Nur ich sehe das · Wird nach dem Schließen gelöscht",
+    "notes_info": "Nur ich sehe das · Wird gelöscht, wenn du den Anruf verlässt",
     "notes_kind_aufgabe": "Aufgabe",
     "notes_kind_frage": "Frage",
     "notes_kind_notiz": "Notiz",

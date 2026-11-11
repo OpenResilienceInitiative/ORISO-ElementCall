@@ -87,7 +87,9 @@ describe("the Schmierzettel's card (#112)", () => {
     within(card).getByRole("button", { name: "Copy as text" });
     // 2a folds from the control bar; only the card in the view has a close.
     expect(within(card).queryByRole("button", { name: "Close" })).toBeNull();
-    within(card).getByText("Only I can see this · Deleted when closed");
+    within(card).getByText(
+      "Only I can see this · Deleted when you leave the call",
+    );
     within(card).getByText("Nothing noted yet.");
   });
 
@@ -549,12 +551,14 @@ describe("pasting Markdown", () => {
     render(<OrisoNotes {...props()} />);
     await paste("prose");
     expect(
-      screen.queryByText("Only I can see this · Deleted when closed"),
+      screen.queryByText(
+        "Only I can see this · Deleted when you leave the call",
+      ),
     ).toBeNull();
     act(() => {
       vi.advanceTimersByTime(4000);
     });
-    screen.getByText("Only I can see this · Deleted when closed");
+    screen.getByText("Only I can see this · Deleted when you leave the call");
   });
 });
 
