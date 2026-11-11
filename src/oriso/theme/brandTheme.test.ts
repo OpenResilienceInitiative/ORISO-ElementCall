@@ -9,8 +9,12 @@ import { Hct, argbFromHex } from "@material/material-color-utilities";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { logger } from "matrix-js-sdk/lib/logger";
 
-import { buildBrandThemeCss, resolveBrandSeeds } from "./brandTheme";
-import { DARK, LIGHT, themeBlocks } from "./themeCss.testUtils";
+import {
+  DEFAULT_SEED,
+  buildBrandThemeCss,
+  resolveBrandSeeds,
+} from "./brandTheme";
+import { DARK, LIGHT, ROOT, themeBlocks } from "./themeCss.testUtils";
 
 const hue = (hex: string): number => Hct.fromInt(argbFromHex(hex)).hue;
 const chroma = (hex: string): number => Hct.fromInt(argbFromHex(hex)).chroma;
@@ -86,7 +90,7 @@ describe("buildBrandThemeCss", () => {
     const css = buildBrandThemeCss({ primary: "#0a7a3c" });
     expect(css.startsWith("@layer compound.custom {")).toBe(true);
     const blocks = themeBlocks(css);
-    expect(Object.keys(blocks).sort()).toEqual([DARK, LIGHT]);
+    expect(Object.keys(blocks).sort()).toEqual([DARK, LIGHT, ROOT].sort());
   });
 
   it("makes a green seed green in the primary action and the accent text", () => {
@@ -149,6 +153,38 @@ describe("buildBrandThemeCss", () => {
       expect(value).toMatch(
         /^(?:#[0-9a-f]{6}|color-mix\(in srgb, #[0-9a-f]{6} \d+%, transparent\))$/,
       );
+    }
+  });
+});
+
+describe("the brand variables the call's own stylesheets read (#136)", () => {
+  it("are the shipped red for the default seed", () => {
+    const root = themeBlocks(buildBrandThemeCss({ primary: DEFAULT_SEED }))[
+      ROOT
+    ];
+    expect(root["--oriso-primary"]).toBe("#a5000a");
+    expect(root["--oriso-primary-hover"]).toBe("#820006");
+  });
+
+  it("follow a green seed, with a hover that is darker and just as green", () => {
+    const root = themeBlocks(buildBrandThemeCss({ primary: "#0a7a3c" }))[ROOT];
+    expect(root["--oriso-primary"]).toBe("#0a7a3c");
+    const hover = root["--oriso-primary-hover"];
+    expect(hover).toMatch(/^#[0-9a-f]{6}$/);
+    expect(hue(hover)).toBeGreaterThan(100);
+    expect(hue(hover)).toBeLessThan(170);
+    expect(Hct.fromInt(argbFromHex(hover)).tone).toBeLessThan(
+      Hct.fromInt(argbFromHex("#0a7a3c")).tone,
+    );
+  });
+
+  it("sit outside the light and dark blocks, so the call looks the same in both", () => {
+    // The call has always drawn its brand red the same in the light and the
+    // dark theme; the dark scheme's own primary is a pale tone of the hue.
+    const blocks = themeBlocks(buildBrandThemeCss({ primary: "#0a7a3c" }));
+    for (const selector of [LIGHT, DARK]) {
+      expect(blocks[selector]).not.toHaveProperty("--oriso-primary");
+      expect(blocks[selector]).not.toHaveProperty("--oriso-primary-hover");
     }
   });
 });

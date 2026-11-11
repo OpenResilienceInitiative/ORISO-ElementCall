@@ -36,6 +36,22 @@ const SCHEME_CLASS: Record<CallScheme, string> = {
   dark: "cpd-theme-dark",
 };
 
+/**
+ * The brand colour as the call's own stylesheets read it (the toolbar, the
+ * notes, the speaking rim, ...): not Compound roles, so not in CALL_TOKEN_MAP.
+ * Variable name → the engine role it reads.
+ *
+ * Always the LIGHT scheme's colours, whichever theme the call is in: the call
+ * has drawn its brand red the same in light and dark, and the dark scheme's
+ * own primary is a pale tone of the hue. That is why they live in one `:root`
+ * block of their own instead of in the two scheme blocks, and why that block
+ * also reaches the dialogs Compound portals out of the call.
+ */
+const BRAND_VARIABLES: Record<string, string> = {
+  "--oriso-primary": "--m3-primary",
+  "--oriso-primary-hover": "--m3-primary-hover",
+};
+
 /** Seeds as the call address carries them: validated `#rrggbb`, or absent. */
 export interface BrandSeedInput {
   primary: string | null;
@@ -115,8 +131,16 @@ const block = (scheme: CallScheme, seeds: OrisoSeeds): string => {
   return `${selector} {\n${body}\n}`;
 };
 
+const brandBlock = (seeds: OrisoSeeds): string => {
+  const { tokens } = computeOrisoPalette(seeds, "light");
+  const body = Object.entries(BRAND_VARIABLES)
+    .map(([variable, role]) => `\t${variable}: ${tokens[role]};`)
+    .join("\n");
+  return `:root {\n${body}\n}`;
+};
+
 const blocks = (seeds: OrisoSeeds): string =>
-  [block("light", seeds), block("dark", seeds)].join("\n\n");
+  [brandBlock(seeds), block("light", seeds), block("dark", seeds)].join("\n\n");
 
 /**
  * The runtime stylesheet: both schemes, inside Compound's override layer.

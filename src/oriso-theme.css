@@ -11,6 +11,11 @@
  * Editing this file by hand will be reverted by that drift test.
  */
 
+:root {
+	--oriso-primary: #a5000a;
+	--oriso-primary-hover: #820006;
+}
+
 .cpd-theme-light.cpd-theme-light {
 	--cpd-color-bg-canvas-default: #fcf9f9;
 	--cpd-color-bg-canvas-disabled: #dcd9da;
