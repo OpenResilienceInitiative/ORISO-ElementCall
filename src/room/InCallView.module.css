@@ -259,8 +259,6 @@ Please see LICENSE in the repository root for full details.
  * Compound portals to the body (a person's `⋮`) sit above all of this.
  */
 .inRoom[data-oriso="true"] {
-  --oriso-primary: #a5000a;
-  --oriso-primary-hover: #820006;
   /* The error colour, for what ends or destroys (hang up, leave). The light
      scheme's `--cpd-color-bg-critical-primary`, fixed here on purpose: the
      call is dark, whose critical token is a pale pink that cannot carry text

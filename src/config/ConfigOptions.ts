@@ -105,6 +105,25 @@ export interface ConfigOptions {
   app_prompt?: boolean;
 
   /**
+   * ORISO-specific settings.
+   */
+  oriso?: {
+    /**
+     * Origins the Träger's logo may be loaded from, besides the call page's own
+     * origin. Exact origins only (`https://tenant.example.org`, no path, no
+     * trailing slash, no wildcard; `http:` only for localhost / 127.0.0.1).
+     *
+     * The call shows the logo from the `orisoLogo` URL parameter, and that
+     * address comes from a link anybody can craft, so a logo is only fetched
+     * from a trusted origin and only from the TenantService's public logo route
+     * (`/service/tenant/public/branding/<id>/logo`). A deployment whose
+     * TenantService answers on another origin than the call must list it here;
+     * without it the call shows no logo.
+     */
+    brand_logo_origins?: string[];
+  };
+
+  /**
    * These are low level options that are used to configure the MatrixRTC session.
    * Take care when changing these options.
    */
