@@ -653,6 +653,29 @@ export const OrisoMobileMenu: FC<MobileMenuProps> = ({
     if (refocus) triggerRef.current?.focus();
   }, []);
   useMenuPopover(open, setOpen, triggerRef, panelRef);
+  // The panel hangs from the ⋮'s right edge. Where the host keeps its own
+  // window buttons, the ⋮ sits 112px in from the edge, and on a narrow
+  // phone the panel would run off the left: slide it back so it keeps
+  // 16px free on either side (ORISO-ElementCall#145 review).
+  useEffect(() => {
+    if (!open) return;
+    const fit = (): void => {
+      const panel = panelRef.current;
+      const trigger = triggerRef.current;
+      if (!panel || !trigger) return;
+      const right = trigger.getBoundingClientRect().right;
+      const width = panel.getBoundingClientRect().width;
+      const edge = 16;
+      const shift = Math.min(
+        Math.max(0, edge - (right - width)),
+        Math.max(0, window.innerWidth - edge - right),
+      );
+      panel.style.right = shift > 0 ? `${-shift}px` : "";
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return (): void => window.removeEventListener("resize", fit);
+  }, [open]);
 
   const waitingCount = menu.waitingCount ?? 0;
   const waiting =

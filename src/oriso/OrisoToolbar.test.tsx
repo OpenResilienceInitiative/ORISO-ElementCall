@@ -438,6 +438,33 @@ describe("the call menu in a phone's header (S9)", () => {
     expect(menu.querySelector('[data-entry="leave"]')).not.toBeNull();
   });
 
+  it("stays on a narrow phone's screen beside the host's buttons (#145 review)", () => {
+    // jsdom lays nothing out: a 320px phone, the ⋮ ending 112px in from the
+    // right edge, a 288px panel. Hung from the ⋮ it would start at -80px.
+    const width = window.innerWidth;
+    window.innerWidth = 320;
+    try {
+      render(<OrisoMobileMenu {...menuProps()} />);
+      const trigger = screen.getByTestId("oriso-mobile-menu");
+      fireEvent.click(trigger);
+      const menu = screen.getByTestId("oriso-call-menu");
+      let triggerRight = 208;
+      trigger.getBoundingClientRect = (): DOMRect =>
+        ({ right: triggerRight }) as DOMRect;
+      menu.getBoundingClientRect = (): DOMRect => ({ width: 288 }) as DOMRect;
+      fireEvent(window, new Event("resize"));
+      // Slid right by 96px: 16px free on the left, 16px on the right.
+      expect(menu.style.right).toBe("-96px");
+      // Wide enough: it hangs from the ⋮ as before.
+      triggerRight = 1024 - 112;
+      window.innerWidth = 1024;
+      fireEvent(window, new Event("resize"));
+      expect(menu.style.right).toBe("");
+    } finally {
+      window.innerWidth = width;
+    }
+  });
+
   it("sends Schweben while full screen and Vollbild while floating", () => {
     const onToggleWindow = vi.fn();
     const { rerender } = render(
