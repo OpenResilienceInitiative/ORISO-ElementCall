@@ -243,6 +243,24 @@ export const OrisoNotes: FC<Props> = ({
   // Open: the chosen filter takes focus. Open: a press outside closes it.
   useEffect(() => {
     if (!menuOpen) return;
+    // On a short screen (a phone held sideways) the menu must not run off
+    // the top: it gets the room actually above its field, 16px kept free,
+    // and scrolls inside that (ORISO-ElementCall#132 review).
+    const fit = (): void => {
+      const menu = menuRef.current;
+      const anchor = menu?.parentElement;
+      if (!menu || !anchor) return;
+      const above = anchor.getBoundingClientRect().top - 8 - 16;
+      // The stylesheet's cap (520px, the viewport) still holds; this only
+      // ever lowers it to the room above the field, never below 120px.
+      const room = Math.max(
+        120,
+        Math.floor(Math.min(520, window.innerHeight - 32, above)),
+      );
+      menu.style.maxHeight = `${room}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
     menuRef.current
       ?.querySelector<HTMLElement>('[aria-checked="true"]')
       ?.focus();
@@ -256,8 +274,10 @@ export const OrisoNotes: FC<Props> = ({
       }
     };
     document.addEventListener("pointerdown", onPointerDown);
-    return (): void =>
+    return (): void => {
       document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("resize", fit);
+    };
   }, [menuOpen]);
 
   const onMenuKey = (e: KeyboardEvent<HTMLDivElement>): void => {

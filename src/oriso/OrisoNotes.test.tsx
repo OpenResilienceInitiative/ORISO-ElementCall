@@ -275,6 +275,22 @@ describe("a note's card", () => {
 });
 
 describe("the filter menu", () => {
+  it("fits the room above its field on a short screen (#132 review)", () => {
+    render(<OrisoNotes {...props()} />);
+    const menu = openMenu();
+    // jsdom lays nothing out: put the field 200px from the top, then 90px.
+    const field = menu.parentElement as HTMLElement;
+    const at = (top: number): void => {
+      field.getBoundingClientRect = (): DOMRect =>
+        ({ top, bottom: top + 48, left: 0, right: 0 }) as DOMRect;
+      window.dispatchEvent(new Event("resize"));
+    };
+    at(200);
+    expect(menu.style.maxHeight).toBe("176px");
+    at(90);
+    expect(menu.style.maxHeight).toBe("120px");
+  });
+
   it("is the shared menu: kicker, heading, four types, then the import", () => {
     render(<OrisoNotes {...props()} />);
     const menu = openMenu();
