@@ -170,6 +170,12 @@ Please see LICENSE in the repository root for full details.
   box-shadow: none;
 }
 
+/* The compact padding must not give back the corner the host's own window
+   buttons (two on a phone) still cover. */
+.header[data-compact][data-host-chrome="host"] {
+  padding-inline-end: calc(16px + 96px);
+}
+
 .header[data-compact][data-tone="light"] {
   background: transparent;
 }

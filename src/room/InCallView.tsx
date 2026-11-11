@@ -459,6 +459,18 @@ export const InCallView: FC<InCallViewProps> = ({
     [vm, showFooter],
   );
 
+  // The ORISO header stays visible while the footer hides (flat windows,
+  // inactivity), so its controls must not cancel their own click the way a
+  // hidden footer does. A touch on it keeps the controls shown and does not
+  // reach the stage's tap-to-toggle.
+  const onHeaderTouchEnd = useCallback(
+    (e: TouchEvent) => {
+      e.stopPropagation();
+      vm.tapControls();
+    },
+    [vm],
+  );
+
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
       if (e.pointerType === "mouse") vm.hoverScreen();
@@ -913,7 +925,7 @@ export const InCallView: FC<InCallViewProps> = ({
         }
         onWindow={orisoWindow.send}
         fullscreen={orisoWindow.fullscreen}
-        onTouchEnd={onControlsTouchEnd}
+        onTouchEnd={onHeaderTouchEnd}
         actions={
           <>
             {atmosphereShown && !orisoMobile && (
@@ -923,7 +935,7 @@ export const InCallView: FC<InCallViewProps> = ({
                 onChoose={chooseAtmosphere}
                 open={atmosphereOpen}
                 onOpenChange={setAtmosphereOpen}
-                onTouchEnd={onControlsTouchEnd}
+                onTouchEnd={onHeaderTouchEnd}
               />
             )}
             {/* S5: the view rail is in the header (2a), inactive views as an
@@ -934,7 +946,7 @@ export const InCallView: FC<InCallViewProps> = ({
                 active={stageView}
                 offer={orisoOffer}
                 onChange={setStageView}
-                onTouchEnd={onControlsTouchEnd}
+                onTouchEnd={onHeaderTouchEnd}
               />
             )}
             {orisoVideoOneOnOne && !orisoMobile && (
@@ -942,7 +954,7 @@ export const InCallView: FC<InCallViewProps> = ({
                 type="button"
                 className={styles.videoNotesButton}
                 onClick={toggleNotes}
-                onTouchEnd={onControlsTouchEnd}
+                onTouchEnd={onHeaderTouchEnd}
                 aria-pressed={notesOpen}
                 data-testid="incall_video_header_notes"
               >
@@ -956,13 +968,14 @@ export const InCallView: FC<InCallViewProps> = ({
                 request={orisoInviteRequest}
                 tone={orisoVideoOneOnOne ? "dark" : "light"}
                 compact={orisoMobile}
-                onTouchEnd={onControlsTouchEnd}
+                onTouchEnd={onHeaderTouchEnd}
               />
             )}
             {/* S9: the ⋮ moves from the bar into a phone's header. */}
             {orisoMobile && (
               <OrisoMobileMenu
                 {...callMenu}
+                onTouchEnd={onHeaderTouchEnd}
                 views={{
                   offer: orisoOffer,
                   active: stageView,
