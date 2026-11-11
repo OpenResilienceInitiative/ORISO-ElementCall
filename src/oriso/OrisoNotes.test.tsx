@@ -91,6 +91,19 @@ describe("the Schmierzettel's card (#112)", () => {
     within(card).getByText("Nothing noted yet.");
   });
 
+  it("is a light-theme boundary inside the dark call", () => {
+    // The call body carries cpd-theme-dark; the card's light surface must
+    // resolve the light `--cpd-*` tokens, or its text turns near-white.
+    document.body.classList.add("cpd-theme-dark");
+    try {
+      render(<OrisoNotes {...props()} />);
+      const card = screen.getByRole("region", { name: "Scratchpad" });
+      expect(card.classList).toContain("cpd-theme-light");
+    } finally {
+      document.body.classList.remove("cpd-theme-dark");
+    }
+  });
+
   it("opens in the view as a card, and compact on a phone", () => {
     const onClose = vi.fn();
     const { rerender } = render(

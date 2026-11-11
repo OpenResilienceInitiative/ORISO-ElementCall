@@ -298,6 +298,10 @@ export const OrisoNotes: FC<Props> = ({
     <section
       ref={ref}
       className={classNames(
+        // The card is a light surface inside the dark call: without its own
+        // light boundary the `--cpd-*` tokens it maps to are the dark ones
+        // (light text on #f5f5f5), not the design's.
+        "cpd-theme-light",
         styles.card,
         layout === "docked" ? styles.docked : styles.sheet,
         { [styles.compact]: compact },
