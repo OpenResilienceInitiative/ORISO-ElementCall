@@ -18,6 +18,7 @@ import { Config } from "./config/Config";
 import { type EncryptionSystem } from "./e2ee/sharedKeyManagement";
 import { E2eeType } from "./e2ee/e2eeType";
 import { platform } from "./Platform";
+import { parseBrandHex } from "./oriso/theme/brandParams";
 
 interface RoomIdentifier {
   roomAlias: string | null;
@@ -69,6 +70,19 @@ export interface UrlProperties {
    * this flag; nobody else does, and without it the call is upstream's.
    */
   orisoDesign: boolean;
+  /**
+   * The Träger's brand colours, written into the call address by ORISO-Frontend
+   * when the call starts (epic ORISO-Frontend#2187, "Call branding").
+   *
+   * Each is six lowercase hex digits without a `#` on the address, and arrives
+   * here as `#rrggbb`. Anything else is dropped to null: the value ends up in
+   * a stylesheet, so it is validated, never repaired. `orisoPrimary` drives the
+   * palette (a missing or too-pale one keeps the shipped default); accent and
+   * signal are optional refinements of it.
+   */
+  orisoPrimary: string | null;
+  orisoAccent: string | null;
+  orisoSignal: string | null;
   /**
    * Anything about what room we're pointed to should be from useRoomIdentifier which
    * parses the path and resolves alias with respect to the default server name, however
@@ -421,6 +435,9 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const parentUrl = parser.getParam("parentUrl");
   const orisoAtmosphere = parser.getParam("orisoAtmosphere");
   const orisoDesign = parser.getFlagParam("orisoDesign");
+  const orisoPrimary = parseBrandHex(parser.getParam("orisoPrimary"));
+  const orisoAccent = parseBrandHex(parser.getParam("orisoAccent"));
+  const orisoSignal = parseBrandHex(parser.getParam("orisoSignal"));
   const isWidget = !!widgetId && !!parentUrl;
 
   /**
@@ -539,6 +556,9 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     parentUrl,
     orisoAtmosphere,
     orisoDesign,
+    orisoPrimary,
+    orisoAccent,
+    orisoSignal,
     // NB. we don't validate roomId here as we do in getRoomIdentifierFromUrl:
     // what would we do if it were invalid? If the widget API says that's what
     // the room ID is, then that's what it is.

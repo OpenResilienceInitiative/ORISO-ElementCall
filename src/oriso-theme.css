@@ -1,12 +1,14 @@
 /*
  * GENERATED — do not edit by hand.
  *
- * Source: ORISO-Frontend scripts/generate-call-theme.ts
- *         (src/utils/theme/callTheme.ts + the OrisoScheme engine)
+ * Source: src/oriso/theme/brandTheme.ts (buildStaticThemeCss), which runs
+ *         the colour engine vendored from ORISO-Frontend (see the headers
+ *         of the files next to it).
  * Seed:   #a5000a (ORISO default tenant)
  *
- * Regenerate with: npm run generate:call-theme
- * Editing this file directly will be reverted by the drift test.
+ * Regenerate with:
+ *   UPDATE_ORISO_THEME=1 yarn vitest run src/oriso/theme/orisoTheme.drift.test.ts
+ * Editing this file by hand will be reverted by that drift test.
  */
 
 .cpd-theme-light.cpd-theme-light {
@@ -17,10 +19,8 @@
 	--cpd-color-theme-bg: #fcf9f9;
 	--cpd-color-text-primary: #1b1b1c;
 	--cpd-color-text-secondary: #444748;
-	--cpd-color-text-placeholder: #747878;
+	--cpd-color-text-placeholder: #747878; /* Not a Compound role, but the fork reads it in input/Input.module.css, where it would otherwise resolve to nothing. */
 	--cpd-color-text-disabled: #747878;
-	--cpd-color-text-primary-alpha: #1b1b1c;
-	--cpd-color-text-secondary-alpha: #444748;
 	--cpd-color-text-on-solid-primary: #ffffff;
 	--cpd-color-text-action-primary: #1b1b1c;
 	--cpd-color-text-action-accent: #a5000a;
@@ -96,10 +96,8 @@
 	--cpd-color-theme-bg: #131314;
 	--cpd-color-text-primary: #e4e2e2;
 	--cpd-color-text-secondary: #c4c7c8;
-	--cpd-color-text-placeholder: #8e9192;
+	--cpd-color-text-placeholder: #8e9192; /* Not a Compound role, but the fork reads it in input/Input.module.css, where it would otherwise resolve to nothing. */
 	--cpd-color-text-disabled: #8e9192;
-	--cpd-color-text-primary-alpha: #e4e2e2;
-	--cpd-color-text-secondary-alpha: #c4c7c8;
 	--cpd-color-text-on-solid-primary: #690004;
 	--cpd-color-text-action-primary: #e4e2e2;
 	--cpd-color-text-action-accent: #ffb4aa;

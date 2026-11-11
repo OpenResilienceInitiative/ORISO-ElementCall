@@ -2840,6 +2840,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@material/material-color-utilities@npm:0.4.0":
+  version: 0.4.0
+  resolution: "@material/material-color-utilities@npm:0.4.0"
+  checksum: 10c0/cf4e6ea31ce4d357cd305efd2ef4f22f1830a2f3718f8da3f0968b6eb426290c86e148245530056311ff3d24d39aa9e7c931e5c5b345b3ed21294aa938976ea6
+  languageName: node
+  linkType: hard
+
 "@matrix-org/matrix-sdk-crypto-wasm@npm:^15.3.0":
   version: 15.3.0
   resolution: "@matrix-org/matrix-sdk-crypto-wasm@npm:15.3.0"
@@ -7203,6 +7210,7 @@ __metadata:
     "@livekit/components-react": "npm:^2.0.0"
     "@livekit/protocol": "npm:^1.42.2"
     "@livekit/track-processors": "npm:^0.5.5"
+    "@material/material-color-utilities": "npm:0.4.0"
     "@mediapipe/tasks-vision": "npm:^0.10.18"
     "@opentelemetry/api": "npm:^1.4.0"
     "@opentelemetry/core": "npm:^2.0.0"
