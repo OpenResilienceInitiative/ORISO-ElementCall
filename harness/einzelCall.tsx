@@ -79,7 +79,10 @@ import styles from "../src/room/InCallView.module.css";
 import de from "../locales/de/app.json";
 import en from "../locales/en/app.json";
 import "../src/index.css";
-import "../src/oriso-theme.css";
+// oriso-theme.css comes with index.css, inside layer(compound.custom) as in
+// the app; imported again here unlayered it would outrank the brand tag.
+import { getUrlParams } from "../src/UrlParams";
+import { applyBrandTheme } from "../src/oriso/theme/applyBrandTheme";
 
 // German, as the call runs for ORISO's people; English where a key is missing.
 void i18n.use(initReactI18next).init({
@@ -93,6 +96,14 @@ void i18n.use(initReactI18next).init({
 });
 
 const params = new URLSearchParams(window.location.search);
+// As main.tsx does: the Träger's colours and logo from the call address
+// (`orisoPrimary`, `orisoAccent`, `orisoSignal`, `orisoLogo`, read from the
+// hash like the real call).
+// Applied on load: the Vite dev server injects each CSS import as a <style>
+// after the last one it inserted, which would land the default theme after
+// the brand tag. The built call loads its CSS as <link>s in <head> first.
+const brand = getUrlParams();
+window.addEventListener("load", () => applyBrandTheme(brand));
 const speaking = params.get("speaking") ?? "first";
 const muted = params.get("muted");
 const waiting = params.get("waiting");
@@ -294,6 +305,7 @@ function Header(): React.ReactNode {
   return (
     <OrisoHeader
       className={styles.header}
+      logo={brand.orisoLogo}
       compact={mobile}
       tone={video ? "dark" : "light"}
       title="Einzelgespräch"

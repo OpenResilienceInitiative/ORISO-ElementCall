@@ -259,10 +259,15 @@ Please see LICENSE in the repository root for full details.
  * Compound portals to the body (a person's `⋮`) sit above all of this.
  */
 .inRoom[data-oriso="true"] {
-  /* The error colour, for what ends or destroys (hang up, leave). The light
-     scheme's `--cpd-color-bg-critical-primary`, fixed here on purpose: the
-     call is dark, whose critical token is a pale pink that cannot carry text
-     on the light menu card. oriso-theme.css is checked against this value. */
+  /* The platform error colour, for what ends or destroys (hang up, leave),
+     independent of the Träger's colour (Frank, 11 Nov; ORISO-ElementCall#138).
+     It is the design system's "Error" token (#B1005E, Figma variable
+     54778:420; ORISO-Frontend Light.tokens.json, orisoTuning `error`), i.e.
+     the light scheme's `--cpd-color-bg-critical-primary`. Fixed here, not
+     read from the token at run time: the call is dark, whose critical token
+     is a pale pink that cannot carry text on the light menu card, and a
+     Träger `orisoSignal` must not move it. oriso-theme.css is checked
+     against this value. */
   --oriso-critical: #b1005e;
   --oriso-z-stage: 1;
   --oriso-z-names: 6;
