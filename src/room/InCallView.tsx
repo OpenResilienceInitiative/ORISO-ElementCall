@@ -515,6 +515,7 @@ export const InCallView: FC<InCallViewProps> = ({
     parentUrl,
     orisoAtmosphere,
     orisoDesign,
+    orisoLogo,
     orisoHostChrome,
     orisoCallType,
     orisoInvite,
@@ -882,6 +883,7 @@ export const InCallView: FC<InCallViewProps> = ({
         className={orisoMobile ? undefined : styles.header}
         compact={orisoMobile}
         tone={orisoVideoOneOnOne ? "dark" : "light"}
+        logo={orisoLogo}
         title={
           matrixInfo.roomName ||
           t(

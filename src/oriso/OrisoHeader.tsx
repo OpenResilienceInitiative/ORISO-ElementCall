@@ -17,11 +17,17 @@ import {
 
 import styles from "./OrisoHeader.module.css";
 import { type OrisoWindowCommand } from "./useOrisoWindow";
+import { OrisoHeaderLogo } from "./OrisoHeaderLogo";
 
 interface Props {
   ref?: Ref<HTMLElement>;
   /** Light over the atmosphere (2a/2b), dark on the video stage (5a). */
   tone: "light" | "dark";
+  /**
+   * The Träger's logo from the call address (`orisoLogo`, ORISO-ElementCall#140),
+   * left of the title. Null or missing draws nothing.
+   */
+  logo?: string | null;
   title: string;
   encrypted: boolean;
   /** After the chip, e.g. the call's duration. */
@@ -58,6 +64,7 @@ interface Props {
 export const OrisoHeader: FC<Props> = ({
   ref,
   tone,
+  logo = null,
   title,
   encrypted,
   meta,
@@ -82,6 +89,7 @@ export const OrisoHeader: FC<Props> = ({
       data-compact={compact || undefined}
       data-testid="oriso-header"
     >
+      <OrisoHeaderLogo src={logo} />
       <div className={styles.lead}>
         <span className={styles.title}>{title}</span>
         {(encrypted || meta) && (

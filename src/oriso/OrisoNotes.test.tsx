@@ -87,8 +87,23 @@ describe("the Schmierzettel's card (#112)", () => {
     within(card).getByRole("button", { name: "Copy as text" });
     // 2a draws the × beside "Als Text kopieren" on the docked card too (S5).
     expect(within(card).getByRole("button", { name: "Close" })).toBeTruthy();
-    within(card).getByText("Only I can see this · Deleted when closed");
+    within(card).getByText(
+      "Only I can see this · Deleted when you leave the call",
+    );
     within(card).getByText("Nothing noted yet.");
+  });
+
+  it("is a light-theme boundary inside the dark call", () => {
+    // The call body carries cpd-theme-dark; the card's light surface must
+    // resolve the light `--cpd-*` tokens, or its text turns near-white.
+    document.body.classList.add("cpd-theme-dark");
+    try {
+      render(<OrisoNotes {...props()} />);
+      const card = screen.getByRole("region", { name: "Scratchpad" });
+      expect(card.classList).toContain("cpd-theme-light");
+    } finally {
+      document.body.classList.remove("cpd-theme-dark");
+    }
   });
 
   it("opens in the view as a card, and compact on a phone", () => {
@@ -536,12 +551,14 @@ describe("pasting Markdown", () => {
     render(<OrisoNotes {...props()} />);
     await paste("prose");
     expect(
-      screen.queryByText("Only I can see this · Deleted when closed"),
+      screen.queryByText(
+        "Only I can see this · Deleted when you leave the call",
+      ),
     ).toBeNull();
     act(() => {
       vi.advanceTimersByTime(4000);
     });
-    screen.getByText("Only I can see this · Deleted when closed");
+    screen.getByText("Only I can see this · Deleted when you leave the call");
   });
 });
 

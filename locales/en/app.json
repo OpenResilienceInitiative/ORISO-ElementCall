@@ -244,7 +244,7 @@
     "notes_group_notiz": "Notes",
     "notes_import": "Paste from clipboard",
     "notes_import_hint": "Markdown, up to {{max}} entries",
-    "notes_info": "Only I can see this · Deleted when closed",
+    "notes_info": "Only I can see this · Deleted when you leave the call",
     "notes_kind_aufgabe": "Task",
     "notes_kind_frage": "Question",
     "notes_kind_notiz": "Note",

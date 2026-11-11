@@ -17,7 +17,9 @@ import { pickBy } from "lodash-es";
 import { Config } from "./config/Config";
 import { type EncryptionSystem } from "./e2ee/sharedKeyManagement";
 import { E2eeType } from "./e2ee/e2eeType";
+import { parseBrandLogo } from "./oriso/brandLogo";
 import { platform } from "./Platform";
+import { parseBrandHex } from "./oriso/theme/brandParams";
 
 interface RoomIdentifier {
   roomAlias: string | null;
@@ -50,6 +52,19 @@ export interface UrlProperties {
   // Widget api related params
   widgetId: string | null;
   parentUrl: string | null;
+  /**
+   * The Träger's logo, written into the call address by ORISO-Frontend (epic
+   * ORISO-Frontend#2187, "Call branding"): the TenantService's public logo
+   * route, `https://<host>/service/tenant/public/branding/<id>/logo`.
+   *
+   * The address comes from a link anybody can craft and ends up in an
+   * `<img src>`, so it is fail-closed. Here only its SHAPE is checked (see
+   * `parseBrandLogo`): anything but that route arrives as null. Whether the
+   * HOST is trusted (the call's own origin, or `oriso.brand_logo_origins` in
+   * the config) is decided where the logo is drawn, `OrisoHeaderLogo`, because
+   * this value is parsed and cached before the config has been fetched.
+   */
+  orisoLogo: string | null;
   /**
    * The ORISO backdrop preset, chosen centrally by the counselling centre.
    *
@@ -97,6 +112,19 @@ export interface UrlProperties {
    * the `org.oriso.call.invite_link` widget action.
    */
   orisoInvite: boolean;
+  /**
+   * The Träger's brand colours, written into the call address by ORISO-Frontend
+   * when the call starts (epic ORISO-Frontend#2187, "Call branding").
+   *
+   * Each is six lowercase hex digits without a `#` on the address, and arrives
+   * here as `#rrggbb`. Anything else is dropped to null: the value ends up in
+   * a stylesheet, so it is validated, never repaired. `orisoPrimary` drives the
+   * palette (a missing or too-pale one keeps the shipped default); accent and
+   * signal are optional refinements of it.
+   */
+  orisoPrimary: string | null;
+  orisoAccent: string | null;
+  orisoSignal: string | null;
   /**
    * Anything about what room we're pointed to should be from useRoomIdentifier which
    * parses the path and resolves alias with respect to the default server name, however
@@ -447,12 +475,16 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
 
   const widgetId = parser.getParam("widgetId");
   const parentUrl = parser.getParam("parentUrl");
+  const orisoLogo = parseBrandLogo(parser.getParam("orisoLogo"));
   const orisoAtmosphere = parser.getParam("orisoAtmosphere");
   const orisoDesign = parser.getFlagParam("orisoDesign");
   const orisoHostChrome = parser.getFlagParam("orisoHostChrome");
   const orisoInvite = parser.getFlagParam("orisoInvite");
   const orisoCallType =
     parser.getEnumParam("orisoCallType", ["group", "single"] as const) ?? null;
+  const orisoPrimary = parseBrandHex(parser.getParam("orisoPrimary"));
+  const orisoAccent = parseBrandHex(parser.getParam("orisoAccent"));
+  const orisoSignal = parseBrandHex(parser.getParam("orisoSignal"));
   const isWidget = !!widgetId && !!parentUrl;
 
   /**
@@ -569,11 +601,15 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const properties: UrlProperties = {
     widgetId,
     parentUrl,
+    orisoLogo,
     orisoAtmosphere,
     orisoDesign,
     orisoHostChrome,
     orisoCallType,
     orisoInvite,
+    orisoPrimary,
+    orisoAccent,
+    orisoSignal,
     // NB. we don't validate roomId here as we do in getRoomIdentifierFromUrl:
     // what would we do if it were invalid? If the widget API says that's what
     // the room ID is, then that's what it is.

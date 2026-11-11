@@ -298,6 +298,10 @@ export const OrisoNotes: FC<Props> = ({
     <section
       ref={ref}
       className={classNames(
+        // The card is a light surface inside the dark call: without its own
+        // light boundary the `--cpd-*` tokens it maps to are the dark ones
+        // (light text on #f5f5f5), not the design's.
+        "cpd-theme-light",
         styles.card,
         // The card is a light surface in every call, the design's white
         // sheet beside a dark video too. Its colours are Compound's roles,
