@@ -6,6 +6,7 @@ Please see LICENSE in the repository root for full details.
 */
 
 import {
+  BehaviorSubject,
   combineLatest,
   filter,
   map,
@@ -34,6 +35,10 @@ import { getUrlParams } from "../UrlParams";
 import { platform } from "../Platform";
 import { switchWhen } from "../utils/observable";
 import { type Behavior, constant } from "./Behavior";
+import {
+  initialInputDevice$,
+  type InitialInputKind,
+} from "./initialInputDevices";
 
 // This hardcoded id is used in EX ios! It can only be changed in coordination with
 // the ios swift team.
@@ -440,5 +445,48 @@ export class MediaDevices {
   public readonly videoInput: MediaDevice<DeviceLabel, SelectedDevice> =
     new VideoInput(this.usingNames$, this.scope);
 
-  public constructor(private readonly scope: ObservableScope) {}
+  private readonly unmatchedInitialInputsReported$ = new BehaviorSubject<
+    InitialInputKind[]
+  >([]);
+  /**
+   * The input kinds whose device, chosen by label in the host app
+   * (`audioInput` / `videoInput`, ORISO-ElementCall#116), was not found. The
+   * call keeps its default device for those; the UI says so once.
+   */
+  public readonly unmatchedInitialInputs$: Behavior<InitialInputKind[]> =
+    this.unmatchedInitialInputsReported$;
+
+  public constructor(private readonly scope: ObservableScope) {
+    const { audioInput, videoInput } = getUrlParams();
+    this.selectInitialInput("audioinput", this.audioInput, audioInput);
+    this.selectInitialInput("videoinput", this.videoInput, videoInput);
+  }
+
+  /**
+   * Selects the host's device as soon as the device list carries labels —
+   * at start-up, long before the call creates its tracks, so the call opens
+   * on it rather than switching to it later.
+   */
+  private selectInitialInput(
+    kind: InitialInputKind,
+    device: MediaDevice<DeviceLabel, unknown>,
+    label: string | null,
+  ): void {
+    if (!label) return;
+    initialInputDevice$(device.available$, label)
+      .pipe(this.scope.bind())
+      .subscribe(({ outcome, id }) => {
+        if (outcome === "selected" && id !== undefined) {
+          device.select(id);
+        } else {
+          rootLogger.warn(
+            `[MediaDevices] the host's ${kind} was not found; keeping the default`,
+          );
+          this.unmatchedInitialInputsReported$.next([
+            ...this.unmatchedInitialInputsReported$.value,
+            kind,
+          ]);
+        }
+      });
+  }
 }

@@ -231,7 +231,9 @@ export class MuteStates {
     this.mediaDevices.videoInput,
     this.joined$,
     this.defaultVideoEnabled,
-    this.isEarpiece$,
+    this.urlParams.orisoDesign && this.urlParams.callIntent === "audio"
+      ? constant(true)
+      : this.isEarpiece$,
   );
 
   public constructor(

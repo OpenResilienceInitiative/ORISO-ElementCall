@@ -265,6 +265,23 @@ export interface UrlConfiguration {
 
   callIntent?: RTCCallIntent;
 }
+
+/**
+ * The input devices the host app asks the call to start with, by label
+ * (ORISO-ElementCall#116).
+ *
+ * By label, because device ids are scoped to the origin that asked for them
+ * and the host runs on another origin than the call; labels are the same on
+ * both once media permission is granted. The same convention as the
+ * `io.element.join` action's `JoinCallData`. `null` keeps the default device.
+ */
+export interface InitialInputDevices {
+  /** `audioInput`: label of the microphone to start with. */
+  audioInput: string | null;
+  /** `videoInput`: label of the camera to start with. */
+  videoInput: string | null;
+}
+
 interface IntentAndPlatformDerivedConfiguration {
   defaultAudioEnabled?: boolean;
   defaultVideoEnabled?: boolean;
@@ -279,7 +296,8 @@ export interface UrlParams
   extends
     UrlProperties,
     UrlConfiguration,
-    IntentAndPlatformDerivedConfiguration {}
+    IntentAndPlatformDerivedConfiguration,
+    InitialInputDevices {}
 
 // This is here as a stopgap, but what would be far nicer is a function that
 // takes a UrlParams and returns a query string. That would enable us to
@@ -590,6 +608,24 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
       explicitCallIntent === "video";
   }
 
+  // The host's own pre-join check (ORISO-ElementCall#116): start with the
+  // microphone and camera as the person left them there. Applied as the
+  // default, so it holds before any track is created — a camera that was
+  // switched off is never captured, let alone published. Sending the same
+  // choice later through `io.element.device_mute` would leave a moment with
+  // the default.
+  const audioEnabled = parser.getFlag("audioEnabled");
+  if (audioEnabled !== undefined)
+    intentAndPlatformDerivedConfiguration.defaultAudioEnabled = audioEnabled;
+  const videoEnabled = parser.getFlag("videoEnabled");
+  if (videoEnabled !== undefined)
+    intentAndPlatformDerivedConfiguration.defaultVideoEnabled = videoEnabled;
+
+  const initialInputDevices: InitialInputDevices = {
+    audioInput: parser.getParam("audioInput") || null,
+    videoInput: parser.getParam("videoInput") || null,
+  };
+
   // Log the final configuration for debugging purposes.
   // This will only log when the cache is not yet set.
   logger.info(
@@ -609,6 +645,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     ...intentPreset,
     ...pickBy(configuration, (v?: unknown) => v !== undefined),
     ...intentAndPlatformDerivedConfiguration,
+    ...initialInputDevices,
   };
 };
 

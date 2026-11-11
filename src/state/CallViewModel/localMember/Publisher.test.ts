@@ -119,10 +119,6 @@ describe("Publisher", () => {
       connection.livekitRoom.localParticipant.publishTrack,
     ).not.toHaveBeenCalled();
 
-    await expect(publisher.createAndSetupTracks()).rejects.toThrow(
-      Error("audio and video is false"),
-    );
-
     (muteStates.audio.enabled$ as BehaviorSubject<boolean>).next(true);
 
     (
@@ -163,6 +159,57 @@ describe("Publisher", () => {
     expect(
       connection.livekitRoom.localParticipant.publishTrack,
     ).toHaveBeenCalledTimes(3);
+  });
+
+  it("joins with microphone and camera both off: a muted microphone, no camera (#116)", async () => {
+    // The host's pre-join check said "both off". The call must still join,
+    // and nothing may be heard or seen until the person switches it on.
+    const micTrack = {
+      kind: "audio",
+      mute: vi.fn().mockResolvedValue(undefined),
+    };
+    (
+      connection.livekitRoom.localParticipant.createTracks as Mock
+    ).mockResolvedValue([micTrack]);
+    const publisher = new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    await expect(publisher.createAndSetupTracks()).resolves.toBeUndefined();
+
+    expect(
+      connection.livekitRoom.localParticipant.createTracks,
+    ).toHaveBeenCalledExactlyOnceWith({ audio: true, video: false });
+    expect(micTrack.mute).toHaveBeenCalledOnce();
+    expect(publisher.tracks$.value).toEqual([micTrack]);
+  });
+
+  it("does not hand over a microphone it could not mute (#116)", async () => {
+    const micTrack = {
+      kind: "audio",
+      mute: vi.fn().mockRejectedValue(new Error("no")),
+      stop: vi.fn(),
+    };
+    (
+      connection.livekitRoom.localParticipant.createTracks as Mock
+    ).mockResolvedValue([micTrack]);
+    const publisher = new Publisher(
+      scope,
+      connection,
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+
+    await expect(publisher.createAndSetupTracks()).rejects.toThrow("no");
+    expect(micTrack.stop).toHaveBeenCalledOnce();
+    expect(publisher.tracks$.value).toEqual([]);
   });
 
   it("propagates media permission failures to the caller", async () => {

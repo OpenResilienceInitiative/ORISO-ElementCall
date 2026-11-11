@@ -22,6 +22,12 @@ Please see LICENSE in the repository root for full details.
   inset: var(--cpd-space-4x);
 }
 
+.responsiveLocal {
+  inline-size: min(208px, 36%);
+  block-size: auto;
+  aspect-ratio: 3 / 2;
+}
+
 .spotlight {
   position: absolute;
   inline-size: 404px;
