@@ -519,7 +519,9 @@ Please see LICENSE in the repository root for full details.
   inset-inline: -2px;
   inset-block-end: calc(100% + 8px);
   z-index: 5;
+  /* OrisoNotes lowers this to the room above the field when it opens. */
   max-block-size: min(520px, calc(100vh - 32px));
+  overflow-y: auto;
 }
 
 .sendRow {
