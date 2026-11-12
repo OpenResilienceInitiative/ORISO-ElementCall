@@ -30,7 +30,6 @@ import {
   readIdentity,
   shownNameFor,
 } from "./identity";
-import { type ShapelessForm } from "./shape";
 
 export type Identities = ReadonlyMap<string, OrisoIdentity>;
 
@@ -379,12 +378,6 @@ export interface OrisoStage {
   audioOnly?: boolean;
   /** The 5A video stage uses rectangular participant tiles. */
   rectangular?: boolean;
-  /**
-   * The form a person takes when no layout shaped them: the speech bubble
-   * in the spotlight (#2233), the circle anywhere else. See
-   * `shapelessFormFor`. Absent means the circle.
-   */
-  shapelessForm?: ShapelessForm;
   /**
    * Who the HOST says is a counsellor (`org.oriso.call.counsellors`), or
    * null until it has said. The only source a "Beratung" label is shown

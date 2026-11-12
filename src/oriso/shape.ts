@@ -154,44 +154,32 @@ export function coverScale(tiltDeg: number): number {
 }
 
 /**
- * The speech bubble: round, with ONE pointed corner, like a chat bubble's
- * tail (#2233, R24).
- *
- * The design's Kreis (`bubbles`) and its spotlight rail (`strip2`) both draw
- * a person as `border-radius: 46% 46% 46% 16px`, on forms of 104-176px; the
- * rail's is 112px high. Three corners at 46% leave the form nearly round, the
- * fourth is the point. The point is written as a SHARE here — 16px of the
- * rail's 112px, 14% — because the spotlight draws the same form at 560px,
- * and a fixed 16px corner on a 560px form is no longer a point but a square
- * corner: the drop turned into a "D". At the rail's size the two are the
- * same 16px.
- */
-export const SPEECH_BUBBLE_RADIUS = "46% 46% 46% 14%";
-
-/**
  * The shared screen's corner (#2233, R25): a rectangle, only slightly
- * rounded, never a bubble — a screen is not a person. The design's spotlight
- * draws the share at `border-radius: 24px`, which is Compound's 6x space.
+ * rounded — a screen is not a person. The design's spotlight draws the share
+ * at `border-radius: 24px`, which is Compound's 6x space.
  */
 export const SHARE_RADIUS = "var(--cpd-space-6x)";
 
-/**
- * The form a person takes when no layout shaped them.
- *
- * The grove, the fields, the Kreis and the Einzelgespräch all publish a
- * shape per tile; upstream's spotlight layouts do not, and should not have
- * to learn about one. So the form there is chosen by the layout's TYPE: in
- * the spotlight everybody is a speech bubble — the big one for whoever
- * speaks and the small ones in the rail. Anywhere else a shapeless form
- * stays the circle it always was: the picture-in-picture window is the
- * design's minimised call, which draws a round avatar, not a bubble.
- */
-export type ShapelessForm = "circle" | "bubble";
+const SPOTLIGHT_LAYOUTS: readonly string[] = [
+  "spotlight-landscape",
+  "spotlight-portrait",
+  "spotlight-expanded",
+];
 
-export function shapelessFormFor(layoutType: string): ShapelessForm {
-  return layoutType === "spotlight-landscape" ||
-    layoutType === "spotlight-portrait" ||
-    layoutType === "spotlight-expanded"
-    ? "bubble"
-    : "circle";
+/**
+ * Whether people are drawn as rectangles with slightly rounded corners
+ * rather than as forms (#2233).
+ *
+ * The one-to-one video stage always was (5a). The spotlight is too: like
+ * Element's own spotlight, the big picture of whoever speaks and the small
+ * ones beside it are rounded rectangles, with the animal or the initials
+ * inside when the camera is off (Frank, 13 Nov: "einfach ein normales
+ * Viereck … leicht gerundete Kanten"). Everywhere else — the grove, the
+ * Einzelgespräch, the minimised call — people keep their forms.
+ */
+export function rectangularStage(
+  layoutType: string,
+  videoOneOnOne: boolean,
+): boolean {
+  return videoOneOnOne || SPOTLIGHT_LAYOUTS.includes(layoutType);
 }

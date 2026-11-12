@@ -127,8 +127,8 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
    * rectangle while the rail beside it showed everybody as a form. One
    * identity reaches further than any layout substitution could — the
    * spotlight has no `TileShape`, and should not: the whole point of it is
-   * one form filling the stage, which in the spotlight is the speech bubble
-   * (#2233, `shapelessFormFor`).
+   * one person filling the stage, which in the spotlight is a rectangle with
+   * slightly rounded corners (#2233, `rectangularStage`).
    *
    * A screen SHARE is left alone, in `SpotlightItem` below. A shared screen
    * is a rectangle and the design does not pretend otherwise.

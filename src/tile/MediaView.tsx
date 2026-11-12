@@ -128,7 +128,7 @@ export const MediaView: FC<Props> = ({
   const { t } = useTranslation();
   const [handRaiseTimerVisible] = useSetting(showHandRaisedTimer);
 
-  const { audioOnly, rectangular, shapelessForm } = useOrisoStage();
+  const { audioOnly, rectangular } = useOrisoStage();
   /*
    * S6: on an ORISO form the raised hand is a status in the name's capsule,
    * with how long it has been up ("1:40"), rather than upstream's badge in
@@ -324,8 +324,6 @@ export const MediaView: FC<Props> = ({
                 )
           }
           shape={orisoShape}
-          // In the spotlight a shapeless person is a speech bubble (#2233).
-          form={shapelessForm}
           speaking={orisoSpeaking}
           parentUrl={orisoParentUrl}
           // The camera takes the artwork's place and leaves the form alone.

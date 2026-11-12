@@ -113,7 +113,7 @@ import {
   useOrisoIdentities,
 } from "../oriso/useOrisoIdentities";
 import { OrisoShapeStore, OrisoShapesContext } from "../oriso/useOrisoShape";
-import { shapelessFormFor } from "../oriso/shape";
+import { rectangularStage } from "../oriso/shape";
 import {
   type OrisoPins,
   OrisoPinsContext,
@@ -672,9 +672,8 @@ export const InCallView: FC<InCallViewProps> = ({
       parentUrl,
       enabled: orisoEnabled,
       audioOnly: orisoAudioOnly,
-      rectangular: orisoVideoOneOnOne,
-      // #2233: in the spotlight everybody is a speech bubble.
-      shapelessForm: shapelessFormFor(layout.type),
+      // #2233: the spotlight draws people as rounded rectangles too.
+      rectangular: rectangularStage(layout.type, orisoVideoOneOnOne),
     }),
     [
       orisoIdentities,

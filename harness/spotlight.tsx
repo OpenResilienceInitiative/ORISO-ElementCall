@@ -62,7 +62,7 @@ import {
 } from "../src/oriso/useOrisoShape";
 import { Atmosphere } from "../src/oriso/Atmosphere";
 import { type OrisoIdentity } from "../src/oriso/identity";
-import { shapelessFormFor } from "../src/oriso/shape";
+import { rectangularStage } from "../src/oriso/shape";
 import { OrisoStageContext } from "../src/oriso/useOrisoIdentities";
 import { ReactionsSenderProvider } from "../src/reactions/useReactionsSender";
 import { type CallViewModel } from "../src/state/CallViewModel/CallViewModel";
@@ -402,7 +402,7 @@ function Call(): React.ReactNode {
       audioOnly: !video,
       rectangular: false,
       // As InCallView decides it, from the layout's type.
-      shapelessForm: shapelessFormFor(model.type),
+      rectangular: rectangularStage(model.type, false),
     }),
     [],
   );

@@ -25,7 +25,7 @@ import { E2eeType } from "../e2ee/e2eeType";
 import { mockLivekitRoom, testScope } from "../utils/test";
 import { constant } from "../state/Behavior";
 import { OrisoStageContext } from "../oriso/useOrisoIdentities";
-import { SPEECH_BUBBLE_RADIUS } from "../oriso/shape";
+import { rectangularStage } from "../oriso/shape";
 
 global.IntersectionObserver = class MockIntersectionObserver {
   public observe(): void {}
@@ -202,8 +202,10 @@ test("a shared screen is labelled with its sharer's name, not their id", () => {
 });
 
 /*
- * #2233: in the spotlight, everybody is a speech bubble (R24), and a shared
- * screen is the one thing that is not (R25).
+ * #2233: in the spotlight everybody is a rectangle with slightly rounded
+ * corners, like Element's spotlight (Frank, 13 Nov: no speech bubbles); with
+ * the camera off the animal or the initials sit inside it. A shared screen
+ * is a rectangle too, with the design's 24px corner (R25).
  */
 function sharedScreenOf(userId: string): ScreenShareViewModel {
   return new ScreenShareViewModel(
@@ -221,7 +223,7 @@ function sharedScreenOf(userId: string): ScreenShareViewModel {
   );
 }
 
-test("the spotlight's person is a speech bubble when the layout is a spotlight", () => {
+test("the spotlight's person is a rounded rectangle, animal inside", () => {
   const alice = createRemoteMedia(
     mockRtcMembership("@alice:example.org", "AAAA"),
     { rawDisplayName: "ruhiger Fuchs 432" },
@@ -233,7 +235,8 @@ test("the spotlight's person is a speech bubble when the layout is a spotlight",
         identities: new Map(),
         parentUrl: null,
         enabled: true,
-        shapelessForm: "bubble",
+        // As InCallView sets it for every spotlight layout.
+        rectangular: rectangularStage("spotlight-landscape", false),
       }}
     >
       <SpotlightTile
@@ -248,9 +251,8 @@ test("the spotlight's person is a speech bubble when the layout is a spotlight",
     </OrisoStageContext>,
   );
   const face = screen.getByTestId("oriso-face");
-  expect(face.style.borderRadius).toBe(SPEECH_BUBBLE_RADIUS);
-  // A drop in a square, not a drop stretched across the 800x450 stage.
-  expect(face.style.inlineSize).toBe(face.style.blockSize);
+  expect(face.style.borderRadius).toBe("var(--cpd-space-5x)");
+  expect(face.closest('[data-oriso-rectangular="true"]')).not.toBeNull();
 });
 
 test("a shared screen in the ORISO spotlight is a rounded rectangle, never a bubble", () => {
@@ -260,7 +262,7 @@ test("a shared screen in the ORISO spotlight is a rounded rectangle, never a bub
         identities: new Map(),
         parentUrl: null,
         enabled: true,
-        shapelessForm: "bubble",
+        rectangular: true,
       }}
     >
       <SpotlightTile
