@@ -121,6 +121,13 @@ export interface ConfigOptions {
      * without it the call shows no logo.
      */
     brand_logo_origins?: string[];
+    /**
+     * The platform operator's logo (#2233 R29), shown in the call header
+     * where the Träger has no logo or its logo cannot be loaded. A path on the
+     * call's own origin (`/oriso/operator-logo.svg`) or an absolute `https:`
+     * address. Without it a call without a Träger logo shows none.
+     */
+    operator_logo?: string;
   };
 
   /**
