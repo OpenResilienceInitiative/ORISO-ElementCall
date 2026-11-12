@@ -243,6 +243,18 @@ const CAST: { name: string; identity: OrisoIdentity }[] = [
 
 const people = Array.from({ length: count }, (_, i) => CAST[i % CAST.length]);
 const idOf = (i: number): string => `p${i}`;
+// "Teilnehmende" (#2233): the same people as Matrix users, named as the
+// stage names them. The ids are username-shaped, so the published name wins.
+const participants = people.map((_, i) => ({
+  userId: `@${idOf(i)}:oriso.test`,
+  displayName: `@${idOf(i)}:oriso.test`,
+}));
+const identities = new Map(
+  people.map((person, i) => [
+    `@${idOf(i)}:oriso.test`,
+    { ...person.identity, name: person.name },
+  ]),
+);
 const indexOf = (id: string): number => Number(id.slice(1));
 
 // What `OrisoGroveLayout` subscribes to on each tile: the media's id, its
@@ -386,7 +398,7 @@ function Stage(): React.ReactNode {
   );
   const stage = useMemo(
     () => ({
-      identities: new Map(),
+      identities,
       parentUrl: window.location.origin,
       enabled: true,
       audioOnly: intent === "audio",
@@ -566,6 +578,8 @@ function Footer({
       notesOpen={notesOpen}
       onHangup={() => {}}
       participantCount={count}
+      participants={participants}
+      inviteRequest={fakeInvite}
       backgroundLabel={backgroundLabel}
       onOpenBackground={onOpenBackground}
       onToggleScreenShare={() => {}}

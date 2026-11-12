@@ -345,6 +345,7 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const audioParticipants = useBehavior(vm.audioParticipants$);
   const participantCount = useBehavior(vm.participantCount$);
+  const participantUserIds = useBehavior(vm.participantUserIds$);
   const reconnecting = useBehavior(vm.reconnecting$);
   const windowMode = useBehavior(vm.windowMode$);
   const layout = useBehavior(vm.layout$);
@@ -845,6 +846,19 @@ export const InCallView: FC<InCallViewProps> = ({
 
   useAppBarHidden(!showHeader);
 
+  // Names as the room has them; the panel's rows turn them into what the
+  // stage shows (the pseudonym, never a login name).
+  // Read again whenever somebody joins or leaves.
+  const callParticipants = useMemo(() => {
+    const names = new Map(
+      matrixRoom.getMembers().map((m) => [m.userId, m.name] as const),
+    );
+    return participantUserIds.map((userId) => ({
+      userId,
+      displayName: names.get(userId) ?? userId,
+    }));
+  }, [participantUserIds, matrixRoom]);
+
   // The call menu's contents, in the bar's ⋮ or the phone header's (S9).
   const callMenu: CallMenuProps = {
     onToggleNotes: toggleNotes,
@@ -853,6 +867,9 @@ export const InCallView: FC<InCallViewProps> = ({
     onKnockChange: orisoKnock.setKnock,
     onHangup: (): void => vm.hangup(),
     participantCount,
+    // "Teilnehmende" lists them and invites somebody else (#2233).
+    participants: orisoEnabled ? callParticipants : undefined,
+    inviteRequest: orisoInviteRequest,
     // A phone's header has no room for the atmosphere popover (5b).
     backgroundLabel:
       atmosphereShown && !orisoMobile

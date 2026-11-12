@@ -25,7 +25,7 @@ import {
 import styles from "./InviteLinkButton.module.css";
 import { type InviteLinkReply } from "./inviteLink";
 
-type State =
+export type InviteState =
   | { kind: "closed" }
   | { kind: "loading" }
   | { kind: "link"; url: string; copied: boolean | null }
@@ -52,6 +52,109 @@ async function copy(text: string): Promise<boolean> {
 }
 
 /**
+ * Asking the host for the link, copying it and the popover's states; shared
+ * by "Link teilen" in the header and the participants panel (#2233).
+ */
+export function useInviteLink(request: () => Promise<InviteLinkReply>): {
+  state: InviteState;
+  start: () => void;
+  close: () => void;
+  copyAgain: () => void;
+} {
+  const [state, setState] = useState<InviteState>({ kind: "closed" });
+  // A reply that arrives after the popover was closed must not reopen it.
+  const generation = useRef(0);
+
+  const close = useCallback(() => {
+    generation.current++;
+    setState({ kind: "closed" });
+  }, []);
+
+  const start = useCallback(() => {
+    const mine = ++generation.current;
+    setState({ kind: "loading" });
+    void request().then(async (reply) => {
+      if (generation.current !== mine) return;
+      if ("url" in reply) {
+        const copied = await copy(reply.url);
+        if (generation.current !== mine) return;
+        setState({ kind: "link", url: reply.url, copied });
+      } else {
+        setState({ kind: "error", message: reply.error });
+      }
+    });
+  }, [request]);
+
+  const copyAgain = useCallback(() => {
+    if (state.kind !== "link") return;
+    const url = state.url;
+    void copy(url).then((copied) =>
+      setState((was) =>
+        was.kind === "link" && was.url === url ? { ...was, copied } : was,
+      ),
+    );
+  }, [state]);
+
+  return { state, start, close, copyAgain };
+}
+
+/** The popover's body for a state: loading, the link with copy, or an error. */
+export const InviteLinkBody: FC<{
+  state: InviteState;
+  onCopy: () => void;
+}> = ({ state, onCopy }) => {
+  const { t } = useTranslation();
+  return (
+    <>
+      {state.kind === "loading" && (
+        <p className={styles.status} role="status">
+          {t("oriso.invite_loading")}
+        </p>
+      )}
+      {state.kind === "error" && (
+        <div role="alert" data-testid="oriso-invite-error">
+          <p className={styles.error}>{t("oriso.invite_error")}</p>
+          <p className={styles.detail}>{state.message}</p>
+        </div>
+      )}
+      {state.kind === "link" && (
+        <>
+          <div className={styles.row}>
+            <input
+              className={styles.url}
+              readOnly
+              value={state.url}
+              aria-label={t("oriso.invite_title")}
+              onFocus={(e) => e.currentTarget.select()}
+              data-testid="oriso-invite-url"
+            />
+            <button
+              type="button"
+              className={styles.copy}
+              onClick={onCopy}
+              data-testid="oriso-invite-copy"
+            >
+              {state.copied ? (
+                <CheckIcon aria-hidden width={18} height={18} />
+              ) : (
+                <CopyIcon aria-hidden width={18} height={18} />
+              )}
+              {state.copied ? t("oriso.invite_copied") : t("oriso.invite_copy")}
+            </button>
+          </div>
+          {state.copied === false && (
+            <p className={styles.detail} role="status">
+              {t("oriso.invite_copy_failed")}
+            </p>
+          )}
+          <p className={styles.hint}>{t("oriso.invite_hint")}</p>
+        </>
+      )}
+    </>
+  );
+};
+
+/**
  * "Link teilen" in the call header (call design S8).
  *
  * The link belongs to the host: one click asks for it, copies it to the
@@ -67,46 +170,15 @@ export const InviteLinkButton: FC<Props> = ({
 }) => {
   const { t } = useTranslation();
   const id = useId();
-  const [state, setState] = useState<State>({ kind: "closed" });
+  const { state, start, close, copyAgain } = useInviteLink(request);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const open = state.kind !== "closed";
-  // A reply that arrives after the popover was closed must not reopen it.
-  const generation = useRef(0);
-
-  const close = useCallback(() => {
-    generation.current++;
-    setState({ kind: "closed" });
-  }, []);
 
   const onClick = useCallback(() => {
-    if (open) {
-      close();
-      return;
-    }
-    const mine = ++generation.current;
-    setState({ kind: "loading" });
-    void request().then(async (reply) => {
-      if (generation.current !== mine) return;
-      if ("url" in reply) {
-        const copied = await copy(reply.url);
-        if (generation.current !== mine) return;
-        setState({ kind: "link", url: reply.url, copied });
-      } else {
-        setState({ kind: "error", message: reply.error });
-      }
-    });
-  }, [open, close, request]);
-
-  const onCopy = useCallback(() => {
-    if (state.kind !== "link") return;
-    const url = state.url;
-    void copy(url).then((copied) =>
-      setState((was) =>
-        was.kind === "link" && was.url === url ? { ...was, copied } : was,
-      ),
-    );
-  }, [state]);
+    if (open) close();
+    else start();
+  }, [open, close, start]);
 
   useEffect(() => {
     if (!open) return;
@@ -181,52 +253,7 @@ export const InviteLinkButton: FC<Props> = ({
               <CloseIcon aria-hidden width={18} height={18} />
             </button>
           </div>
-          {state.kind === "loading" && (
-            <p className={styles.status} role="status">
-              {t("oriso.invite_loading")}
-            </p>
-          )}
-          {state.kind === "error" && (
-            <div role="alert" data-testid="oriso-invite-error">
-              <p className={styles.error}>{t("oriso.invite_error")}</p>
-              <p className={styles.detail}>{state.message}</p>
-            </div>
-          )}
-          {state.kind === "link" && (
-            <>
-              <div className={styles.row}>
-                <input
-                  className={styles.url}
-                  readOnly
-                  value={state.url}
-                  aria-label={t("oriso.invite_title")}
-                  onFocus={(e) => e.currentTarget.select()}
-                  data-testid="oriso-invite-url"
-                />
-                <button
-                  type="button"
-                  className={styles.copy}
-                  onClick={onCopy}
-                  data-testid="oriso-invite-copy"
-                >
-                  {state.copied ? (
-                    <CheckIcon aria-hidden width={18} height={18} />
-                  ) : (
-                    <CopyIcon aria-hidden width={18} height={18} />
-                  )}
-                  {state.copied
-                    ? t("oriso.invite_copied")
-                    : t("oriso.invite_copy")}
-                </button>
-              </div>
-              {state.copied === false && (
-                <p className={styles.detail} role="status">
-                  {t("oriso.invite_copy_failed")}
-                </p>
-              )}
-              <p className={styles.hint}>{t("oriso.invite_hint")}</p>
-            </>
-          )}
+          <InviteLinkBody state={state} onCopy={copyAgain} />
         </div>
       )}
     </div>
