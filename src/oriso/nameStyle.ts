@@ -1,0 +1,25 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/**
+ * How names stand on the stage (design 2a, "Namen & Symbole").
+ *
+ * `popout` is the dark capsule, the default and what the handoff calls its
+ * one name specification. `dezent` drops the capsule for plain text on the
+ * atmosphere. A name over a running camera is always a capsule, whatever is
+ * chosen: bare text on a moving picture cannot be read. That rule lives in
+ * the stylesheet (`MediaView.module.css`), so it cannot be chosen away.
+ *
+ * Stored per person in this browser.
+ */
+export type NameStyle = "dezent" | "popout";
+
+export const NAME_STYLE_KEY = "oriso-call-names";
+
+export function readNameStyle(raw: string | null): NameStyle {
+  return raw === "dezent" ? "dezent" : "popout";
+}

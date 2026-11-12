@@ -132,6 +132,7 @@ import {
 import { Publisher } from "./localMember/Publisher.ts";
 import { type Connection } from "./remoteMembers/Connection.ts";
 import { createLayoutModeSwitch } from "./LayoutSwitch.ts";
+import { type StagePlan, stagePlan } from "../../oriso/stageViews.ts";
 
 const logger = rootLogger.getChild("[CallViewModel]");
 //TODO
@@ -169,6 +170,20 @@ export interface CallViewModelOptions {
    * — and `InCallView`, which constructs this, already has the parameters.
    */
   orisoDesign?: boolean;
+  /**
+   * The ORISO conversation type (`orisoCallType` on the URL). A group
+   * conversation never collapses into the Einzelgespräch: at two people it
+   * keeps the group's arrangements, so it can start in the Kreis. Only read
+   * when `orisoDesign` is on.
+   */
+  orisoCallType?: "group" | "single" | null;
+  /**
+   * Whether the call is a voice or a video call (`callIntent`). A video
+   * group is offered the video-suited arrangements only — Hain, Felder,
+   * Kacheln, Spotlight with the camera inside the forms — and never the
+   * Kreis, whose middle is a sound indicator (S7).
+   */
+  orisoCallIntent?: "audio" | "video" | null;
   /** The version & compatibility mode of MatrixRTC that we should use. */
   matrixRTCMode$: Behavior<MatrixRTCMode>;
 }
@@ -211,6 +226,12 @@ type AudioLivekitItem = {
  *
  * (Mocking this interface should allow building a full view in all states.)
  */
+/** A speaker as the ORISO wave band names them. */
+export interface OrisoSpeaker {
+  userId: string;
+  displayName: string;
+}
+
 export interface CallViewModel {
   // lifecycle
   autoLeave$: Observable<AutoLeaveReason>;
@@ -337,6 +358,17 @@ export interface CallViewModel {
    * whatever mode is on. See the comment where it is built.
    */
   orisoOneOnOne$: Behavior<boolean>;
+  /**
+   * The ORISO views this call offers and the one it starts in, from the
+   * head count, the conversation type and the call intent. See
+   * `stagePlan`.
+   */
+  orisoPlan$: Behavior<StagePlan>;
+  /**
+   * Who is speaking right now, for the mobile wave band (S9): a remote
+   * speaker before myself, null while nobody speaks.
+   */
+  orisoSpeaker$: Behavior<OrisoSpeaker | null>;
   /**
    * The current generation of the tile store, exposed for debugging purposes.
    */
@@ -905,6 +937,37 @@ export function createCallViewModel$(
     ),
   );
 
+  const orisoSpeaker$ = scope.behavior<OrisoSpeaker | null>(
+    userMedia$.pipe(
+      switchMap((mediaItems) =>
+        mediaItems.length === 0
+          ? of(null)
+          : combineLatest(
+              mediaItems.map((m) =>
+                combineLatest([m.vm.speaking$, m.vm.displayName$]).pipe(
+                  map(([speaking, displayName]) => ({
+                    speaking,
+                    local: m.vm.local,
+                    speaker: { userId: m.vm.userId, displayName },
+                  })),
+                ),
+              ),
+            ).pipe(
+              map((all) => {
+                const speaking = all.filter((m) => m.speaking);
+                return (
+                  (speaking.find((m) => !m.local) ?? speaking[0])?.speaker ??
+                  null
+                );
+              }),
+            ),
+      ),
+      distinctUntilChanged(
+        (a, b) => a?.userId === b?.userId && a?.displayName === b?.displayName,
+      ),
+    ),
+  );
+
   const grid$ = scope.behavior<UserMediaViewModel[]>(
     userMedia$.pipe(
       switchMap((mediaItems) => {
@@ -1112,11 +1175,15 @@ export function createCallViewModel$(
    * `pip` keeps upstream's: it is a thumbnail of a call happening elsewhere,
    * and the handoff draws nothing for it.
    */
+  const orisoGroup =
+    options.orisoDesign === true && options.orisoCallType === "group";
   const orisoArrangement = (windowMode: WindowMode): Observable<LayoutMedia> =>
     gridMode$.pipe(
       switchMap((gridMode) => {
         switch (gridMode) {
           case "grid":
+            // A group conversation stays a group at two people (S6b).
+            if (orisoGroup) return gridLayoutMedia$;
             return oneOnOneLayoutMedia$.pipe(
               switchMap((oneOnOne) =>
                 oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
@@ -1148,6 +1215,15 @@ export function createCallViewModel$(
         }
       }),
     );
+
+  /*
+   * Whether the design's two-person arrangement is the one GRID mode would
+   * choose — whatever mode is actually on. A group conversation never is.
+   */
+  const orisoOneOnOne$ = scope.behavior(
+    oneOnOneLayoutMedia$.pipe(map((media) => media !== null && !orisoGroup)),
+    false,
+  );
 
   const layoutMedia$ = scope.behavior<LayoutMedia>(
     windowMode$.pipe(
@@ -1600,10 +1676,19 @@ export function createCallViewModel$(
      * condition: exactly two media items, one local and one remote. A screen
      * share makes a third, which is why a count of people would not do.
      */
-    orisoOneOnOne$: scope.behavior(
-      oneOnOneLayoutMedia$.pipe(map((media) => media !== null)),
-      false,
+    orisoOneOnOne$: orisoOneOnOne$,
+    orisoPlan$: scope.behavior(
+      orisoOneOnOne$.pipe(
+        map((alone) =>
+          stagePlan({
+            alone,
+            callType: options.orisoCallType ?? null,
+            intent: options.orisoCallIntent ?? null,
+          }),
+        ),
+      ),
     ),
+    orisoSpeaker$,
     tileStoreGeneration$: tileStoreGeneration$,
     showSpotlightIndicators$: showSpotlightIndicators$,
     showSpeakingIndicators$: showSpeakingIndicators$,

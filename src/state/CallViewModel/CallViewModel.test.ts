@@ -662,6 +662,170 @@ describe.each([
     });
   });
 
+  it("keeps a group conversation a group at two people (S6b)", () => {
+    /*
+     * `orisoCallType=group`: the conversation type, not the head count,
+     * decides. Two people in a group conversation get the group's
+     * arrangement (so the call can start in the Kreis), never the
+     * Einzelgespräch, and the rail is told they are not a pair.
+     */
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(summarizeLayout$(vm.layout$)).toBe("a", {
+            a: {
+              type: "grid",
+              spotlight: undefined,
+              grid: [`${localId}:0`, `${aliceId}:0`],
+            },
+          });
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: false });
+        },
+        { orisoDesign: true, orisoCallType: "group" },
+      );
+    });
+  });
+
+  it("still gives a single conversation of two the Einzelgespräch (S6b)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(summarizeLayout$(vm.layout$)).toBe("a", {
+            a: {
+              type: "one-on-one",
+              local: `${localId}:0`,
+              remote: `${aliceId}:0`,
+            },
+          });
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: true });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("plans a video group without the Kreis (S7)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.offer.join(","))),
+          ).toBe("a", { a: "hain,felder,kacheln,spotlight" });
+        },
+        { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "video" },
+      );
+    });
+  });
+
+  it("plans an audio group of two in the Kreis (S6b, S7)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
+          ).toBe("a", { a: "kreis" });
+        },
+        { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "audio" },
+      );
+    });
+  });
+
+  /*
+   * S8: a 1:1 that somebody joins through the shared link. At three people
+   * the rail offers the group views and the stage leaves the Einzelgespräch
+   * for the group default; when they leave, it is a 1:1 again.
+   */
+  it.each([
+    ["single", "kreis"],
+    [null, "hain"],
+  ] as const)(
+    "turns a %s call of two into a group at three and back at two (S8)",
+    (callType, groupDefault) => {
+      withTestScheduler(({ behavior, expectObservable }) => {
+        withCallViewModel(
+          {
+            remoteParticipants$: behavior("abc", {
+              a: [aliceParticipant],
+              b: [aliceParticipant, bobParticipant],
+              c: [aliceParticipant],
+            }),
+            rtcMembers$: behavior("abc", {
+              a: [localRtcMember, aliceRtcMember],
+              b: [localRtcMember, aliceRtcMember, bobRtcMember],
+              c: [localRtcMember, aliceRtcMember],
+            }),
+            windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+          },
+          (vm) => {
+            expectObservable(
+              vm.orisoPlan$.pipe(
+                map((plan) => `${plan.fallback}:${plan.offer.length}`),
+              ),
+            ).toBe("abc", {
+              a: "einzelgespraech:2",
+              b: `${groupDefault}:5`,
+              c: "einzelgespraech:2",
+            });
+            expectObservable(vm.orisoOneOnOne$).toBe("abc", {
+              a: true,
+              b: false,
+              c: true,
+            });
+          },
+          { orisoDesign: true, orisoCallType: callType },
+        );
+      });
+    },
+  );
+
+  it("names whoever speaks for the phone's wave band (S9)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          speaking: new Map([
+            // Bob starts speaking; Alice joins in and the band names the
+            // first in the call; when she stops it is Bob again.
+            [aliceParticipant, behavior("n-yn", yesNo)],
+            [bobParticipant, behavior("ny", yesNo)],
+          ]),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoSpeaker$.pipe(map((s) => s?.userId ?? "none")),
+          ).toBe("abcd", {
+            a: "none",
+            b: bobRtcMember.userId,
+            c: aliceRtcMember.userId,
+            d: bobRtcMember.userId,
+          });
+        },
+        { orisoDesign: true },
+      );
+    });
+  });
+
   test("spotlight speakers swap places", () => {
     withTestScheduler(({ behavior, schedule, expectObservable }) => {
       // Go immediately into spotlight mode for the test

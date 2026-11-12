@@ -19,13 +19,16 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   ORISO_IDENTITY_EVENT_TYPE,
   type OrisoIdentity,
   fallbackIdentity,
+  shownRole,
   initialsFor,
   readIdentity,
+  shownNameFor,
 } from "./identity";
 
 export type Identities = ReadonlyMap<string, OrisoIdentity>;
@@ -170,7 +173,9 @@ function same(a: Identities, b: Identities): boolean {
       other.file !== identity.file ||
       other.bg !== identity.bg ||
       other.ink !== identity.ink ||
-      other.initials !== identity.initials
+      other.initials !== identity.initials ||
+      other.name !== identity.name ||
+      other.role !== identity.role
     )
       return false;
   }
@@ -373,6 +378,12 @@ export interface OrisoStage {
   audioOnly?: boolean;
   /** The 5A video stage uses rectangular participant tiles. */
   rectangular?: boolean;
+  /**
+   * Who the HOST says is a counsellor (`org.oriso.call.counsellors`), or
+   * null until it has said. The only source a "Beratung" label is shown
+   * from; see `shownRole`.
+   */
+  counsellors?: ReadonlySet<string> | null;
 }
 
 const EMPTY: OrisoStage = {
@@ -405,9 +416,9 @@ export function useOrisoIdentity(
   userId: string,
   displayName: string,
 ): OrisoIdentity | undefined {
-  const { identities, enabled } = useOrisoStage();
+  const { identities, enabled, counsellors = null } = useOrisoStage();
   const published = identities.get(userId);
-  return useMemo(() => {
+  const identity = useMemo(() => {
     if (!enabled) return undefined;
     if (published === undefined) return fallbackIdentity(userId, displayName);
     /*
@@ -425,4 +436,40 @@ export function useOrisoIdentity(
         }
       : published;
   }, [enabled, published, userId, displayName]);
+  /*
+   * The role SHOWN, kept apart from the role CLAIMED in the record.
+   *
+   * The record is written by the sender's own client, so its `role` is a
+   * claim. The map above keeps the claim as published; the label is decided
+   * here, on every render, from the host's list — so a counsellor the host
+   * lists later gets the label back, and nobody keeps one the host never
+   * gave them.
+   */
+  const role = identity && shownRole(identity.role, userId, counsellors);
+  return useMemo(
+    () =>
+      identity === undefined || identity.role === role
+        ? identity
+        : { ...identity, role },
+    [identity, role],
+  );
+}
+
+/**
+ * `shownNameFor` with the neutral label in the call's language: the name a
+ * tile shows, which falls back to "Teilnehmende Person" and never to
+ * anything read off the login name.
+ */
+export function useShownName(
+  displayName: string,
+  identity: OrisoIdentity | undefined,
+  userId: string,
+): string {
+  const { t } = useTranslation();
+  return shownNameFor(
+    displayName,
+    identity,
+    userId,
+    t("oriso.participant_neutral"),
+  );
 }

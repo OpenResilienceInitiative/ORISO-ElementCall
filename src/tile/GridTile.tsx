@@ -30,6 +30,7 @@ import {
   ExpandIcon,
   VolumeOffSolidIcon,
   SwitchCameraSolidIcon,
+  PinIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import {
   ContextMenu,
@@ -52,9 +53,13 @@ import { type GridTileViewModel } from "../state/TileViewModel";
 import { useMergedRefs } from "../useMergedRefs";
 import { useReactionsSender } from "../reactions/useReactionsSender";
 import { useBehavior } from "../useBehavior";
-import { useOrisoIdentity, useOrisoStage } from "../oriso/useOrisoIdentities";
-import { shownNameFor } from "../oriso/identity";
+import {
+  useOrisoIdentity,
+  useOrisoStage,
+  useShownName,
+} from "../oriso/useOrisoIdentities";
 import { useOrisoShape } from "../oriso/useOrisoShape";
+import { useOrisoPins } from "../oriso/useOrisoView";
 
 interface TileProps {
   ref?: Ref<HTMLDivElement>;
@@ -131,26 +136,6 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
       ? t("microphone_on")
       : t("microphone_off");
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menu = (
-    <>
-      {menuStart}
-      <ToggleMenuItem
-        Icon={ExpandIcon}
-        label={t("video_tile.change_fit_contain")}
-        checked={cropVideo}
-        onSelect={onSelectFitContain}
-      />
-      {menuEnd}
-    </>
-  );
-
-  const raisedHandOnClick = vm.local
-    ? (): void => void toggleRaisedHand()
-    : undefined;
-
-  const showSpeaking = showSpeakingIndicators && speaking;
-
   // The ORISO form, when the call has an identity for this person. Undefined
   // means upstream's rectangle, which is still what the lobby and the
   // standalone build get.
@@ -172,7 +157,73 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
    * use sites: the id must not survive in the menu after being taken off
    * the tag, which is the half a reviewer would not see in a screenshot.
    */
-  const shownName = shownNameFor(displayName, orisoIdentity);
+  const shownName = useShownName(displayName, orisoIdentity, vm.userId);
+
+  /*
+   * The line under the name in a person's ⋮ (design 2a): "anonym ·
+   * ratsuchend" for an advice seeker, "Beratung" for a counsellor. Only
+   * from the role the host published; without it there is no line, never a
+   * guessed one.
+   */
+  const role = orisoIdentity?.role;
+  const roleLine =
+    role === "asker"
+      ? t("oriso.participant_role_asker")
+      : role === "counsellor"
+        ? t("oriso.participant_role_counsellor")
+        : null;
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  /*
+   * "Anheften — bleibt groß" (S6, design 2a). Stummschalten and Entfernen,
+   * which the design gives counsellors, are not here: Element Call and the
+   * widget API offer no way to mute or remove another person without new
+   * work in the host and the backend.
+   */
+  const pins = useOrisoPins();
+  const pinned = pins.pinned.has(vm.id);
+  const onSelectPin = useCallback(
+    (e: Event) => {
+      e.preventDefault();
+      pins.toggle?.(vm.id);
+    },
+    [pins, vm.id],
+  );
+  const menu = (
+    <>
+      {roleLine !== null && (
+        <div
+          className={styles.menuHeader}
+          data-testid="participant_menu_header"
+        >
+          <span className={styles.menuHeaderName}>{shownName}</span>
+          <span className={styles.menuHeaderRole}>{roleLine}</span>
+        </div>
+      )}
+      {pins.toggle !== null && (
+        <ToggleMenuItem
+          Icon={PinIcon}
+          label={t("oriso.participant_pin")}
+          checked={pinned}
+          onSelect={onSelectPin}
+        />
+      )}
+      {menuStart}
+      <ToggleMenuItem
+        Icon={ExpandIcon}
+        label={t("video_tile.change_fit_contain")}
+        checked={cropVideo}
+        onSelect={onSelectFitContain}
+      />
+      {menuEnd}
+    </>
+  );
+
+  const raisedHandOnClick = vm.local
+    ? (): void => void toggleRaisedHand()
+    : undefined;
+
+  const showSpeaking = showSpeakingIndicators && speaking;
 
   const tile = (
     <MediaView
@@ -211,6 +262,9 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
             open={menuOpen}
             onOpenChange={setMenuOpen}
             title={shownName}
+            // With a role line the header above draws name and role
+            // together, as the design does; the title stays as the label.
+            showTitle={roleLine === null}
             trigger={
               <button
                 aria-label={t("common.options")}
@@ -259,7 +313,12 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
   );
 
   return (
-    <ContextMenu title={shownName} trigger={tile} hasAccessibleAlternative>
+    <ContextMenu
+      title={shownName}
+      showTitle={roleLine === null}
+      trigger={tile}
+      hasAccessibleAlternative
+    >
       {menu}
     </ContextMenu>
   );

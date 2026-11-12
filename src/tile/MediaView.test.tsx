@@ -147,3 +147,40 @@ describe("MediaView", () => {
     });
   });
 });
+
+describe("MediaView in the ORISO design (S6)", () => {
+  it("puts a raised hand with its duration into the name's capsule", () => {
+    const now = Date.now();
+    render(
+      <TooltipProvider>
+        <MediaView
+          displayName="ruhiger Fuchs 432"
+          videoEnabled={false}
+          videoFit="cover"
+          targetWidth={300}
+          targetHeight={300}
+          encryptionStatus={EncryptionStatus.Okay}
+          mirror={false}
+          unencryptedWarning={false}
+          video={undefined}
+          userId="@fox:oriso.test"
+          mxcAvatarUrl={undefined}
+          focusable
+          orisoIdentity={{
+            kind: "initials",
+            bg: "#165E83",
+            ink: "#fff",
+            initials: "RF",
+          }}
+          raisedHandTime={new Date(now - 100_000)}
+        />
+      </TooltipProvider>,
+    );
+    const hand = screen.getByTestId("oriso-hand");
+    expect(hand.textContent).toBe("1:40");
+    expect(screen.getByTestId("name_tag").parentElement?.contains(hand)).toBe(
+      true,
+    );
+    expect(hand.getAttribute("aria-label")).toContain("1:40");
+  });
+});

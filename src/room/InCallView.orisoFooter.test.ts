@@ -60,12 +60,11 @@ describe("the ORISO footer", () => {
     // so the toolbar must not offer an entry that would open nothing.
     const view = read("src/room/InCallView.tsx");
     expect(view).toMatch(/\{!isPopupMode && \(\s*<>\s*<RageshakeRequestModal/);
+    // One `callMenu` object feeds the bar's ⋮ and the phone header's (S9).
     expect(view).toMatch(
-      /onOpenSoundSettings=\{isPopupMode \? null : openSoundSettings\}/,
+      /onOpenSoundSettings: isPopupMode \? null : openSoundSettings/,
     );
-    expect(view).toMatch(
-      /onOpenSettings=\{isPopupMode \? null : openSettings\}/,
-    );
+    expect(view).toMatch(/onOpenSettings: isPopupMode \? null : openSettings/);
   });
 
   it("no longer places the view rail in the footer", () => {

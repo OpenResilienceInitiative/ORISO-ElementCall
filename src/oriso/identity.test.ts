@@ -209,8 +209,10 @@ describe("the fallback for somebody who published nothing", () => {
     }
   });
 
-  it("falls back to the user id when there is no display name", () => {
-    expect(fallbackIdentity("@jonas:oriso.test", "").initials).toBe("J");
+  // Not "J": the user id's local part can be a real name, so it gives no
+  // letters. The neutral mark instead.
+  it("shows a question mark, not the user id, when there is no display name", () => {
+    expect(fallbackIdentity("@jonas:oriso.test", "").initials).toBe("?");
   });
 });
 

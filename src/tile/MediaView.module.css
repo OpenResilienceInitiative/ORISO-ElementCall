@@ -297,7 +297,6 @@ unconditionally select the container so we can use cqmin units */
   padding: 0;
   padding-inline: 10px;
   border-radius: 13px;
-  max-inline-size: var(--oriso-name-max, 132px);
   background: color-mix(in srgb, #4c555f 92%, transparent);
   backdrop-filter: blur(4px);
   color: #fff;
@@ -310,10 +309,131 @@ unconditionally select the container so we can use cqmin units */
   white-space: nowrap;
 }
 
+/*
+ * The capsule is as wide as its name, out of upstream's grid.
+ *
+ * In a field or a Kachel it may take the field's whole width: in the grid's
+ * first column, beside the `⋮`'s, and under the fixed 132px that used to
+ * stand in the rule above, it cut "Susanne P. ·…erin" in a 222px Kachel
+ * that had room for it. The `⋮` sits in the row below, so nothing is lost.
+ *
+ * On a grove's or a circle's form it may be wider than the form
+ * (`nameSide` is only set there, see below).
+ *
+ * A listener's blob is about 100px across and "Susanne P. · Beraterin" is
+ * not; held to the form, the capsule cut the middle out of names that had
+ * room on the stage ("Susanne P. ·…erin"), and a raised hand squeezed the
+ * name down to "sti… 907". Taken out of the grid, the capsule takes its own
+ * width and is centred on the form, or hung from its start or end edge
+ * near the stage's edge so it grows inward rather than off it (`nameSide`).
+ * The NAME is capped, never the hand beside it: about 24 characters show in
+ * full, a longer one loses its middle as before.
+ */
+.media.oriso:not([data-oriso-rectangular="true"], [data-oriso-half="true"])
+  .nameTag {
+  position: absolute;
+  grid-area: auto;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: max-content;
+}
+
+.media.oriso[data-oriso-name-side] .nameTag {
+  max-inline-size: none;
+}
+
+/* The capsule's row keeps its height without it, or the `⋮` in the row
+   below moved up under the capsule. */
+.media.oriso:not([data-oriso-rectangular="true"], [data-oriso-half="true"])
+  > .fg {
+  grid-template-rows: 26px 1fr;
+}
+
+.media.oriso[data-oriso-name-side="centre"] .nameTag {
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+}
+
+.media.oriso[data-oriso-name-side="end"] .nameTag {
+  inset-inline: auto 0;
+}
+
+/* A phone's forms are a third of the size; its names are cut sooner. */
+@media (max-width: 550px) {
+  .media.oriso {
+    --oriso-name-max: 112px;
+  }
+}
+
+.media.oriso[data-oriso-name-side] .nameTag > .name {
+  max-inline-size: var(--oriso-name-max, 184px);
+}
+
 /* Speaking loses the transparency. That is the only difference, so the
    capsule carries it rather than a second element. */
 .media.oriso[data-oriso-speaking="true"] .nameTag {
   background: #4c555f;
+}
+
+/* Video (5a): the name is always in the dark capsule, the stage's own
+   surface colour — bare or pale text on a moving picture cannot be read.
+   Speaking still loses the transparency. */
+.media.oriso[data-oriso-rectangular="true"] .nameTag {
+  background: rgb(34 36 35 / 78%);
+  color: #fbf4d3;
+}
+
+.media.oriso[data-oriso-rectangular="true"][data-oriso-speaking="true"]
+  .nameTag {
+  background: rgb(34 36 35);
+}
+
+/* "Namen dezent" (S5, 2a): plain text on the atmosphere instead of the
+   capsule. Never over a running camera or on the video stage, where bare text
+   cannot be read; never in the Einzelgespräch, whose names are already text
+   under the circle. */
+[data-oriso-names="dezent"]
+  .media.oriso:not(
+    [data-oriso-camera="true"],
+    [data-oriso-rectangular="true"],
+    [data-oriso-half="true"]
+  )
+  .nameTag {
+  background: transparent;
+  backdrop-filter: none;
+  color: rgb(45 44 40);
+  text-shadow: 0 0 6px rgb(255 255 255 / 90%);
+}
+
+[data-oriso-names="dezent"]
+  .media.oriso:not(
+    [data-oriso-camera="true"],
+    [data-oriso-rectangular="true"],
+    [data-oriso-half="true"]
+  )
+  .nameTag
+  .muteIcon {
+  color: rgb(45 44 40);
+}
+
+/* S6, design 2a: the status stands in the name's own dark capsule — the
+   microphone only when it is off, the raised hand with how long it has been
+   up. A live microphone says nothing worth a symbol. */
+.media.oriso:not([data-oriso-half="true"])
+  .nameTag
+  > svg:not([data-muted="true"]) {
+  display: none;
+}
+
+.media.oriso .orisoHand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding-inline-end: 6px;
+  border-inline-end: 1px solid rgb(255 255 255 / 30%);
+  color: #ffd27a;
+  font-variant-numeric: tabular-nums;
 }
 
 .media.oriso .nameTag > .name {
@@ -371,12 +491,19 @@ unconditionally select the container so we can use cqmin units */
   gap: 4px;
 }
 
+/* Each half's names may reach out past the circle, never toward the other
+   half: a small circle (the notes card open over a 1:1 on a laptop) left
+   90px for each and cut "ruhiger Fuchs 432" to "r… 432". On a phone the
+   circle is centred and nearly as wide as the screen; 50vw keeps the names
+   16px inside its edges. */
 .media.oriso[data-oriso-side="start"] > .fg {
-  inset-inline-start: 0;
+  inset-inline-end: 50%;
+  inline-size: max(50%, min(200px, 50vw - 16px));
 }
 
 .media.oriso[data-oriso-side="end"] > .fg {
-  inset-inline-end: 0;
+  inset-inline-start: 50%;
+  inline-size: max(50%, min(200px, 50vw - 16px));
   flex-direction: row-reverse;
 }
 

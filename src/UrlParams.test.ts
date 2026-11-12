@@ -491,6 +491,52 @@ describe("UrlParams", () => {
       );
     });
   });
+  describe("orisoHostChrome", () => {
+    it("is off unless the ORISO host asks for it", () => {
+      expect(computeUrlParams().orisoHostChrome).toBe(false);
+      expect(
+        computeUrlParams("", "#?orisoHostChrome=false").orisoHostChrome,
+      ).toBe(false);
+    });
+
+    it("is on when the host leaves the window buttons to the call", () => {
+      expect(computeUrlParams("", "#?orisoHostChrome=1").orisoHostChrome).toBe(
+        true,
+      );
+      expect(computeUrlParams("?orisoHostChrome=true").orisoHostChrome).toBe(
+        true,
+      );
+    });
+  });
+  describe("orisoCallType", () => {
+    it("is unset unless the host says what kind of conversation it is", () => {
+      expect(computeUrlParams().orisoCallType).toBeNull();
+      expect(
+        computeUrlParams("", "#?orisoCallType=party").orisoCallType,
+      ).toBeNull();
+    });
+
+    it("reads a group and a single conversation", () => {
+      expect(computeUrlParams("", "#?orisoCallType=group").orisoCallType).toBe(
+        "group",
+      );
+      expect(computeUrlParams("?orisoCallType=single").orisoCallType).toBe(
+        "single",
+      );
+    });
+  });
+  describe("orisoInvite", () => {
+    it("is off unless the ORISO host can make a link", () => {
+      expect(computeUrlParams().orisoInvite).toBe(false);
+      expect(computeUrlParams("", "#?orisoInvite=false").orisoInvite).toBe(
+        false,
+      );
+    });
+
+    it("is on when the host can hand out a link", () => {
+      expect(computeUrlParams("", "#?orisoInvite=1").orisoInvite).toBe(true);
+    });
+  });
   describe("getUrlParams", () => {
     it("uses cached values", () => {
       const spy = vi.spyOn(logger, "info");

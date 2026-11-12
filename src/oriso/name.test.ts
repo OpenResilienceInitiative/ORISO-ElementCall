@@ -16,7 +16,15 @@ Please see LICENSE in the repository root for full details.
  */
 import { describe, expect, it } from "vitest";
 
-import { type OrisoIdentity, readIdentity, shownNameFor } from "./identity";
+import {
+  initialsFor,
+  isUsernameShaped,
+  NEUTRAL_INITIALS,
+  NEUTRAL_NAME,
+  type OrisoIdentity,
+  readIdentity,
+  shownNameFor,
+} from "./identity";
 
 const record = (extra: Record<string, unknown>): OrisoIdentity => {
   const read = readIdentity({
@@ -41,12 +49,20 @@ describe("the name a tile shows", () => {
    * The point of the whole change, stated as the picture it fixes.
    *
    * A host that has not been taught to publish a name is the deployed state
-   * on the day this lands, so the floor matters as much as the fix: `cyrus`
-   * is a username and not a name, but it is the half of the id that is not
-   * addressing information.
+   * on the day this lands, so the floor matters as much as the fix. The
+   * floor is a neutral label: nothing read off the id, whose local part can
+   * be somebody's real name.
    */
-  it("falls back to the local part when nothing was published", () => {
-    expect(shownNameFor("@cyrus:oriso.org", record({}))).toBe("cyrus");
+  it("falls back to the neutral label when nothing was published", () => {
+    expect(shownNameFor("@cyrus:oriso.org", record({}))).toBe(NEUTRAL_NAME);
+    expect(
+      shownNameFor(
+        "@cyrus:oriso.org",
+        record({}),
+        undefined,
+        "Teilnehmende Person",
+      ),
+    ).toBe("Teilnehmende Person");
   });
 
   it("leaves a real display name alone", () => {
@@ -109,7 +125,7 @@ describe("a published name, which arrives from a stranger", () => {
     expect(record({ name: "@cyrus:oriso.org" }).name).toBeUndefined();
     expect(
       shownNameFor("@cyrus:oriso.org", record({ name: "@cyrus:oriso.org" })),
-    ).toBe("cyrus");
+    ).toBe(NEUTRAL_NAME);
   });
 
   it("strips control characters and collapses the whitespace", () => {
@@ -165,5 +181,84 @@ describe("a published name, which arrives from a stranger", () => {
       name: "Beratung Nord",
     });
     expect(read?.name).toBe("Beratung Nord");
+  });
+});
+
+/*
+ * Live on dev, 10 Nov 2026: a counselling call labelled its two people
+ * `hugo.simpson_at_trail.ist` and `krusty.clown_at_openresilience.cc`. The
+ * homeserver profile held the login name, which is not a bare Matrix id, so
+ * the published role and animal names never got a say.
+ */
+describe("a login name standing in as the display name (S1)", () => {
+  const asker = "@hugo.simpson_at_trail.ist:oriso.org";
+  const counsellor = "@krusty.clown_at_openresilience.cc:oriso.org";
+
+  it("gives way to the animal name the host published for an asker", () => {
+    expect(
+      shownNameFor(
+        "hugo.simpson_at_trail.ist",
+        record({ name: "ruhiger Fuchs 432" }),
+        asker,
+      ),
+    ).toBe("ruhiger Fuchs 432");
+  });
+
+  it("gives way to the role name the host published for a counsellor", () => {
+    expect(
+      shownNameFor(
+        "krusty.clown_at_openresilience.cc",
+        record({ name: "Beratung · Frau Keller" }),
+        counsellor,
+      ),
+    ).toBe("Beratung · Frau Keller");
+  });
+
+  /*
+   * Not "Hugo Simpson": a cleaned login name is the advice seeker's real
+   * name, which is exactly what the pseudonym exists to keep off the call.
+   */
+  it("shows the neutral label, never a cleaned login, when nothing was published", () => {
+    expect(
+      shownNameFor(
+        "hugo.simpson_at_trail.ist",
+        record({}),
+        asker,
+        "Teilnehmende Person",
+      ),
+    ).toBe("Teilnehmende Person");
+    expect(shownNameFor(counsellor, record({}))).toBe(NEUTRAL_NAME);
+    const shown = shownNameFor("hugo.simpson_at_trail.ist", record({}), asker);
+    expect(shown.toLowerCase()).not.toContain("hugo");
+    expect(shown.toLowerCase()).not.toContain("simpson");
+  });
+
+  it("recognises the bare local part as a username too", () => {
+    expect(
+      shownNameFor("cyrus", record({ name: "Beratung" }), "@cyrus:oriso.org"),
+    ).toBe("Beratung");
+  });
+
+  it("never lets a published login name through either", () => {
+    expect(record({ name: "hugo.simpson_at_trail.ist" }).name).toBeUndefined();
+  });
+
+  it("leaves a real name with spaces alone", () => {
+    expect(isUsernameShaped("Krusty Clown", counsellor)).toBe(false);
+    expect(
+      shownNameFor("Krusty Clown", record({ name: "Beratung" }), counsellor),
+    ).toBe("Krusty Clown");
+  });
+
+  it("gives a question mark, never the login's initials", () => {
+    expect(initialsFor(asker, "hugo.simpson_at_trail.ist")).toBe(
+      NEUTRAL_INITIALS,
+    );
+    expect(initialsFor(counsellor, counsellor)).toBe("?");
+    expect(initialsFor(asker, "")).toBe("?");
+  });
+
+  it("still takes initials from a real display name", () => {
+    expect(initialsFor(counsellor, "Krusty Clown")).toBe("KC");
   });
 });

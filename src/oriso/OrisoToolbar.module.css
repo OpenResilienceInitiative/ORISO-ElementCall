@@ -109,13 +109,19 @@ Please see LICENSE in the repository root for full details.
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   flex: none;
-  inline-size: 56px;
+  min-inline-size: 56px;
   block-size: 56px;
-  padding: 0;
+  padding-inline: 20px 24px;
   border: none;
   border-radius: 28px;
-  background: var(--oriso-primary, #a5000a);
+  font:
+    500 15px / 20px Inter,
+    sans-serif;
+  /* Leaving a call is the one destructive action here: always the error
+     colour, never the brand's or the tenant's. */
+  background: var(--oriso-critical, #b1005e);
   color: #fff;
   cursor: pointer;
   box-shadow:
@@ -125,8 +131,16 @@ Please see LICENSE in the repository root for full details.
 
 @media (hover) {
   .hangup:hover {
-    background: var(--oriso-primary-hover, #820006);
+    background: color-mix(
+      in srgb,
+      var(--oriso-critical, #b1005e) 85%,
+      rgb(0 0 0)
+    );
   }
+}
+
+.hangupLabel {
+  white-space: nowrap;
 }
 
 /* The call menu, 1c. Opens upward from the bar. */
@@ -163,10 +177,67 @@ Please see LICENSE in the repository root for full details.
   color: rgb(45 44 40);
 }
 
-.row[data-entry="view"] {
-  flex-wrap: wrap;
-  row-gap: 4px;
-  padding-block: 8px;
+/* "Namen & Symbole" (2a): two cards, dezent and as a capsule. */
+.section[data-entry="names"] {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 20px 12px;
+}
+
+.sectionTitle {
+  font:
+    500 12px / 16px Inter,
+    sans-serif;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgb(96 94 99);
+}
+
+.nameCards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.nameCard {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border: 1px solid rgb(0 0 0 / 12%);
+  border-radius: 12px;
+  background: #fff;
+  color: rgb(45 44 40);
+  font:
+    400 13px / 18px Inter,
+    sans-serif;
+  cursor: pointer;
+}
+
+.nameCard[aria-checked="true"] {
+  border: 2px solid var(--oriso-primary, #a5000a);
+  padding: 9px 5px;
+}
+
+.nameCard:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
+}
+
+.nameSample {
+  font-size: 11px;
+  line-height: 20px;
+}
+
+/* The popout card shows its sample in the capsule it stands for. */
+.nameCard[data-name-style="popout"] .nameSample {
+  padding-inline: 8px;
+  border-radius: 10px;
+  background: #4c555f;
+  color: #fff;
 }
 
 .rowLabel {
@@ -183,6 +254,7 @@ Please see LICENSE in the repository root for full details.
     400 15px / 20px Inter,
     sans-serif;
   color: rgb(150 148 152);
+  white-space: nowrap;
 }
 
 /* People knocking (#108): a count on ⋮, as a notification badge on an M3 icon. */
@@ -297,7 +369,7 @@ Please see LICENSE in the repository root for full details.
 }
 
 .danger {
-  color: var(--oriso-primary, #a5000a);
+  color: var(--oriso-critical, #b1005e);
 }
 
 /* A phone: five buttons and the hang-up must fit 320px with the gutters. */
@@ -323,10 +395,22 @@ Please see LICENSE in the repository root for full details.
     border-radius: 18px;
   }
 
+  /* Round again: the word does not fit beside five buttons in 320px. It
+     stays the button's name for a screen reader. */
   .hangup {
+    min-inline-size: 48px;
     inline-size: 48px;
     block-size: 48px;
+    padding: 0;
     border-radius: 24px;
+  }
+
+  .hangupLabel {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 
   /* Wider than the bar here, so centred on it to keep both gutters. */
@@ -335,4 +419,84 @@ Please see LICENSE in the repository root for full details.
     inset-inline-start: 50%;
     translate: -50% 0;
   }
+}
+
+/* A phone in full screen (5b/5d, S9): one white bar across the width, the
+   hang-up round at its end. The call menu is in the header there. */
+.toolbar[data-compact] {
+  inline-size: 100%;
+  box-sizing: border-box;
+}
+
+.toolbar[data-compact] .bar {
+  flex: 1;
+  justify-content: space-between;
+  block-size: 72px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 36px;
+}
+
+.toolbar[data-compact] .hangup {
+  min-inline-size: 56px;
+  inline-size: 56px;
+  block-size: 56px;
+  padding: 0;
+  border-radius: 28px;
+  box-shadow: none;
+}
+
+.toolbar[data-compact] .hangupLabel {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* The call menu under the header's ⋮ on a phone (S9). */
+.menu[data-placement="header"] {
+  inset-block-start: calc(100% + 8px);
+  inset-block-end: auto;
+  inset-inline-end: 0;
+  inset-inline-start: auto;
+  translate: none;
+  z-index: 30;
+  max-block-size: calc(100dvh - 96px);
+}
+
+.menuSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px 8px;
+}
+
+.mobileMenu {
+  position: relative;
+  display: flex;
+}
+
+.mobileTrigger {
+  appearance: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 44px;
+  block-size: 44px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 50%;
+  background: #fff;
+  color: rgb(45 44 40);
+  cursor: pointer;
+}
+
+.mobileTrigger[aria-expanded="true"] {
+  border-color: var(--oriso-primary, #a5000a);
+}
+
+.mobileTrigger:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
 }

@@ -259,6 +259,16 @@ Please see LICENSE in the repository root for full details.
  * Compound portals to the body (a person's `⋮`) sit above all of this.
  */
 .inRoom[data-oriso="true"] {
+  /* The platform error colour, for what ends or destroys (hang up, leave),
+     independent of the Träger's colour (Frank, 11 Nov; ORISO-ElementCall#138).
+     It is the design system's "Error" token (#B1005E, Figma variable
+     54778:420; ORISO-Frontend Light.tokens.json, orisoTuning `error`), i.e.
+     the light scheme's `--cpd-color-bg-critical-primary`. Fixed here, not
+     read from the token at run time: the call is dark, whose critical token
+     is a pale pink that cannot carry text on the light menu card, and a
+     Träger `orisoSignal` must not move it. oriso-theme.css is checked
+     against this value. */
+  --oriso-critical: #b1005e;
   --oriso-z-stage: 1;
   --oriso-z-names: 6;
   --oriso-z-notes: 15;
@@ -310,6 +320,7 @@ Please see LICENSE in the repository root for full details.
   --oriso-notes-dock-width: var(--oriso-video-notes-width);
   --oriso-notes-dock-end: var(--oriso-stage-gutter);
   --oriso-notes-inset: 0px;
+  --oriso-header-gutter: var(--oriso-stage-gutter);
 
   background: var(--oriso-video-surface);
 }
@@ -318,27 +329,6 @@ Please see LICENSE in the repository root for full details.
   --oriso-notes-inset: var(--oriso-video-notes-inset);
 }
 
-.inRoom[data-oriso-video-stage="true"] > .videoHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--cpd-space-3x);
-  box-sizing: border-box;
-  min-block-size: var(--cpd-space-16x);
-  padding-inline: var(--oriso-stage-gutter);
-  background: var(--oriso-video-surface);
-  color: var(--oriso-video-ink);
-}
-
-.videoTitle {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 1.0625rem;
-  font-weight: 500;
-}
-
-.videoEncryption,
 .videoNotesButton {
   display: inline-flex;
   flex-shrink: 0;
@@ -349,21 +339,6 @@ Please see LICENSE in the repository root for full details.
   background: rgb(251 244 211 / 14%);
   color: inherit;
   white-space: nowrap;
-}
-
-.videoEncryption {
-  min-block-size: var(--cpd-space-6x);
-  padding-inline: var(--cpd-space-2x);
-  font-size: 0.75rem;
-}
-
-.videoEncryption svg {
-  inline-size: var(--cpd-space-3x);
-  block-size: var(--cpd-space-3x);
-}
-
-.videoNotesButton {
-  margin-inline-start: auto;
   min-block-size: var(--cpd-space-9x);
   padding-inline: var(--cpd-space-3x);
   font: inherit;
@@ -397,12 +372,30 @@ Please see LICENSE in the repository root for full details.
   padding-block: 2px 26px;
 }
 
-@media (max-width: 550px) {
-  .videoEncryption span {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
+/* A phone (S9): the compact header and, for a group, the wave band under
+   it, over the stage rather than on a bar of their own. */
+.orisoMobileHeader {
+  position: sticky;
+  flex-shrink: 0;
+  inset-block-start: 0;
+  z-index: var(--oriso-z-header, 30);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block-end: 8px;
+}
+
+.inRoom[data-oriso="true"] > .orisoMobileHeader {
+  z-index: var(--oriso-z-header);
+}
+
+.footer.orisoFooter .orisoToolbar[data-compact] {
+  justify-self: stretch;
+}
+
+/* The phone's bar runs across the width with 16px gutters (5b/5d): no grid
+   gaps eating into it, and less air below than the desktop's 40px. */
+.footer.orisoFooter:has(.orisoToolbar[data-compact]) {
+  column-gap: 0;
+  padding-block: var(--cpd-space-4x);
 }

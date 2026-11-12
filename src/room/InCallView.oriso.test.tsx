@@ -94,6 +94,18 @@ vi.mock("livekit-client/e2ee-worker?worker");
 vi.mock("../e2ee/sharedKeyManagement");
 vi.mock("../livekit/MatrixAudioRenderer");
 /*
+ * The host's window channel. Null (no buttons) unless a test says the host
+ * leaves the window to the call; there is no widget in this file.
+ */
+const hostWindow = vi.hoisted(() => ({
+  send: null as null | ((command: string) => void),
+  fullscreen: true,
+}));
+vi.mock("../oriso/useOrisoWindow", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useOrisoWindow: (): typeof hostWindow => hostWindow,
+}));
+/*
  * The grid asks how big it is and lays nothing out if the answer is nothing.
  *
  * `InCallView` measures three things in order — the container, the header and
@@ -102,12 +114,14 @@ vi.mock("../livekit/MatrixAudioRenderer");
  * that order with sizes a real window would give.
  */
 let measured = 0;
+// A phone's width for S9's tests; reset to a desktop's before each test.
+const view = vi.hoisted(() => ({ width: 960 }));
 vi.mock("react-use-measure", () => ({
   default: (): [() => void, object] => {
     const rect = [
-      { width: 960, height: 760 },
-      { width: 960, height: 60 },
-      { width: 960, height: 100 },
+      { width: view.width, height: 760 },
+      { width: view.width, height: 60 },
+      { width: view.width, height: 100 },
     ][measured++ % 3];
     return [(): void => {}, { ...rect, top: 0, left: 0 }];
   },
@@ -192,6 +206,12 @@ let useRoomEncryptionSystemMock: MockedFunction<typeof useRoomEncryptionSystem>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  view.width = 960;
+  hostWindow.send = null;
+  hostWindow.fullscreen = true;
+  // Views, atmosphere and name style are remembered per person (S5, S6);
+  // one test's choice must not become the next test's start.
+  localStorage.clear();
 
   // MatrixAudioRenderer is tested separately.
   (
@@ -220,6 +240,8 @@ function createInCallView({
   orisoDesign = true,
   crowd = false,
   callIntent,
+  callType,
+  encrypted = false,
   orisoLogo,
 }: {
   mediaError?: ElementCallError | null;
@@ -231,6 +253,9 @@ function createInCallView({
   /** Three or more puts the grove on; two gives the Einzelgespräch. */
   crowd?: boolean;
   callIntent?: "audio" | "video";
+  /** `orisoCallType` on the URL, and in the view model as InCallView passes it. */
+  callType?: "group" | "single";
+  encrypted?: boolean;
   /** The Träger's logo, as the app puts it into the call address. */
   orisoLogo?: string;
 } = {}): RenderResult & {
@@ -304,6 +329,11 @@ function createInCallView({
     crowd
       ? [localMember, aliceRtcMember, bobRtcMember]
       : [localMember, aliceRtcMember],
+    {
+      orisoDesign,
+      orisoCallType: callType ?? null,
+      orisoCallIntent: callIntent ?? null,
+    },
   );
   const retryMedia = vi.fn();
   Object.assign(vm, {
@@ -320,6 +350,7 @@ function createInCallView({
           ? `/room/#?widgetId=w${orisoDesign ? "&orisoDesign=true" : ""}` +
             `&parentUrl=${encodeURIComponent(HOST)}` +
             (callIntent === undefined ? "" : `&callIntent=${callIntent}`) +
+            (callType === undefined ? "" : `&orisoCallType=${callType}`) +
             (orisoLogo === undefined
               ? ""
               : `&orisoLogo=${encodeURIComponent(orisoLogo)}`)
@@ -352,7 +383,7 @@ function createInCallView({
                   roomAlias: null,
                   roomAvatar: null,
                   e2eeSystem: {
-                    kind: E2eeType.NONE,
+                    kind: encrypted ? E2eeType.PER_PARTICIPANT : E2eeType.NONE,
                   },
                 }}
                 matrixRoom={room}
@@ -429,6 +460,29 @@ describe("the call, in the ORISO design", () => {
     expect(screen.queryByTestId("incall_videomute")).not.toBeInTheDocument();
   });
 
+  /*
+   * S3, design 2b: the audio 1:1 has a header — the title, the encryption
+   * chip and the call's duration — over the atmosphere.
+   */
+  it("gives the audio 1:1 a header with title, encryption and duration", async () => {
+    createInCallView({ callIntent: "audio", published: {}, encrypted: true });
+    await screen.findByTestId("einzelgespraech");
+    const header = screen.getByTestId("oriso-header");
+    expect(header.dataset.tone).toBe("light");
+    expect(within(header).getByText("Schuldnerberatung")).toBeInTheDocument();
+    expect(
+      within(header).getByText("End-to-end encrypted"),
+    ).toBeInTheDocument();
+    expect(
+      within(header).getByTestId("oriso-call-duration").textContent,
+    ).toMatch(/^\d+:\d\d$/);
+    const toolbar = screen.getByTestId("oriso-toolbar");
+    expect(within(toolbar).queryByTestId("incall_videomute")).toBeNull();
+    expect(within(toolbar).getByTestId("incall_leave")).toHaveTextContent(
+      "Hang up",
+    );
+  });
+
   it("shows the video layout and both identities with the cameras off", async () => {
     const { container } = createInCallView({
       callIntent: "video",
@@ -459,7 +513,7 @@ describe("the call, in the ORISO design", () => {
     fireEvent.click(headerButton);
 
     expect(
-      screen.getByRole("region", { name: "My call note" }),
+      screen.getByRole("region", { name: "Scratchpad" }),
     ).toBeInTheDocument();
     expect(
       container.querySelector('[data-notes-docked="true"]'),
@@ -471,9 +525,44 @@ describe("the call, in the ORISO design", () => {
 
     fireEvent.click(screen.getByTestId("incall_notes"));
     expect(
-      screen.queryByRole("region", { name: "My call note" }),
+      screen.queryByRole("region", { name: "Scratchpad" }),
     ).not.toBeInTheDocument();
     expect(headerButton).toHaveAttribute("aria-pressed", "false");
+  });
+
+  /*
+   * S2. On Dev the host's window buttons lay over the video header's
+   * "Notizen". Without `orisoHostChrome` the host still draws them, so the
+   * header keeps their corner free; the notes button sits inside it.
+   */
+  it("keeps the host's window corner free of the header's own buttons", () => {
+    createInCallView({ callIntent: "video", published: {} });
+    const header = screen.getByTestId("oriso-header");
+    expect(header.dataset.hostChrome).toBe("host");
+    expect(header.dataset.tone).toBe("dark");
+    expect(
+      within(header).getByTestId("incall_video_header_notes"),
+    ).toBeInTheDocument();
+    expect(within(header).queryByTestId("oriso-window-minimise")).toBeNull();
+  });
+
+  /*
+   * S4, design 5a: the video 1:1 names itself in the header, and its notes
+   * dock beside the stage instead of lying over the person on it.
+   */
+  it("titles the video 1:1 and docks the notes beside the stage", () => {
+    const { container } = createInCallView({
+      callIntent: "video",
+      published: {},
+    });
+    const header = screen.getByTestId("oriso-header");
+    expect(within(header).getByText("Schuldnerberatung")).toBeInTheDocument();
+    fireEvent.click(within(header).getByTestId("incall_video_header_notes"));
+    expect(
+      container.querySelector(
+        '[data-oriso-video-stage="true"][data-notes-docked="true"]',
+      ),
+    ).toBeInTheDocument();
   });
 
   describe("the Träger's logo in the header (#137)", () => {
@@ -550,25 +639,32 @@ describe("the call, in the ORISO design", () => {
       expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
     });
 
-    it("has no ORISO header, and so no logo, in an audio call or a group video call", () => {
-      // Only the two-person video stage has an ORISO header today; the rest
-      // keep the host's `header` setting (none, in the app's case).
+    // The v2 header is in every call (2a, 2b, 5a), so the logo is too.
+    it("sits in the header of an audio call as well", () => {
       createInCallView({
         callIntent: "audio",
         published: {},
         orisoLogo: LOGO,
       });
-      expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
+      const header = screen.getByTestId("oriso-header");
+      expect(within(header).getByTestId("oriso_header_logo")).toHaveAttribute(
+        "src",
+        LOGO,
+      );
     });
 
-    it("has no logo in a group video call", () => {
+    it("sits in the header of a group video call as well", () => {
       createInCallView({
         callIntent: "video",
         crowd: true,
         published: {},
         orisoLogo: LOGO,
       });
-      expect(screen.queryByTestId("oriso_header_logo")).not.toBeInTheDocument();
+      const header = screen.getByTestId("oriso-header");
+      expect(within(header).getByTestId("oriso_header_logo")).toHaveAttribute(
+        "src",
+        LOGO,
+      );
     });
   });
 
@@ -591,12 +687,17 @@ describe("the call, in the ORISO design", () => {
     ).toBe(true);
   });
 
-  it("offers the three views, with one of them spelled out", async () => {
+  it("offers the five views, with one of them spelled out", async () => {
     createInCallView({ crowd: true });
     const rail = await openViewRail();
     expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
+    expect(
       rail.querySelectorAll('[role="radio"][aria-checked="false"]'),
-    ).toHaveLength(2);
+    ).toHaveLength(4);
     expect(
       rail.querySelector('[role="radio"][aria-checked="true"]')?.textContent,
     ).toBeTruthy();
@@ -657,12 +758,13 @@ describe("the call, in the ORISO design", () => {
     createInCallView({ crowd: true });
     const rail = await openViewRail();
     const buttons = [...rail.querySelectorAll<HTMLElement>('[role="radio"]')];
-    buttons[0].focus();
+    // The Hain is on (nothing stored), the second of five.
+    buttons[1].focus();
 
     fireEvent.keyDown(rail, { key: "ArrowRight" });
-    expect(document.activeElement).toBe(buttons[1]);
-    fireEvent.keyDown(rail, { key: "End" });
     expect(document.activeElement).toBe(buttons[2]);
+    fireEvent.keyDown(rail, { key: "End" });
+    expect(document.activeElement).toBe(buttons[4]);
   });
 
   it("shows initials for somebody nobody published anything for", async () => {
@@ -717,9 +819,254 @@ describe("the call, in the ORISO design", () => {
     expect(bar.contains(hangup)).toBe(false);
 
     // Upstream's settings button and the rail are gone from the footer; the
-    // rail lives in the menu now.
-    expect(container.querySelector('[data-testid="view-switcher"]')).toBeNull();
+    // rail lives in the header now (S5).
+    expect(toolbar.querySelector('[data-testid="view-switcher"]')).toBeNull();
+    expect(
+      within(screen.getByTestId("oriso-header")).getByTestId("view-switcher"),
+    ).toBeTruthy();
+    void container;
     expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+  });
+
+  /*
+   * S5, design 2a: the header carries the view rail, the atmosphere and the
+   * window; the call menu holds "Namen & Symbole" and "Hintergrund".
+   */
+  it("puts the view rail and the atmosphere into the header", async () => {
+    createInCallView({ crowd: true });
+    const header = await screen.findByTestId("oriso-header");
+    expect(within(header).getByTestId("view-switcher")).toBeTruthy();
+    expect(within(header).getByTestId("oriso-atmosphere-button")).toBeTruthy();
+    fireEvent.click(await screen.findByTestId("incall_menu"));
+    const menu = screen.getByTestId("oriso-call-menu");
+    expect(menu.querySelector('[data-entry="view"]')).toBeNull();
+    expect(menu.querySelector('[data-entry="names"]')).toBeTruthy();
+  });
+
+  it("keeps the chosen atmosphere for the person, carrier's motif by default", async () => {
+    localStorage.removeItem("oriso-call-atmosphere");
+    const { container, unmount } = createInCallView({ crowd: true });
+    await screen.findByTestId("oriso-header");
+    const pond = (): string | null =>
+      container.querySelector("oriso-pond")?.getAttribute("palette") ?? null;
+    expect(pond()).toBe("fluss");
+
+    // "Hintergrund" in the menu opens the header's popover.
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    fireEvent.click(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-entry="background"]')!,
+    );
+    const popover = screen.getByTestId("oriso-atmosphere-popover");
+    fireEvent.click(popover.querySelector('[data-motif="lichtung"]')!);
+    expect(pond()).toBe("lichtung");
+    expect(localStorage.getItem("oriso-call-atmosphere")).toBe("lichtung");
+    unmount();
+
+    // The next call starts in it.
+    const again = createInCallView({ crowd: true });
+    await screen.findByTestId("oriso-header");
+    expect(
+      again.container.querySelector("oriso-pond")?.getAttribute("palette"),
+    ).toBe("lichtung");
+    localStorage.removeItem("oriso-call-atmosphere");
+  });
+
+  it("switches the names to dezent and remembers it", async () => {
+    localStorage.removeItem("oriso-call-names");
+    const { container } = createInCallView({ crowd: true });
+    fireEvent.click(await screen.findByTestId("incall_menu"));
+    fireEvent.click(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-name-style="dezent"]')!,
+    );
+    expect(container.querySelector('[data-oriso-names="dezent"]')).toBeTruthy();
+    expect(localStorage.getItem("oriso-call-names")).toBe("dezent");
+    localStorage.removeItem("oriso-call-names");
+  });
+
+  /*
+   * S6: the Kreis has the room's sound in the middle; the choice survives
+   * the next call, the spotlight included (it used to be memory only).
+   */
+  it("draws the Kreis with its centre and remembers it", async () => {
+    localStorage.removeItem("oriso-call-view");
+    const { container, unmount } = createInCallView({ crowd: true });
+    const rail = await openViewRail();
+    fireEvent.click(rail.querySelector('[data-view="kreis"]')!);
+    expect(
+      container.querySelector('[data-view="kreis"][data-testid="oriso-grove"]'),
+    ).toBeTruthy();
+    expect(screen.getByTestId("oriso-kreis-centre")).toBeTruthy();
+    expect(localStorage.getItem("oriso-call-view")).toBe("kreis");
+    unmount();
+
+    createInCallView({ crowd: true });
+    const again = await openViewRail();
+    expect(
+      again
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("kreis");
+    localStorage.removeItem("oriso-call-view");
+  });
+
+  it("starts in the spotlight when the spotlight was the last choice", async () => {
+    localStorage.setItem("oriso-call-view", "spotlight");
+    createInCallView({ crowd: true });
+    const rail = await openViewRail();
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("spotlight");
+    localStorage.removeItem("oriso-call-view");
+  });
+
+  /*
+   * S6b: the conversation type decides where a call starts, not the head
+   * count. A group conversation of two starts in the Kreis with all five
+   * views; a single conversation of two in the Einzelgespräch.
+   */
+  it("starts a group conversation of two in the Kreis", async () => {
+    const { container } = createInCallView({ callType: "group" });
+    const rail = await openViewRail();
+    expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("kreis");
+    expect(
+      container.querySelector('[data-testid="oriso-grove"][data-view="kreis"]'),
+    ).toBeTruthy();
+  });
+
+  it("starts a single conversation of two in the Einzelgespräch", async () => {
+    createInCallView({ callType: "single" });
+    const rail = await openViewRail();
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("einzelgespraech");
+  });
+
+  /*
+   * S8: a single conversation that somebody joined through the shared link
+   * is a group now — the rail offers the group views and the stage starts
+   * in the group default, the Kreis.
+   */
+  it("gives a single conversation of three the group rail, in the Kreis", async () => {
+    const { container } = createInCallView({
+      callType: "single",
+      crowd: true,
+    });
+    const rail = await openViewRail();
+    expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
+    expect(
+      container.querySelector('[data-testid="oriso-grove"][data-view="kreis"]'),
+    ).toBeTruthy();
+  });
+
+  it("keeps the choice per conversation type", async () => {
+    const { unmount } = createInCallView({ callType: "group" });
+    fireEvent.click(
+      (await openViewRail()).querySelector('[data-view="kacheln"]')!,
+    );
+    expect(localStorage.getItem("oriso-call-view-group")).toBe("kacheln");
+    expect(localStorage.getItem("oriso-call-view-single")).toBeNull();
+    unmount();
+
+    // A single conversation is not affected by the group's choice…
+    const single = createInCallView({ callType: "single" });
+    expect(
+      (await openViewRail())
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("einzelgespraech");
+    single.unmount();
+
+    // …and the next group conversation starts in the Kacheln.
+    createInCallView({ callType: "group" });
+    expect(
+      (await openViewRail())
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("kacheln");
+  });
+
+  /*
+   * S7: a video group gets the arrangements that carry a camera inside
+   * their forms. The Kreis — a sound indicator in the middle — is a voice
+   * view and is not offered; a stored Kreis falls back to the Hain.
+   */
+  it("offers a video group the video arrangements only, without the Kreis", async () => {
+    localStorage.setItem("oriso-call-view-group", "kreis");
+    const { container } = createInCallView({
+      crowd: true,
+      callIntent: "video",
+      callType: "group",
+    });
+    const rail = await openViewRail();
+    expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["hain", "felder", "kacheln", "spotlight"]);
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("hain");
+    expect(
+      container.querySelector('[data-testid="oriso-grove"][data-view="hain"]'),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("oriso-kreis-centre")).toBeNull();
+  });
+
+  it("keeps names as capsules in a video group, whatever is stored", async () => {
+    localStorage.setItem("oriso-call-names", "dezent");
+    const { container } = createInCallView({
+      crowd: true,
+      callIntent: "video",
+      callType: "group",
+    });
+    await openViewRail();
+    expect(container.querySelector('[data-oriso-names="popout"]')).toBeTruthy();
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    expect(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-entry="names"]'),
+    ).toBeNull();
+  });
+
+  it("offers an audio group the Kreis", async () => {
+    createInCallView({ crowd: true, callIntent: "audio", callType: "group" });
+    const rail = await openViewRail();
+    expect(rail.querySelector('[data-view="kreis"]')).toBeTruthy();
+  });
+
+  it("lays the Kacheln out as equal tiles", async () => {
+    localStorage.setItem("oriso-call-view", "kacheln");
+    const { container } = createInCallView({ crowd: true });
+    await openViewRail();
+    const sheet = container.querySelector(
+      '[data-testid="oriso-grove"][data-view="kacheln"]',
+    );
+    expect(sheet?.getAttribute("data-mode")).toBe("scroll");
+    localStorage.removeItem("oriso-call-view");
   });
 
   it("opens my call note in the call itself, and closes it again (#112)", async () => {
@@ -727,20 +1074,118 @@ describe("the call, in the ORISO design", () => {
     // no longer asked for a notepad of its own.
     createInCallView();
     const button = await screen.findByTestId("incall_notes");
-    expect(screen.queryByRole("region", { name: "My call note" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Scratchpad" })).toBeNull();
 
     fireEvent.click(button);
-    const card = screen.getByRole("region", { name: "My call note" });
+    const card = screen.getByRole("region", { name: "Scratchpad" });
     expect(button.getAttribute("aria-pressed")).toBe("true");
 
     fireEvent.click(within(card).getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("region", { name: "My call note" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Scratchpad" })).toBeNull();
     expect(button.getAttribute("aria-pressed")).toBe("false");
   });
 });
 
-/** The view rail moved into the toolbar's `⋮` menu. */
+/** The view rail sits in the call header (S5), no longer in the `⋮` menu. */
+/*
+ * S9, designs 5b/5d: a phone in full screen. Compact header with the ⋮,
+ * the wave band for a group, a bar of four or five buttons; the view rail
+ * and the window move into the header's ⋮.
+ */
+describe("the call on a phone (S9)", () => {
+  beforeEach(() => {
+    view.width = 375;
+  });
+
+  it("gives a group the compact header, the wave band and the short bar", async () => {
+    createInCallView({ crowd: true, callIntent: "audio" });
+    const header = await screen.findByTestId("oriso-header");
+    expect(header.dataset.compact).toBe("true");
+    expect(
+      within(header).getByTestId("oriso-header-participants"),
+    ).toHaveTextContent("3 participants");
+    // The rail and the window buttons are not in a phone's header.
+    expect(within(header).queryByTestId("view-switcher")).toBeNull();
+    expect(within(header).queryByTestId("oriso-window-fullscreen")).toBeNull();
+    expect(within(header).getByTestId("oriso-mobile-menu")).toBeInTheDocument();
+    expect(screen.getByTestId("oriso-wave-band")).toBeInTheDocument();
+
+    const toolbar = screen.getByTestId("oriso-toolbar");
+    expect(toolbar.dataset.compact).toBe("true");
+    expect(within(toolbar).queryByTestId("incall_menu")).toBeNull();
+    // An audio group: microphone, hand, notes, hang-up — no camera.
+    expect(within(toolbar).getByTestId("incall_mute")).toBeInTheDocument();
+    expect(within(toolbar).queryByTestId("incall_videomute")).toBeNull();
+    expect(within(toolbar).getByTestId("incall_notes")).toBeInTheDocument();
+    expect(within(toolbar).getByTestId("incall_leave")).toBeInTheDocument();
+  });
+
+  it("puts the view rail and Schweben into the header's ⋮, and asks the host", async () => {
+    const send = vi.fn();
+    hostWindow.send = send;
+    hostWindow.fullscreen = true;
+    createInCallView({ crowd: true });
+    fireEvent.click(await screen.findByTestId("oriso-mobile-menu"));
+    const menu = screen.getByTestId("oriso-call-menu");
+    expect(menu.dataset.placement).toBe("header");
+    expect(within(menu).getByTestId("view-switcher")).toBeInTheDocument();
+    const float = within(menu).getByRole("button", { name: "Float" });
+    fireEvent.click(float);
+    expect(send).toHaveBeenCalledWith("toggle_fullscreen");
+    expect(screen.queryByTestId("oriso-call-menu")).toBeNull();
+  });
+
+  it("offers Vollbild while the call floats", async () => {
+    hostWindow.send = vi.fn();
+    hostWindow.fullscreen = false;
+    createInCallView({ crowd: true });
+    fireEvent.click(await screen.findByTestId("oriso-mobile-menu"));
+    expect(
+      within(screen.getByTestId("oriso-call-menu")).getByRole("button", {
+        name: "Full screen",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("has no window entry while the host keeps its own buttons", async () => {
+    createInCallView({ crowd: true });
+    fireEvent.click(await screen.findByTestId("oriso-mobile-menu"));
+    expect(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-entry="window"]'),
+    ).toBeNull();
+  });
+
+  it("keeps the 1:1 in the shared circle, without a wave band", async () => {
+    const { container } = createInCallView({
+      callIntent: "audio",
+      published: {},
+      encrypted: true,
+    });
+    await screen.findByTestId("einzelgespraech");
+    // 5d: "verschlüsselt · 12:04".
+    expect(
+      within(screen.getByTestId("oriso-header")).getByText("encrypted"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("oriso-wave-band")).toBeNull();
+    expect(container.querySelector('[data-testid="oriso-grove"]')).toBeNull();
+  });
+
+  it("gives a video 1:1 the camera in the bar, and no screen share there", async () => {
+    createInCallView({ callIntent: "video", published: {} });
+    const toolbar = await screen.findByTestId("oriso-toolbar");
+    expect(within(toolbar).getByTestId("incall_videomute")).toBeInTheDocument();
+    expect(within(toolbar).queryByTestId("incall_screenshare")).toBeNull();
+    expect(
+      within(screen.getByTestId("oriso-header")).queryByTestId(
+        "incall_video_header_notes",
+      ),
+    ).toBeNull();
+  });
+});
+
 async function openViewRail(): Promise<HTMLElement> {
-  fireEvent.click(await screen.findByTestId("incall_menu"));
-  return screen.findByTestId("view-switcher");
+  const header = await screen.findByTestId("oriso-header");
+  return within(header).getByTestId("view-switcher");
 }

@@ -269,6 +269,41 @@ export interface OrisoIdentity {
    * then falls back to the display name it has. See `shownNameFor`.
    */
   name?: string;
+  /**
+   * Which side of the conversation this person is on: `counsellor` or
+   * `asker`. Drives the line under the name in a person's ⋮ ("Beratung",
+   * "anonym · ratsuchend"). Absent from older hosts; then no line is shown
+   * rather than a guessed one.
+   */
+  role?: OrisoRole;
+}
+
+/** The two sides of a counselling conversation, as the host names them. */
+export type OrisoRole = "counsellor" | "asker";
+
+/**
+ * The role a person is LABELLED with, from what they claimed and what the
+ * host said.
+ *
+ * `role` in the record is written by the sender's own client, and power
+ * levels in an ORISO call room do not tell the sides apart (an advice
+ * seeker may start a group call and is then the room's creator, with the
+ * highest level). So "counsellor" is shown only for a user id the host
+ * listed in `org.oriso.call.counsellors`; until that list arrives, and for
+ * everybody not on it, a counsellor claim shows nothing. An "asker" claim
+ * is shown as it is: nobody gains by calling themselves an advice seeker.
+ */
+export function shownRole(
+  claimed: OrisoRole | undefined,
+  userId: string,
+  counsellors: ReadonlySet<string> | null,
+): OrisoRole | undefined {
+  if (counsellors?.has(userId)) return "counsellor";
+  return claimed === "asker" ? "asker" : undefined;
+}
+
+function readRole(raw: unknown): OrisoRole | undefined {
+  return raw === "counsellor" || raw === "asker" ? raw : undefined;
 }
 
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -405,18 +440,60 @@ function readName(raw: unknown): string | undefined {
     .trim();
   if (cleaned.length === 0) return undefined;
   if (MATRIX_ID_ONLY.test(cleaned)) return undefined;
+  // Nor the login name with a mail address folded in, for the same reason.
+  if (FOLDED_MAIL_USERNAME.test(cleaned)) return undefined;
   return cleaned;
 }
 
 /**
+ * An ORISO login name that a mail address was folded into:
+ * `hugo.simpson_at_trail.ist`. One token, `_at_` somewhere in the middle.
+ */
+const FOLDED_MAIL_USERNAME = /^[^\s@:]+_at_[^\s@:]+$/i;
+
+/**
+ * Whether a name is really a username — the localpart of a Matrix id, or a
+ * login name with a mail address folded into it.
+ *
+ * Live on dev (10 Nov) both people in a counselling call were labelled
+ * `hugo.simpson_at_trail.ist` and `krusty.clown_at_openresilience.cc`: the
+ * homeserver profile held the login name as the display name, so the guard
+ * against a bare Matrix id did not fire and the published role and animal
+ * names never got a say.
+ */
+export function isUsernameShaped(
+  displayName: string,
+  userId?: string,
+): boolean {
+  const name = displayName.trim();
+  if (MATRIX_ID_ONLY.test(name)) return true;
+  if (FOLDED_MAIL_USERNAME.test(name)) return true;
+  if (userId === undefined) return false;
+  const local = MATRIX_ID_ONLY.exec(userId.trim())?.[1];
+  return local !== undefined && local.toLowerCase() === name.toLowerCase();
+}
+
+/**
+ * What a tile says when the room knows nobody by a real name and the host
+ * published none: a neutral label, never anything derived from the login.
+ *
+ * S1 used to clean the login name up here (`hugo.simpson_at_trail.ist`
+ * became "Hugo Simpson"). For an advice seeker that is their real name on a
+ * surface whose whole purpose is that they stay anonymous, so the floor is
+ * now a label the caller translates ("Teilnehmende Person", "Participant")
+ * and the letters are a question mark.
+ */
+export const NEUTRAL_NAME = "Participant";
+export const NEUTRAL_INITIALS = "?";
+
+/**
  * The name to put on a person's tile.
  *
- * Three answers, in order: what the host published, what the room already
- * knows, and — only when the room's answer is a bare Matrix id — the local
- * part of it. The last is a floor, not a fix: `cyrus` is a username and not
- * a name, but it is the half of `@cyrus:oriso.org` that is not addressing
- * information, and it is what a call running against a host too old to
- * publish names can honestly show.
+ * Three answers, in order: what the room already knows when it is a real
+ * name, what the host published, and — only when neither is usable — the
+ * neutral label `neutral` (see `NEUTRAL_NAME`). Nothing of the login name
+ * ever reaches the tile: `hugo.simpson_at_trail.ist` is not shown cleaned
+ * up as "Hugo Simpson", because that is an advice seeker's real name.
  *
  * `undefined` identity means this is not an ORISO call at all — the lobby,
  * the standalone build — and upstream's name is returned untouched.
@@ -424,6 +501,8 @@ function readName(raw: unknown): string | undefined {
 export function shownNameFor(
   displayName: string,
   identity: OrisoIdentity | undefined,
+  userId?: string,
+  neutral: string = NEUTRAL_NAME,
 ): string {
   if (identity === undefined) return displayName;
   /*
@@ -447,9 +526,8 @@ export function shownNameFor(
    * standing, which is a deliberate answer to two people called Alex and not
    * ours to overrule.
    */
-  const bare = MATRIX_ID_ONLY.exec(displayName.trim());
-  if (bare === null) return displayName;
-  return identity.name ?? bare[1];
+  if (!isUsernameShaped(displayName, userId)) return displayName;
+  return identity.name ?? neutral;
 }
 
 /**
@@ -496,7 +574,14 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
     // which is the truth, and the tile then takes the letters from the
     // display name it already has.
     if (letters.length === 0) return null;
-    return { kind, bg, ink, initials: letters, name: readName(raw.name) };
+    return {
+      kind,
+      bg,
+      ink,
+      initials: letters,
+      name: readName(raw.name),
+      role: readRole(raw.role),
+    };
   }
   if (kind !== "animal" && kind !== "motif") return null;
 
@@ -511,7 +596,14 @@ export function readIdentity(content: unknown): OrisoIdentity | null {
     return null;
   }
 
-  return { kind, file, bg, ink, name: readName(raw.name) };
+  return {
+    kind,
+    file,
+    bg,
+    ink,
+    name: readName(raw.name),
+    role: readRole(raw.role),
+  };
 }
 
 /**
@@ -575,9 +667,12 @@ export function fallbackIdentity(
 /**
  * The letters to show for somebody, from whatever we know about them.
  *
- * The display name if there is one, the localpart otherwise — a member whose
- * profile has not arrived yet still gets a mark rather than a blank circle.
+ * The display name if it is a real name; a question mark otherwise. A
+ * username (`krusty.clown_at_…`, the Matrix id, its local part) gives no
+ * letters at all — "HS" for `hugo.simpson_at_…` would put the advice
+ * seeker's real initials on the form.
  */
 export function initialsFor(userId: string, displayName: string): string {
-  return initialsOf(displayName) || initialsOf(userId.replace(/^@/, ""));
+  if (isUsernameShaped(displayName, userId)) return NEUTRAL_INITIALS;
+  return initialsOf(displayName) || NEUTRAL_INITIALS;
 }

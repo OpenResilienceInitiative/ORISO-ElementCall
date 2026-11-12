@@ -468,6 +468,88 @@ describe("finding out who everybody is", () => {
   });
 });
 
+/*
+ * `role` is written by the sender's own client, and power levels in an ORISO
+ * call room cannot tell the sides apart (an advice seeker may create the
+ * call room). The map keeps the CLAIM; the label is decided per tile from
+ * the host's list (`org.oriso.call.counsellors`), every render.
+ */
+describe("a published role", () => {
+  const USER_ID = "@anon:oriso.test";
+  const claim = (role: string): OrisoIdentity =>
+    ({
+      ...FROM_THE_HOST[USER_ID],
+      name: "ruhiger Fuchs 432",
+      role,
+    }) as OrisoIdentity;
+
+  const renderRole = (
+    claimed: string,
+    counsellors: ReadonlySet<string> | null,
+  ): {
+    role: () => string | undefined;
+    setCounsellors: (next: ReadonlySet<string> | null) => void;
+  } => {
+    let current = counsellors;
+    const wrapper: FC<{ children: ReactNode }> = ({ children }) => (
+      <OrisoStageContext
+        value={{
+          identities: new Map([[USER_ID, claim(claimed)]]),
+          parentUrl: null,
+          enabled: true,
+          counsellors: current,
+        }}
+      >
+        {children}
+      </OrisoStageContext>
+    );
+    const { result, rerender } = renderHook(
+      () => useOrisoIdentity(USER_ID, "ruhiger Fuchs 432"),
+      { wrapper },
+    );
+    return {
+      role: (): string | undefined => result.current?.role,
+      setCounsellors: (next): void => {
+        current = next;
+        rerender();
+      },
+    };
+  };
+
+  it("keeps the claimed role in the map, unjudged", () => {
+    const { room } = roomWith({ [USER_ID]: claim("counsellor") });
+    expect(readIdentities(room).get(USER_ID)?.role).toBe("counsellor");
+  });
+
+  it("shows no counsellor label before the host has sent its list", () => {
+    expect(renderRole("counsellor", null).role()).toBeUndefined();
+  });
+
+  it("shows no counsellor label for a claimant the host did not list", () => {
+    expect(
+      renderRole("counsellor", new Set(["@berater:oriso.test"])).role(),
+    ).toBeUndefined();
+  });
+
+  it("shows the counsellor label for somebody the host listed", () => {
+    expect(renderRole("counsellor", new Set([USER_ID])).role()).toBe(
+      "counsellor",
+    );
+  });
+
+  it("gives the label back when the host lists the person again", () => {
+    const tile = renderRole("counsellor", new Set([USER_ID]));
+    tile.setCounsellors(new Set());
+    expect(tile.role()).toBeUndefined();
+    tile.setCounsellors(new Set([USER_ID]));
+    expect(tile.role()).toBe("counsellor");
+  });
+
+  it("takes an asker claim as it is", () => {
+    expect(renderRole("asker", null).role()).toBe("asker");
+  });
+});
+
 describe("what one tile is told", () => {
   const withStage = (
     identities: Map<string, OrisoIdentity>,

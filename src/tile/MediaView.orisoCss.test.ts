@@ -109,8 +109,15 @@ describe("the names stand under the circle", () => {
     const end = bodiesWhere((selector) =>
       selector.includes('[data-oriso-side="end"] > .fg'),
     );
-    expect(start.join()).toMatch(/inset-inline-start:\s*0/);
-    expect(end.join()).toMatch(/inset-inline-end:\s*0/);
+    // Each half's names stand from the circle's middle outward, so on a
+    // small circle they may reach past its edge but never into the other
+    // half's.
+    expect(start.join()).toMatch(/inset-inline-end:\s*50%/);
+    expect(end.join()).toMatch(/inset-inline-start:\s*50%/);
+    for (const side of [start, end])
+      expect(side.join()).toMatch(
+        /inline-size:\s*max\(50%, min\(200px, 50vw - 16px\)\)/,
+      );
     expect(end.join()).toMatch(/flex-direction:\s*row-reverse/);
   });
 
@@ -157,5 +164,27 @@ describe("the names stand under the circle", () => {
     for (const selector of selectors) {
       expect(selector).not.toMatch(/\]\s*>\s*button/);
     }
+  });
+});
+
+/*
+ * S4, design 5a: on video the name always stands in a dark capsule — bare
+ * or pale text on a moving picture cannot be read.
+ */
+describe("a name on video", () => {
+  it("always sits in a dark, mostly opaque capsule", () => {
+    const [quiet] = bodiesWhere(
+      (selector) =>
+        selector.includes('[data-oriso-rectangular="true"]') &&
+        !selector.includes("speaking") &&
+        /\.nameTag\s*$/.test(selector.trim()),
+    ).filter((body) => /background:/.test(body));
+    const rgba = /background:\s*rgb\((\d+) (\d+) (\d+) \/ (\d+)%\)/.exec(
+      quiet ?? "",
+    );
+    expect(rgba).not.toBeNull();
+    const [, r, g, b, alpha] = rgba!.map(Number);
+    expect(Math.max(r, g, b)).toBeLessThan(64);
+    expect(alpha).toBeGreaterThanOrEqual(70);
   });
 });

@@ -85,6 +85,34 @@ export interface UrlProperties {
    */
   orisoDesign: boolean;
   /**
+   * Whether the ORISO host leaves the window controls to the call.
+   *
+   * Set by ORISO-Frontend (`orisoHostChrome=1`) when it draws no window
+   * buttons of its own over the iframe. The call's header then carries
+   * "Verkleinern" and "Vollbild" and asks the host to act on them through
+   * the `org.oriso.call.window` widget action. Without it the host still has
+   * its own corner buttons, and the header keeps their corner free.
+   */
+  orisoHostChrome: boolean;
+  /**
+   * What kind of counselling conversation this call belongs to, set by
+   * ORISO-Frontend from the conversation type: `group` or `single`.
+   *
+   * It decides the view a call starts in, not the head count: a group
+   * conversation starts in the "Kreis" even when only two people are in it,
+   * a single conversation in the "Einzelgespräch". Without it (an older
+   * host) the head count decides as before. Anything else is ignored.
+   */
+  orisoCallType: "group" | "single" | null;
+  /**
+   * Whether this person may hand out a link to the running call.
+   *
+   * Set by ORISO-Frontend (`orisoInvite=1`) when it can create one. The
+   * header then shows "Link teilen", which asks the host for the link with
+   * the `org.oriso.call.invite_link` widget action.
+   */
+  orisoInvite: boolean;
+  /**
    * The Träger's brand colours, written into the call address by ORISO-Frontend
    * when the call starts (epic ORISO-Frontend#2187, "Call branding").
    *
@@ -450,6 +478,10 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const orisoLogo = parseBrandLogo(parser.getParam("orisoLogo"));
   const orisoAtmosphere = parser.getParam("orisoAtmosphere");
   const orisoDesign = parser.getFlagParam("orisoDesign");
+  const orisoHostChrome = parser.getFlagParam("orisoHostChrome");
+  const orisoInvite = parser.getFlagParam("orisoInvite");
+  const orisoCallType =
+    parser.getEnumParam("orisoCallType", ["group", "single"] as const) ?? null;
   const orisoPrimary = parseBrandHex(parser.getParam("orisoPrimary"));
   const orisoAccent = parseBrandHex(parser.getParam("orisoAccent"));
   const orisoSignal = parseBrandHex(parser.getParam("orisoSignal"));
@@ -572,6 +604,9 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     orisoLogo,
     orisoAtmosphere,
     orisoDesign,
+    orisoHostChrome,
+    orisoCallType,
+    orisoInvite,
     orisoPrimary,
     orisoAccent,
     orisoSignal,

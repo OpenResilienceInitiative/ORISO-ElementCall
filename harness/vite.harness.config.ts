@@ -30,6 +30,27 @@ const artwork = process.env.ORISO_ARTWORK_DIR;
 export default defineConfig({
   root: ".",
   plugins: [
+    {
+      // A stand-in Träger logo on the tenant logo route, so `orisoLogo` can
+      // point at the page's own (trusted) origin as in the real call.
+      name: "oriso-sample-logo",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (
+            !/^\/service\/tenant\/public\/branding\/\d+\/logo/.test(
+              req.url ?? "",
+            )
+          ) {
+            next();
+            return;
+          }
+          res.setHeader("Content-Type", "image/svg+xml");
+          res.end(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32"><rect width="32" height="32" rx="6" fill="#0a7a3c"/><text x="40" y="22" font-family="sans-serif" font-size="15" font-weight="700" fill="#0a7a3c">Träger</text></svg>',
+          );
+        });
+      },
+    },
     react(),
     // As the app: icons are imported as components (the settings dialog's
     // checkbox and close icons need it).
