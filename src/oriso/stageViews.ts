@@ -43,16 +43,10 @@ const GROUP_OFFER: readonly StageView[] = [
 ];
 const ONE_ON_ONE_OFFER: readonly StageView[] = ["einzelgespraech", "spotlight"];
 /*
- * A video group (S7): the arrangements that carry a camera inside their
- * forms. The Kreis is a voice view — its middle is the room's sound — and is
- * not offered when people can see each other.
+ * A video group (S7) gets the same five views (#2233): the Kreis is where a
+ * Gesprächskreis meets, with cameras or without.
  */
-const VIDEO_GROUP_OFFER: readonly StageView[] = [
-  "hain",
-  "felder",
-  "kacheln",
-  "spotlight",
-];
+const VIDEO_GROUP_OFFER: readonly StageView[] = GROUP_OFFER;
 
 export function stagePlan({
   alone,
