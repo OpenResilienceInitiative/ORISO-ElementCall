@@ -39,7 +39,6 @@ import {
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import styles from "./OrisoToolbar.module.css";
-import { type NameStyle } from "./nameStyle";
 import { type StageView, ViewSwitcher } from "./ViewSwitcher";
 
 /** What the call menu (⋮) holds; shared by the bar and the mobile header. */
@@ -48,12 +47,6 @@ export interface CallMenuProps {
   onToggleNotes: (() => void) | null;
   onHangup: () => void;
   participantCount: number;
-  /**
-   * "Namen & Symbole" (design 2a): dezent or as a capsule. Null hides the
-   * section, e.g. on the video stage where names are always capsules.
-   */
-  nameStyle?: NameStyle;
-  onNameStyleChange?: ((style: NameStyle) => void) | null;
   /**
    * "Hintergrund": opens the atmosphere popover in the header. The label is
    * the motif that is on; null hides the entry (no atmosphere on this stage).
@@ -106,8 +99,8 @@ interface Props extends CallMenuProps {
  * One white bar with the microphone, the camera, the hand, the notes and a
  * `⋮`, and the hang-up beside it as a round button of its own. Upstream's
  * black buttons and the view rail are gone from the footer; the rail lives
- * in the call header (S5), the `⋮` menu holds "Namen & Symbole" and
- * "Hintergrund" as in design 2a.
+ * in the call header (S5), the `⋮` menu holds "Hintergrund" as in design 2a;
+ * "Namen & Symbole" moved into the settings (#2233).
  *
  * The menu is rendered INSIDE the toolbar rather than in a portal, so the
  * toolbar's own z-index is the menu's too. That is the stacking order's rule
@@ -125,8 +118,6 @@ export const OrisoToolbar: FC<Props> = ({
   notesOpen = false,
   onHangup,
   participantCount,
-  nameStyle = "popout",
-  onNameStyleChange = null,
   backgroundLabel = null,
   onOpenBackground = null,
   onToggleScreenShare,
@@ -172,8 +163,8 @@ export const OrisoToolbar: FC<Props> = ({
     ? t("action.lower_hand")
     : t("action.raise_hand");
 
-  /* Wide and spelled out (design 2a/2b, "Auflegen"): the one action that
-     ends the call should not be an icon to be guessed. Round on a phone. */
+  /* Round with the receiver only (Frank, 12 Nov, #2233): the word stays as
+     the button's name for a screen reader and its tooltip. */
   const hangup = (
     <button
       type="button"
@@ -284,8 +275,6 @@ export const OrisoToolbar: FC<Props> = ({
           id={menuId}
           onClose={closeMenu}
           participantCount={participantCount}
-          nameStyle={nameStyle}
-          onNameStyleChange={onNameStyleChange}
           backgroundLabel={backgroundLabel}
           onOpenBackground={onOpenBackground}
           onToggleScreenShare={onToggleScreenShare}
@@ -360,8 +349,6 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
   extra,
   className,
   participantCount,
-  nameStyle = "popout",
-  onNameStyleChange = null,
   backgroundLabel = null,
   onOpenBackground = null,
   onToggleScreenShare,
@@ -410,38 +397,6 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
       onTouchEnd={onTouchEnd}
     >
       {extra}
-      {onNameStyleChange !== null && (
-        <div className={styles.section} data-entry="names">
-          <span className={styles.sectionTitle} id={`${id}-names`}>
-            {t("oriso.names_title")}
-          </span>
-          <div
-            className={styles.nameCards}
-            role="radiogroup"
-            aria-labelledby={`${id}-names`}
-          >
-            {(["dezent", "popout"] as const).map((style) => (
-              <button
-                key={style}
-                type="button"
-                role="radio"
-                aria-checked={nameStyle === style}
-                className={styles.nameCard}
-                data-name-style={style}
-                // The menu stays open: the person sees the names change.
-                onClick={() => onNameStyleChange(style)}
-                onTouchEnd={onTouchEnd}
-              >
-                <span className={styles.nameSample} aria-hidden="true">
-                  {t("oriso.names_sample")}
-                </span>
-                <span>{t(`oriso.names_${style}`)}</span>
-              </button>
-            ))}
-          </div>
-          <span className={styles.rowDescription}>{t("oriso.names_hint")}</span>
-        </div>
-      )}
       <div className={styles.section}>
         <div className={styles.row} data-entry="participants">
           <span className={styles.rowLabel}>

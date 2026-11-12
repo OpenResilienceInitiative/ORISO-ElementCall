@@ -28,7 +28,7 @@ Please see LICENSE in the repository root for full details.
  *                                 (tilemenu: the first person's ⋮); the call
  *                                 menu is opened by clicking its ⋮
  *   ?notes=1                      the notes card docked on the right
- *   ?names=dezent|popout          "Namen & Symbole"
+ *   ?names=dezent|popout          "Namen & Symbole" (set in the settings)
  *   ?atmosphere=<motif>|traeger   the person's stored choice
  *   ?invite=1|error               "Link teilen" in the header (S8); the fake
  *                                 host answers with a link, or with an error
@@ -440,10 +440,6 @@ function Stage(): React.ReactNode {
                           sharingScreen={false}
                           onOpenSoundSettings={() => {}}
                           onOpenSettings={() => {}}
-                          nameStyle={nameStyle}
-                          onNameStyleChange={
-                            intent === "video" ? null : (): void => {}
-                          }
                           views={{
                             offer: plan.offer,
                             active: view,
@@ -555,7 +551,6 @@ function Footer({
   const [audioMuted, setAudioMuted] = useState(false);
   const [videoMuted, setVideoMuted] = useState(intent === "audio");
   const [hand, setHand] = useState(false);
-  const [names, setNames] = useState(nameStyle);
   return (
     <OrisoToolbar
       className={styles.orisoToolbar}
@@ -571,8 +566,6 @@ function Footer({
       notesOpen={notesOpen}
       onHangup={() => {}}
       participantCount={count}
-      nameStyle={names}
-      onNameStyleChange={intent === "video" ? null : setNames}
       backgroundLabel={backgroundLabel}
       onOpenBackground={onOpenBackground}
       onToggleScreenShare={() => {}}

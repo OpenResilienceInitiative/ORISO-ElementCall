@@ -31,6 +31,7 @@ import {
   vi,
 } from "vitest";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -78,6 +79,7 @@ import { useRoomEncryptionSystem } from "../e2ee/sharedKeyManagement";
 import { LivekitRoomAudioRenderer } from "../livekit/MatrixAudioRenderer";
 import { MediaDevicesContext } from "../MediaDevicesContext";
 import { HeaderStyle } from "../UrlParams";
+import { setLocalStorageItemReactive } from "../useLocalStorage";
 import { type ElementCallError } from "../utils/errors";
 
 vi.hoisted(
@@ -840,7 +842,8 @@ describe("the call, in the ORISO design", () => {
     fireEvent.click(await screen.findByTestId("incall_menu"));
     const menu = screen.getByTestId("oriso-call-menu");
     expect(menu.querySelector('[data-entry="view"]')).toBeNull();
-    expect(menu.querySelector('[data-entry="names"]')).toBeTruthy();
+    // "Namen & Symbole" moved into the settings (#2233).
+    expect(menu.querySelector('[data-entry="names"]')).toBeNull();
   });
 
   it("keeps the chosen atmosphere for the person, carrier's motif by default", async () => {
@@ -873,15 +876,13 @@ describe("the call, in the ORISO design", () => {
     localStorage.removeItem("oriso-call-atmosphere");
   });
 
-  it("switches the names to dezent and remembers it", async () => {
+  it("follows the names setting while the call runs", async () => {
     localStorage.removeItem("oriso-call-names");
     const { container } = createInCallView({ crowd: true });
-    fireEvent.click(await screen.findByTestId("incall_menu"));
-    fireEvent.click(
-      screen
-        .getByTestId("oriso-call-menu")
-        .querySelector('[data-name-style="dezent"]')!,
-    );
+    await screen.findByTestId("incall_menu");
+    expect(container.querySelector('[data-oriso-names="popout"]')).toBeTruthy();
+    // What the settings dialog does when "Namen dezent" is picked.
+    act(() => setLocalStorageItemReactive("oriso-call-names", "dezent"));
     expect(container.querySelector('[data-oriso-names="dezent"]')).toBeTruthy();
     expect(localStorage.getItem("oriso-call-names")).toBe("dezent");
     localStorage.removeItem("oriso-call-names");

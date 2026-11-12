@@ -89,11 +89,7 @@ import {
   readAtmosphereChoice,
   resolveAtmosphere,
 } from "../oriso/atmosphereChoice";
-import {
-  NAME_STYLE_KEY,
-  type NameStyle,
-  readNameStyle,
-} from "../oriso/nameStyle";
+import { useNameStyle } from "../oriso/nameStyle";
 import {
   type CallMenuProps,
   OrisoMobileMenu,
@@ -703,13 +699,9 @@ export const InCallView: FC<InCallViewProps> = ({
   // Only where the atmosphere is the stage: the video 1:1 is a dark stage.
   const atmosphereShown = orisoEnabled && !orisoVideoOneOnOne;
 
-  // "Namen & Symbole" (S5): dezent or as a capsule, kept in this browser.
-  const [storedNameStyle, setStoredNameStyle] = useLocalStorage(NAME_STYLE_KEY);
-  const nameStyle = readNameStyle(storedNameStyle);
-  const chooseNameStyle = useCallback(
-    (style: NameStyle) => setStoredNameStyle(style),
-    [setStoredNameStyle],
-  );
+  // "Namen & Symbole" (S5): dezent or as a capsule, chosen in the settings
+  // (#2233) and followed here while the call runs.
+  const [nameStyle] = useNameStyle();
 
   /*
    * The view is remembered, because it is a preference about how somebody
@@ -861,10 +853,6 @@ export const InCallView: FC<InCallViewProps> = ({
     onKnockChange: orisoKnock.setKnock,
     onHangup: (): void => vm.hangup(),
     participantCount,
-    // Over a camera names are always capsules, so a video call offers no
-    // choice.
-    nameStyle,
-    onNameStyleChange: orisoVideoCall ? null : chooseNameStyle,
     // A phone's header has no room for the atmosphere popover (5b).
     backgroundLabel:
       atmosphereShown && !orisoMobile

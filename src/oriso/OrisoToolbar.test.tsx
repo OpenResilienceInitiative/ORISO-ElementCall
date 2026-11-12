@@ -24,8 +24,6 @@ const props = (
   onToggleNotes: vi.fn(),
   onHangup: vi.fn(),
   participantCount: 2,
-  nameStyle: "popout",
-  onNameStyleChange: vi.fn(),
   backgroundLabel: "Fluss von oben",
   onOpenBackground: vi.fn(),
   onToggleScreenShare: vi.fn(),
@@ -76,7 +74,7 @@ describe("the ORISO control bar", () => {
     ]);
   });
 
-  it("says what the hang-up does in a word", () => {
+  it("names the hang-up for a screen reader", () => {
     render(<OrisoToolbar {...props()} />);
     const hangup = screen.getByTestId("incall_leave");
     expect(hangup).toHaveTextContent("Hang up");
@@ -186,7 +184,6 @@ describe("the call menu behind ⋮", () => {
       (el) => (el as HTMLElement).dataset.entry,
     );
     expect(entries).toEqual([
-      "names",
       "participants",
       "share_screen",
       "background",
@@ -224,20 +221,9 @@ describe("the call menu behind ⋮", () => {
     expect(screen.queryByTestId("view-switcher")).toBeNull();
   });
 
-  it("offers Namen & Symbole as two cards and keeps the menu open", () => {
-    const p = open();
-    const menu = screen.getByTestId("oriso-call-menu");
-    const cards = menu.querySelectorAll('[data-entry="names"] [role="radio"]');
-    expect(cards).toHaveLength(2);
-    const popout = menu.querySelector('[data-name-style="popout"]')!;
-    expect(popout.getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(menu.querySelector('[data-name-style="dezent"]')!);
-    expect(p.onNameStyleChange).toHaveBeenCalledWith("dezent");
-    expect(screen.getByTestId("oriso-call-menu")).toBeTruthy();
-  });
-
-  it("leaves Namen & Symbole out where there is no choice", () => {
-    open({ onNameStyleChange: null });
+  // Moved into the settings (Frank, 12 Nov, #2233).
+  it("no longer holds Namen & Symbole", () => {
+    open();
     expect(
       screen
         .getByTestId("oriso-call-menu")

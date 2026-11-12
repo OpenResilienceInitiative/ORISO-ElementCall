@@ -87,13 +87,23 @@ Please see LICENSE in the repository root for full details.
   color: rgb(35 59 99);
 }
 
+/* Each state darkens its own fill. A hover rule without a state would reach
+   the raised hand too and paint its pale hand on light grey (#2233). */
 @media (hover) {
-  .button:not(:disabled):hover .fill {
+  .button[data-state="off"]:not(:disabled):hover .fill {
     background-color: rgb(0 0 0 / 6%);
   }
 
   .button[data-state="live"]:not(:disabled):hover .fill {
     background-color: rgb(204 201 202);
+  }
+
+  .button[data-state="raised"]:not(:disabled):hover .fill {
+    background-color: rgb(84 92 102);
+  }
+
+  .button[data-state="open"]:not(:disabled):hover .fill {
+    background-color: rgb(214 226 245);
   }
 }
 
@@ -109,16 +119,15 @@ Please see LICENSE in the repository root for full details.
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   flex: none;
+  /* Round, the icon only (Frank, 12 Nov, #2233): people know what the red
+     receiver means, and the word made it the loudest thing in the bar. */
   min-inline-size: 56px;
+  inline-size: 56px;
   block-size: 56px;
-  padding-inline: 20px 24px;
+  padding: 0;
   border: none;
   border-radius: 28px;
-  font:
-    500 15px / 20px Inter,
-    sans-serif;
   /* Leaving a call is the one destructive action here: always the error
      colour, never the brand's or the tenant's. */
   background: var(--oriso-critical, #b1005e);
@@ -139,7 +148,13 @@ Please see LICENSE in the repository root for full details.
   }
 }
 
+/* Hidden, but still the button's name for a screen reader. */
 .hangupLabel {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -177,14 +192,6 @@ Please see LICENSE in the repository root for full details.
   color: rgb(45 44 40);
 }
 
-/* "Namen & Symbole" (2a): two cards, dezent and as a capsule. */
-.section[data-entry="names"] {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 20px 12px;
-}
-
 .sectionTitle {
   font:
     500 12px / 16px Inter,
@@ -192,52 +199,6 @@ Please see LICENSE in the repository root for full details.
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: rgb(96 94 99);
-}
-
-.nameCards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.nameCard {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 6px;
-  border: 1px solid rgb(0 0 0 / 12%);
-  border-radius: 12px;
-  background: #fff;
-  color: rgb(45 44 40);
-  font:
-    400 13px / 18px Inter,
-    sans-serif;
-  cursor: pointer;
-}
-
-.nameCard[aria-checked="true"] {
-  border: 2px solid var(--oriso-primary, #a5000a);
-  padding: 9px 5px;
-}
-
-.nameCard:focus-visible {
-  outline: 2px solid var(--oriso-primary, #a5000a);
-  outline-offset: 2px;
-}
-
-.nameSample {
-  font-size: 11px;
-  line-height: 20px;
-}
-
-/* The popout card shows its sample in the capsule it stands for. */
-.nameCard[data-name-style="popout"] .nameSample {
-  padding-inline: 8px;
-  border-radius: 10px;
-  background: #4c555f;
-  color: #fff;
 }
 
 .rowLabel {
@@ -395,22 +356,12 @@ Please see LICENSE in the repository root for full details.
     border-radius: 18px;
   }
 
-  /* Round again: the word does not fit beside five buttons in 320px. It
-     stays the button's name for a screen reader. */
+  /* Smaller beside five buttons in 320px. */
   .hangup {
     min-inline-size: 48px;
     inline-size: 48px;
     block-size: 48px;
-    padding: 0;
     border-radius: 24px;
-  }
-
-  .hangupLabel {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
   }
 
   /* Wider than the bar here, so centred on it to keep both gutters. */
@@ -443,14 +394,6 @@ Please see LICENSE in the repository root for full details.
   padding: 0;
   border-radius: 28px;
   box-shadow: none;
-}
-
-.toolbar[data-compact] .hangupLabel {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
 }
 
 /* The call menu under the header's ⋮ on a phone (S9). */
