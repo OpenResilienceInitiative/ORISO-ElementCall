@@ -22,10 +22,11 @@ Please see LICENSE in the repository root for full details.
   inset: var(--cpd-space-4x);
 }
 
+/* ORISO's video stage (#2233, D1): my own picture as a circle. */
 .responsiveLocal {
-  inline-size: min(208px, 36%);
+  inline-size: min(168px, 30%);
   block-size: auto;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 1;
 }
 
 .spotlight {

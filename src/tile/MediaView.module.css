@@ -279,6 +279,19 @@ unconditionally select the container so we can use cqmin units */
   max-inline-size: min(100%, 17rem);
 }
 
+/* #2233 (D1): my own picture is a circle at the bottom left of the video
+   stage, so the other person's name moves to the bottom right, and mine sits
+   centred under my face inside the circle. */
+.media.oriso[data-oriso-rectangular="true"]:not([data-oriso-round="true"])
+  .nameTag {
+  justify-self: end;
+}
+
+.media.oriso[data-oriso-round="true"] .nameTag {
+  justify-self: center;
+  max-inline-size: 100%;
+}
+
 @container mediaView (height < 150px) {
   .media.oriso[data-oriso-rectangular="true"] > .bg {
     padding-block-end: var(--cpd-space-5x);

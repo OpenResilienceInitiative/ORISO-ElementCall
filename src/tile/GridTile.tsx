@@ -295,6 +295,7 @@ const UserMediaTile: FC<UserMediaTileProps> = ({
       videoStreamStats={videoStreamStats}
       orisoIdentity={orisoIdentity}
       orisoShape={orisoShape}
+      orisoOwn={vm.local}
       /*
        * The raw speaking state, not the filtered `showSpeaking`.
        *

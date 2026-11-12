@@ -74,12 +74,23 @@ interface Props extends ComponentProps<typeof animated.div> {
   orisoSpeaking?: boolean;
   /** The host's origin, so the artwork can be inherited rather than drawn. */
   orisoParentUrl?: string | null;
+  /** My own tile: a circle on the video stage (#2233, D1). */
+  orisoOwn?: boolean;
 }
 
 const VIDEO_STAGE_SHAPE: TileShape = {
   radius: "var(--cpd-space-5x)",
   tilt: 0,
   contentShare: 0.4,
+  body: false,
+  lifted: false,
+};
+
+// #2233 (D1): on the video stage my own picture is a circle.
+const OWN_CIRCLE_SHAPE: TileShape = {
+  radius: "50%",
+  tilt: 0,
+  contentShare: 0.5,
   body: false,
   lifted: false,
 };
@@ -113,6 +124,7 @@ export const MediaView: FC<Props> = ({
   orisoShape: layoutShape,
   orisoSpeaking = false,
   orisoParentUrl = null,
+  orisoOwn = false,
   ...props
 }) => {
   const { t } = useTranslation();
@@ -133,7 +145,12 @@ export const MediaView: FC<Props> = ({
   const orisoRectangular = orisoIdentity !== undefined && rectangular;
   const videoEnabled =
     cameraEnabled && !(orisoIdentity !== undefined && audioOnly);
-  const orisoShape = orisoRectangular ? VIDEO_STAGE_SHAPE : layoutShape;
+  const orisoRound = orisoRectangular && orisoOwn;
+  const orisoShape = orisoRectangular
+    ? orisoRound
+      ? OWN_CIRCLE_SHAPE
+      : VIDEO_STAGE_SHAPE
+    : layoutShape;
   const avatarSize = Math.round(Math.min(targetWidth, targetHeight) / 2);
 
   const hasVideo = video?.publication !== undefined;
@@ -265,6 +282,7 @@ export const MediaView: FC<Props> = ({
       data-video-fit={videoFit}
       data-oriso={orisoIdentity === undefined ? undefined : "true"}
       data-oriso-rectangular={orisoRectangular ? "true" : undefined}
+      data-oriso-round={orisoRound ? "true" : undefined}
       data-oriso-speaking={orisoSpeaking ? "true" : undefined}
       data-oriso-half={orisoFocusShift === undefined ? undefined : "true"}
       data-oriso-side={orisoHalfSide}

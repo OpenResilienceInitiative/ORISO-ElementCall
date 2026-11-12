@@ -13,14 +13,13 @@ import { type StageView } from "./ViewSwitcher";
  * choice means — one place, so the rail, the stage and the storage cannot
  * disagree.
  *
- * Two people in a call that is not a group get the Einzelgespräch, which is
- * not a choice but the name of what two people are in; the alternative is
- * the spotlight. Everybody else gets the five views of design 2a.
+ * Two people get the Einzelgespräch, which is not a choice but the name of
+ * what two people are in; the alternative is the spotlight. Everybody else
+ * gets the five views of design 2a.
  *
- * The conversation type (`orisoCallType`, S6b) decides where a call starts,
- * not the head count: a group conversation starts in the Kreis and stays a
- * group at two people; a single conversation starts in the Einzelgespräch.
- * Without a type the head count decides, as it always did.
+ * The head count decides first (#2233, D7): a group conversation with only
+ * two people in it is a 1:1 until the third arrives. From three on, the
+ * conversation type (`orisoCallType`, S6b) decides where a call starts.
  *
  * A single conversation that grows to three (S8, "Link teilen") gets the
  * group's rail and starts in the Kreis; back at two it is the
@@ -64,8 +63,7 @@ export function stagePlan({
   callType?: OrisoCallType | null;
   intent?: OrisoCallIntent | null;
 }): StagePlan {
-  if (alone && callType !== "group")
-    return { offer: ONE_ON_ONE_OFFER, fallback: "einzelgespraech" };
+  if (alone) return { offer: ONE_ON_ONE_OFFER, fallback: "einzelgespraech" };
   if (intent === "video") return { offer: VIDEO_GROUP_OFFER, fallback: "hain" };
   /*
    * A typed conversation of three or more starts in the group default, the

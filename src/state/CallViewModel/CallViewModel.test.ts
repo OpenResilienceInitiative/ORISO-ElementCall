@@ -662,13 +662,40 @@ describe.each([
     });
   });
 
-  it("keeps a group conversation a group at two people (S6b)", () => {
+  it("gives a group conversation of two the 1:1 until a third arrives (#2233 D7)", () => {
     /*
-     * `orisoCallType=group`: the conversation type, not the head count,
-     * decides. Two people in a group conversation get the group's
-     * arrangement (so the call can start in the Kreis), never the
-     * Einzelgespräch, and the rail is told they are not a pair.
+     * The head count decides first: two people in a group conversation get
+     * the 1:1 (no view rail, no atmosphere), and the group's arrangement
+     * comes with the third person.
      */
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: behavior("ab", {
+            a: [aliceParticipant],
+            b: [aliceParticipant, bobParticipant],
+          }),
+          rtcMembers$: behavior("ab", {
+            a: [localRtcMember, aliceRtcMember],
+            b: [localRtcMember, aliceRtcMember, bobRtcMember],
+          }),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("ab", { a: "one-on-one", b: "grid" });
+          expectObservable(vm.orisoOneOnOne$).toBe("ab", { a: true, b: false });
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
+          ).toBe("ab", { a: "einzelgespraech", b: "kreis" });
+        },
+        { orisoDesign: true, orisoCallType: "group" },
+      );
+    });
+  });
+
+  it("has no camera on in a 1:1 where nobody published one (#2233 D5)", () => {
     withTestScheduler(({ behavior, expectObservable }) => {
       withCallViewModel(
         {
@@ -677,16 +704,9 @@ describe.each([
           windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
         },
         (vm) => {
-          expectObservable(summarizeLayout$(vm.layout$)).toBe("a", {
-            a: {
-              type: "grid",
-              spotlight: undefined,
-              grid: [`${localId}:0`, `${aliceId}:0`],
-            },
-          });
-          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: false });
+          expectObservable(vm.orisoCameraOn$).toBe("a", { a: false });
         },
-        { orisoDesign: true, orisoCallType: "group" },
+        { orisoDesign: true, orisoCallType: "single" },
       );
     });
   });
@@ -728,24 +748,6 @@ describe.each([
           ).toBe("a", { a: "hain,felder,kacheln,spotlight" });
         },
         { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "video" },
-      );
-    });
-  });
-
-  it("plans an audio group of two in the Kreis (S6b, S7)", () => {
-    withTestScheduler(({ behavior, expectObservable }) => {
-      withCallViewModel(
-        {
-          remoteParticipants$: constant([aliceParticipant]),
-          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
-          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
-        },
-        (vm) => {
-          expectObservable(
-            vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
-          ).toBe("a", { a: "kreis" });
-        },
-        { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "audio" },
       );
     });
   });

@@ -21,6 +21,8 @@ Please see LICENSE in the repository root for full details.
  *   ?waiting=<n>                  people knocking, with the Anklopfen switch (#108)
  *   ?call=audio|video             audio: no camera in the bar (2b); video: the
  *                                 dark stage with screen sharing in the bar (5a)
+ *   ?camera=off                   a video call with both cameras off: the split
+ *                                 circle, as InCallView decides (#2233, D5)
  *   ?header=1                     the ORISO header (title, chip, duration)
  *   ?chrome=call|host             call: the header's own window buttons;
  *                                 host: the host's four corner buttons drawn
@@ -29,8 +31,9 @@ Please see LICENSE in the repository root for full details.
  *                                 "bare" nobody published a name either
  *   ?artwork=none                 the animal drawings never arrive
  *   ?mobile=1                     the phone's full screen (S9, 5d): compact
- *                                 header with ⋮, short bar; in video my own
- *                                 picture top right
+ *                                 header with ⋮, short bar; on the video stage
+ *                                 my own picture is a circle at the bottom left
+ *                                 (#2233, D1)
  */
 import {
   type CSSProperties,
@@ -67,7 +70,6 @@ import {
   OrisoShapesContext,
   useOrisoShape,
 } from "../src/oriso/useOrisoShape";
-import { Atmosphere } from "../src/oriso/Atmosphere";
 import { OrisoMobileMenu, OrisoToolbar } from "../src/oriso/OrisoToolbar";
 import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { type OrisoIdentity, shownNameFor } from "../src/oriso/identity";
@@ -109,6 +111,8 @@ const muted = params.get("muted");
 const waiting = params.get("waiting");
 const callKind = params.get("call");
 const video = callKind === "video";
+// #2233 (D1/D5): the cameras decide the 1:1, not the call's intent.
+const videoStage = video && params.get("camera") !== "off";
 const showHeader = params.get("header") === "1";
 const chrome = params.get("chrome");
 const names = params.get("names");
@@ -220,6 +224,7 @@ function Tile({
         (tile.id === "local" && speaking === "second")
       }
       orisoParentUrl={window.location.origin}
+      orisoOwn={tile.id === "local"}
     />
   );
 }
@@ -307,11 +312,11 @@ function Header(): React.ReactNode {
       className={styles.header}
       logo={brand.orisoLogo}
       compact={mobile}
-      tone={video ? "dark" : "light"}
+      tone={videoStage ? "dark" : "light"}
       title="Einzelgespräch"
       encrypted
       meta={
-        video && !mobile ? undefined : (
+        videoStage && !mobile ? undefined : (
           <span>{formatCallDuration(now - startedAt + 724_000)}</span>
         )
       }
@@ -325,15 +330,10 @@ function Header(): React.ReactNode {
             sharingScreen={false}
             onOpenSoundSettings={() => {}}
             onOpenSettings={() => {}}
-            views={{
-              offer: ["einzelgespraech", "spotlight"],
-              active: "einzelgespraech",
-              onChange: () => {},
-            }}
             onToggleWindow={(): void => {}}
             fullscreen
           />
-        ) : video ? (
+        ) : videoStage ? (
           <button type="button" className={styles.videoNotesButton}>
             Notizen
           </button>
@@ -355,8 +355,8 @@ function Call(): React.ReactNode {
   // card's width, or the in-view card's height plus 12px of air.
   const width =
     window.innerWidth -
-    (docked ? (video ? 312 + 16 : 352 + 32) : 0) -
-    (video ? 2 * (mobile ? 12 : 20) : 0);
+    (docked ? (videoStage ? 312 + 16 : 352 + 32) : 0) -
+    (videoStage ? 2 * (mobile ? 12 : 20) : 0);
   const height =
     window.innerHeight -
     FOOTER_BLOCK -
@@ -376,13 +376,11 @@ function Call(): React.ReactNode {
       minBounds$: bounds$,
       spotlightAlignment$: new BehaviorSubject(defaultSpotlightAlignment),
       pipAlignment$: new BehaviorSubject<typeof defaultPipAlignment>(
-        // 5d: on a phone my own picture sits top right.
-        video
-          ? { inline: "end", block: mobile ? "start" : "end" }
-          : defaultPipAlignment,
+        // #2233 (D1): my own picture is a circle at the bottom left.
+        videoStage ? { inline: "start", block: "end" } : defaultPipAlignment,
       ),
     };
-    return video
+    return videoStage
       ? makeOneOnOneLayout({ ...inputs, fillStage: true })
       : makeEinzelgespraechLayout(inputs);
   }, [bounds$]);
@@ -392,21 +390,21 @@ function Call(): React.ReactNode {
       parentUrl: window.location.origin,
       enabled: true,
       audioOnly: callKind === "audio",
-      rectangular: video,
+      rectangular: videoStage,
     }),
     [],
   );
-  const gutter = video ? (mobile ? 12 : 20) : 0;
+  const gutter = videoStage ? (mobile ? 12 : 20) : 0;
   return (
     <OrisoStageContext value={stage}>
       <OrisoShapesContext value={shapes}>
         <div
           className={styles.inRoom}
           data-oriso="true"
-          data-oriso-video-stage={video ? "true" : undefined}
+          data-oriso-video-stage={videoStage ? "true" : undefined}
           data-notes-docked={docked ? "true" : undefined}
           style={
-            video
+            videoStage
               ? ({
                   "--oriso-stage-gutter": `${gutter}px`,
                   "--oriso-video-notes-width": "312px",
@@ -416,11 +414,7 @@ function Call(): React.ReactNode {
           }
         >
           {chrome === "host" && <HostCornerButtons />}
-          {!video && (
-            <div className={styles.orisoBackdrop} aria-hidden="true">
-              <Atmosphere palette="duene" />
-            </div>
-          )}
+          {/* #2233 (D2): no atmosphere for two people. */}
           {(showHeader || mobile) && <Header />}
           <Grid
             className={styles.scrollingGrid}
@@ -447,8 +441,8 @@ function Call(): React.ReactNode {
             startedAt={startedAt}
             style={
               {
-                "--oriso-notes-top": `${HEADER_BLOCK + (video && docked ? 0 : 16)}px`,
-                "--oriso-notes-dock-bottom": video
+                "--oriso-notes-top": `${HEADER_BLOCK + (videoStage && docked ? 0 : 16)}px`,
+                "--oriso-notes-dock-bottom": videoStage
                   ? `${FOOTER_BLOCK}px`
                   : undefined,
                 "--oriso-footer-h": `${FOOTER_BLOCK}px`,

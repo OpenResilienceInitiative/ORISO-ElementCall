@@ -180,12 +180,22 @@ describe("the views a group offers (S6)", () => {
 });
 
 describe("the start view by conversation type (S6b)", () => {
-  it("starts a group in the Kreis, at two people too", () => {
-    for (const alone of [true, false]) {
-      const plan = stagePlan({ alone, callType: "group" });
-      expect(plan.fallback).toBe("kreis");
-      expect(plan.offer).not.toContain("einzelgespraech");
-      expect(resolveStageView(null, plan)).toBe("kreis");
+  it("starts a group of three in the Kreis", () => {
+    const plan = stagePlan({ alone: false, callType: "group" });
+    expect(plan.fallback).toBe("kreis");
+    expect(plan.offer).not.toContain("einzelgespraech");
+    expect(resolveStageView(null, plan)).toBe("kreis");
+  });
+
+  /*
+   * #2233 (D7): the head count decides first. A group conversation with
+   * only two people in it is a 1:1 until the third arrives.
+   */
+  it("gives a group conversation of two the 1:1, whatever the intent", () => {
+    for (const intent of ["audio", "video", null] as const) {
+      const plan = stagePlan({ alone: true, callType: "group", intent });
+      expect(plan.offer).toEqual(["einzelgespraech", "spotlight"]);
+      expect(resolveStageView("kreis", plan)).toBe("einzelgespraech");
     }
   });
 
@@ -213,12 +223,6 @@ describe("the views by call intent (S7)", () => {
       expect(plan.offer).toEqual(["hain", "felder", "kacheln", "spotlight"]);
       expect(plan.fallback).toBe("hain");
     }
-  });
-
-  it("does not start a video group of two in the Kreis", () => {
-    const plan = stagePlan({ alone: true, callType: "group", intent: "video" });
-    expect(plan.offer).not.toContain("kreis");
-    expect(resolveStageView("kreis", plan)).toBe("hain");
   });
 
   it("keeps the Kreis for an audio group", () => {

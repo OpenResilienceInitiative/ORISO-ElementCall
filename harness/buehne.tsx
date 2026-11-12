@@ -16,7 +16,9 @@ Please see LICENSE in the repository root for full details.
  * shows its rail and its capsules, but the forms carry the animal, because
  * there is no video track to put into them.
  *
- *   ?n=<count>                    people on the stage (default 9)
+ *   ?n=<count>                    people on the stage (default 9); under three
+ *                                 it is a 1:1 whatever the type (#2233, D7),
+ *                                 so the page hands over to einzelCall.html
  *   ?view=kreis|hain|felder|kacheln   the arrangement (default from the plan)
  *   ?call=audio|video             the call intent (default audio)
  *   ?type=group|single            `orisoCallType` (default group)
@@ -587,12 +589,36 @@ function Footer({
 // `animated` is imported so the spring host is registered before Grid.
 void animated;
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <TooltipProvider>
-      <div className="cpd-theme-light" style={{ height: "100vh" }}>
-        <Stage />
-      </div>
-    </TooltipProvider>
-  </StrictMode>,
-);
+/*
+ * #2233 (D7): two people are a 1:1, whatever the conversation type — the
+ * stage of a group starts with the third. This page has no camera picture,
+ * so a video call of two is the split circle (D5).
+ */
+const oneOnOne = count < 3;
+if (oneOnOne) {
+  const to = new URLSearchParams({ header: "1" });
+  if (intent === "video") {
+    to.set("call", "video");
+    to.set("camera", "off");
+  }
+  if (mobile) to.set("mobile", "1");
+  if (notesShown) to.set("notes", mobile ? "sheet" : "docked");
+  for (const key of ["lang", "names"]) {
+    const value = params.get(key);
+    if (value !== null) to.set(key, value);
+  }
+  window.location.replace(
+    `einzelCall.html?${to.toString()}${window.location.hash}`,
+  );
+}
+
+if (!oneOnOne)
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <TooltipProvider>
+        <div className="cpd-theme-light" style={{ height: "100vh" }}>
+          <Stage />
+        </div>
+      </TooltipProvider>
+    </StrictMode>,
+  );
