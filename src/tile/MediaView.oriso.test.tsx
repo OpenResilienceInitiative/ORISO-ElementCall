@@ -24,6 +24,7 @@ import { type OrisoIdentity } from "../oriso/identity";
 import { resetArtworkCache } from "../oriso/artwork";
 import { OrisoStageContext } from "../oriso/useOrisoIdentities";
 import { liftFor } from "../oriso/lift";
+import { SPEECH_BUBBLE_RADIUS } from "../oriso/shape";
 
 const participant = mockLocalParticipant({});
 const placeholder: TrackReferencePlaceholder = {
@@ -120,6 +121,75 @@ describe("ORISO call mode", () => {
     expect(screen.getByTestId("videoTile")).toBe(frame);
     expect(screen.queryByTestId("video")).not.toBeInTheDocument();
     expect(screen.getByTestId("oriso-initials")).toHaveTextContent("F");
+  });
+
+  describe("in the spotlight (#2233)", () => {
+    const spotlight = { ...stage, shapelessForm: "bubble" as const };
+
+    it("draws a shapeless person as the speech bubble, camera inside", () => {
+      render(
+        <OrisoStageContext value={spotlight}>
+          <MediaView {...base} orisoIdentity={FOX} />
+        </OrisoStageContext>,
+      );
+      const face = screen.getByTestId("oriso-face");
+      expect(face.style.borderRadius).toBe(SPEECH_BUBBLE_RADIUS);
+      // The same centred square the circle used, so the drop is not an oval.
+      expect(face.style.inlineSize).toBe(`${shapelessFaceSide(300, 200)}px`);
+      expect(face.style.blockSize).toBe(`${shapelessFaceSide(300, 200)}px`);
+      // R26: with a camera the picture fills the bubble.
+      expect(screen.getByTestId("video")).toBeInTheDocument();
+    });
+
+    it("still lets a layout's own shape win", () => {
+      render(
+        <OrisoStageContext value={spotlight}>
+          <MediaView
+            {...base}
+            orisoIdentity={FOX}
+            orisoShape={{ radius: "22px", tilt: 0 }}
+          />
+        </OrisoStageContext>,
+      );
+      expect(screen.getByTestId("oriso-face").style.borderRadius).toBe("22px");
+    });
+
+    it("leaves the one-to-one video stage's rectangles alone", () => {
+      render(
+        <OrisoStageContext value={{ ...spotlight, rectangular: true }}>
+          <MediaView {...base} orisoIdentity={FOX} />
+        </OrisoStageContext>,
+      );
+      expect(screen.getByTestId("oriso-face").style.borderRadius).toBe(
+        "var(--cpd-space-5x)",
+      );
+    });
+
+    it("keeps the circle outside the spotlight", () => {
+      render(
+        <OrisoStageContext value={stage}>
+          <MediaView {...base} orisoIdentity={FOX} />
+        </OrisoStageContext>,
+      );
+      expect(screen.getByTestId("oriso-face").style.borderRadius).toBe("50%");
+    });
+  });
+
+  describe("a shared screen (#2233, R25)", () => {
+    it("is marked as the ORISO share: a rounded rectangle, no form", () => {
+      render(<MediaView {...base} videoFit="contain" orisoShare />);
+      const tile = screen.getByTestId("videoTile");
+      expect(tile).toHaveAttribute("data-oriso-share", "true");
+      expect(screen.queryByTestId("oriso-face")).toBeNull();
+      expect(screen.getByTestId("video")).toBeInTheDocument();
+    });
+
+    it("is upstream's plain tile without the flag", () => {
+      render(<MediaView {...base} videoFit="contain" />);
+      expect(screen.getByTestId("videoTile")).not.toHaveAttribute(
+        "data-oriso-share",
+      );
+    });
   });
 });
 

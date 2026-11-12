@@ -113,6 +113,7 @@ import {
   useOrisoIdentities,
 } from "../oriso/useOrisoIdentities";
 import { OrisoShapeStore, OrisoShapesContext } from "../oriso/useOrisoShape";
+import { shapelessFormFor } from "../oriso/shape";
 import {
   type OrisoPins,
   OrisoPinsContext,
@@ -672,6 +673,8 @@ export const InCallView: FC<InCallViewProps> = ({
       enabled: orisoEnabled,
       audioOnly: orisoAudioOnly,
       rectangular: orisoVideoOneOnOne,
+      // #2233: in the spotlight everybody is a speech bubble.
+      shapelessForm: shapelessFormFor(layout.type),
     }),
     [
       orisoIdentities,
@@ -680,6 +683,7 @@ export const InCallView: FC<InCallViewProps> = ({
       orisoEnabled,
       orisoAudioOnly,
       orisoVideoOneOnOne,
+      layout.type,
     ],
   );
   const orisoShapes = useInitial(() => new OrisoShapeStore());

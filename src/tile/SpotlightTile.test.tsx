@@ -25,6 +25,7 @@ import { E2eeType } from "../e2ee/e2eeType";
 import { mockLivekitRoom, testScope } from "../utils/test";
 import { constant } from "../state/Behavior";
 import { OrisoStageContext } from "../oriso/useOrisoIdentities";
+import { SPEECH_BUBBLE_RADIUS } from "../oriso/shape";
 
 global.IntersectionObserver = class MockIntersectionObserver {
   public observe(): void {}
@@ -197,5 +198,113 @@ test("a shared screen is labelled with its sharer's name, not their id", () => {
     "Beratung Nord",
   );
   // And it is still a rectangle: a screen is not a person.
+  expect(screen.queryByTestId("oriso-face")).toBeNull();
+});
+
+/*
+ * #2233: in the spotlight, everybody is a speech bubble (R24), and a shared
+ * screen is the one thing that is not (R25).
+ */
+function sharedScreenOf(userId: string): ScreenShareViewModel {
+  return new ScreenShareViewModel(
+    testScope(),
+    "screenshare",
+    userId,
+    constant(mockRemoteParticipant({})),
+    { kind: E2eeType.PER_PARTICIPANT },
+    constant(mockLivekitRoom({})),
+    constant(undefined),
+    constant(false),
+    constant("ruhiger Fuchs 432"),
+    constant(undefined),
+    false,
+  );
+}
+
+test("the spotlight's person is a speech bubble when the layout is a spotlight", () => {
+  const alice = createRemoteMedia(
+    mockRtcMembership("@alice:example.org", "AAAA"),
+    { rawDisplayName: "ruhiger Fuchs 432" },
+    mockRemoteParticipant({}),
+  );
+  render(
+    <OrisoStageContext
+      value={{
+        identities: new Map(),
+        parentUrl: null,
+        enabled: true,
+        shapelessForm: "bubble",
+      }}
+    >
+      <SpotlightTile
+        vm={new SpotlightTileViewModel(constant([alice]), constant(false))}
+        targetWidth={800}
+        targetHeight={450}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+  const face = screen.getByTestId("oriso-face");
+  expect(face.style.borderRadius).toBe(SPEECH_BUBBLE_RADIUS);
+  // A drop in a square, not a drop stretched across the 800x450 stage.
+  expect(face.style.inlineSize).toBe(face.style.blockSize);
+});
+
+test("a shared screen in the ORISO spotlight is a rounded rectangle, never a bubble", () => {
+  render(
+    <OrisoStageContext
+      value={{
+        identities: new Map(),
+        parentUrl: null,
+        enabled: true,
+        shapelessForm: "bubble",
+      }}
+    >
+      <SpotlightTile
+        vm={
+          new SpotlightTileViewModel(
+            constant([sharedScreenOf("@cyrus:oriso.org")]),
+            constant(true),
+          )
+        }
+        targetWidth={800}
+        targetHeight={450}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+  expect(screen.queryByTestId("oriso-face")).toBeNull();
+  expect(screen.getByTestId("videoTile")).toHaveAttribute(
+    "data-oriso-share",
+    "true",
+  );
+});
+
+test("upstream's shared screen is left exactly as it was", () => {
+  render(
+    <SpotlightTile
+      vm={
+        new SpotlightTileViewModel(
+          constant([sharedScreenOf("@cyrus:oriso.org")]),
+          constant(true),
+        )
+      }
+      targetWidth={800}
+      targetHeight={450}
+      expanded={false}
+      onToggleExpanded={vi.fn()}
+      showIndicators
+      focusable={true}
+    />,
+  );
+  expect(screen.getByTestId("videoTile")).not.toHaveAttribute(
+    "data-oriso-share",
+  );
   expect(screen.queryByTestId("oriso-face")).toBeNull();
 });

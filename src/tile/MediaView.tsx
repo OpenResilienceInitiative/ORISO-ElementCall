@@ -74,6 +74,15 @@ interface Props extends ComponentProps<typeof animated.div> {
   orisoSpeaking?: boolean;
   /** The host's origin, so the artwork can be inherited rather than drawn. */
   orisoParentUrl?: string | null;
+  /**
+   * This tile is a SHARED SCREEN in the ORISO design (#2233, R25).
+   *
+   * A screen is not a person, so it never gets a form: it stays upstream's
+   * tile, with no identity, and only its corner is the design's — a
+   * rectangle, slightly rounded (`SHARE_RADIUS`), on the tile itself so it
+   * holds wherever the share is drawn.
+   */
+  orisoShare?: boolean;
 }
 
 const VIDEO_STAGE_SHAPE: TileShape = {
@@ -113,12 +122,13 @@ export const MediaView: FC<Props> = ({
   orisoShape: layoutShape,
   orisoSpeaking = false,
   orisoParentUrl = null,
+  orisoShare = false,
   ...props
 }) => {
   const { t } = useTranslation();
   const [handRaiseTimerVisible] = useSetting(showHandRaisedTimer);
 
-  const { audioOnly, rectangular } = useOrisoStage();
+  const { audioOnly, rectangular, shapelessForm } = useOrisoStage();
   /*
    * S6: on an ORISO form the raised hand is a status in the name's capsule,
    * with how long it has been up ("1:40"), rather than upstream's badge in
@@ -270,6 +280,7 @@ export const MediaView: FC<Props> = ({
       data-oriso-side={orisoHalfSide}
       data-oriso-circle={orisoCircle === undefined ? undefined : "true"}
       data-oriso-name-side={orisoShape?.nameSide}
+      data-oriso-share={orisoShare ? "true" : undefined}
       // A running camera under the name: then the name is always a capsule,
       // whatever "Namen & Symbole" says (S5).
       data-oriso-camera={
@@ -313,6 +324,8 @@ export const MediaView: FC<Props> = ({
                 )
           }
           shape={orisoShape}
+          // In the spotlight a shapeless person is a speech bubble (#2233).
+          form={shapelessForm}
           speaking={orisoSpeaking}
           parentUrl={orisoParentUrl}
           // The camera takes the artwork's place and leaves the form alone.

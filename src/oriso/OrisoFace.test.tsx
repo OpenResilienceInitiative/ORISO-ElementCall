@@ -13,7 +13,7 @@ import { resetArtworkCache } from "./artwork";
 import { type OrisoIdentity } from "./identity";
 import { HALO_LIFT_PX, QUIET_SHADOW } from "./halo";
 import { liftFor } from "./lift";
-import { coverScale } from "./shape";
+import { coverScale, SPEECH_BUBBLE_RADIUS } from "./shape";
 
 const FOX: OrisoIdentity = {
   kind: "animal",
@@ -54,6 +54,32 @@ describe("the form", () => {
   it("is a circle unless a layout says otherwise", () => {
     render(<OrisoFace identity={NAMELESS} size={200} />);
     expect(screen.getByTestId("oriso-face").style.borderRadius).toBe("50%");
+  });
+
+  it("is the speech bubble when asked for one, still a centred square (#2233)", () => {
+    render(<OrisoFace identity={NAMELESS} size={200} form="bubble" />);
+    const face = screen.getByTestId("oriso-face");
+    expect(face.style.borderRadius).toBe(SPEECH_BUBBLE_RADIUS);
+    expect(face.getAttribute("data-form")).toBe("bubble");
+    // Square, so the 46% corners are a drop and not a stretched oval.
+    expect(face.style.inlineSize).toBe("200px");
+    expect(face.style.blockSize).toBe("200px");
+    // Upright: the point sits bottom left, as in the design's rail.
+    expect(face.style.transform).toBe("");
+  });
+
+  it("lets a layout's shape win over the bubble", () => {
+    render(
+      <OrisoFace
+        identity={NAMELESS}
+        size={200}
+        form="bubble"
+        shape={{ radius: "22px", tilt: 0 }}
+      />,
+    );
+    const face = screen.getByTestId("oriso-face");
+    expect(face.style.borderRadius).toBe("22px");
+    expect(face.getAttribute("data-form")).toBeNull();
   });
 
   it("takes the radius and the lean a layout hands it", () => {

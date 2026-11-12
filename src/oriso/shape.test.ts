@@ -14,6 +14,9 @@ import {
   NAME_CAPSULE_HALF,
   NAME_CAPSULE_HALF_PHONE,
   NAME_TAIL_CHARS,
+  SHARE_RADIUS,
+  SPEECH_BUBBLE_RADIUS,
+  shapelessFormFor,
 } from "./shape";
 
 describe("cutting a name that does not fit", () => {
@@ -105,5 +108,33 @@ describe("where a form hangs its name", () => {
     expect(nameSideFor(375 - NAME_CAPSULE_HALF_PHONE - 31, 62, 375, true)).toBe(
       "centre",
     );
+  });
+});
+
+describe("the form a person takes when no layout shaped them (#2233)", () => {
+  it("is the speech bubble in every spotlight layout", () => {
+    for (const type of [
+      "spotlight-landscape",
+      "spotlight-portrait",
+      "spotlight-expanded",
+    ])
+      expect(shapelessFormFor(type)).toBe("bubble");
+  });
+
+  it("stays the circle everywhere else", () => {
+    // The minimised call (pip) draws a round avatar in the design.
+    for (const type of ["grid", "one-on-one", "pip"])
+      expect(shapelessFormFor(type)).toBe("circle");
+  });
+
+  it("uses the design's bubble: three round corners and one point", () => {
+    // The design's Kreis and spotlight rail: `46% 46% 46% 16px` on a 112px
+    // form. The point is kept as that share so it stays a point at any size.
+    expect(SPEECH_BUBBLE_RADIUS).toBe("46% 46% 46% 14%");
+    expect(Math.round((16 / 112) * 100)).toBe(14);
+  });
+
+  it("gives a shared screen the design's slight 24px corner", () => {
+    expect(SHARE_RADIUS).toBe("var(--cpd-space-6x)");
   });
 });

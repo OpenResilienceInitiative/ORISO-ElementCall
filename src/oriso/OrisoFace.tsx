@@ -13,7 +13,12 @@ import { initialsOf, type OrisoIdentity } from "./identity";
 import { useArtwork } from "./artwork";
 import { HALO_LIFT_PX, SPEAKING_EASING, haloFor } from "./halo";
 import { liftFor } from "./lift";
-import { coverScale, type TileShape } from "./shape";
+import {
+  coverScale,
+  type ShapelessForm,
+  SPEECH_BUBBLE_RADIUS,
+  type TileShape,
+} from "./shape";
 import { usePrefersReducedMotion } from "../usePrefersReducedMotion";
 
 /**
@@ -80,6 +85,11 @@ interface Props {
    */
   contentSize?: number;
   shape?: TileShape;
+  /**
+   * The form to draw when there is no `shape`: the circle, or the speech
+   * bubble the spotlight draws everybody as (#2233). A shape always wins.
+   */
+  form?: ShapelessForm;
   speaking?: boolean;
   /** The host's origin, for inheriting the artwork. */
   parentUrl?: string | null;
@@ -108,6 +118,7 @@ export const OrisoFace: FC<Props> = ({
   size,
   contentSize,
   shape,
+  form = "circle",
   speaking = false,
   parentUrl = null,
   video,
@@ -146,7 +157,15 @@ export const OrisoFace: FC<Props> = ({
 
   const style: CSSProperties = useMemo(
     () => ({
-      borderRadius: shape?.radius ?? "50%",
+      /*
+       * With no shape, the circle — or, in the spotlight, the design's
+       * speech bubble: three round corners and one point, upright, so the
+       * point sits bottom left as in the design's rail. Both are drawn in
+       * the same centred square below, which is what keeps the bubble a
+       * drop rather than a drop stretched across a wide stage.
+       */
+      borderRadius:
+        shape?.radius ?? (form === "bubble" ? SPEECH_BUBBLE_RADIUS : "50%"),
       clipPath: shape?.clipPath,
       /*
        * With no shape of its own, the form is a CIRCLE — not an ellipse.
@@ -219,7 +238,16 @@ export const OrisoFace: FC<Props> = ({
           ? haloFor(identity.bg, true)
           : liftFor(size),
     }),
-    [shape, tilt, identity.bg, speaking, size, lifted, prefersReducedMotion],
+    [
+      shape,
+      form,
+      tilt,
+      identity.bg,
+      speaking,
+      size,
+      lifted,
+      prefersReducedMotion,
+    ],
   );
 
   // The contents stay upright while the form leans, and sit over their own
@@ -242,6 +270,9 @@ export const OrisoFace: FC<Props> = ({
       data-testid="oriso-face"
       data-speaking={speaking ? "true" : "false"}
       data-kind={identity.kind}
+      data-form={
+        shape === undefined && form === "bubble" ? "bubble" : undefined
+      }
     >
       {video === undefined ? (
         artwork === null ? (
