@@ -113,6 +113,7 @@ import {
   useOrisoIdentities,
 } from "../oriso/useOrisoIdentities";
 import { OrisoShapeStore, OrisoShapesContext } from "../oriso/useOrisoShape";
+import { rectangularStage } from "../oriso/shape";
 import {
   type OrisoPins,
   OrisoPinsContext,
@@ -361,6 +362,7 @@ export const InCallView: FC<InCallViewProps> = ({
   const earpieceMode = useBehavior(vm.earpieceMode$);
   const audioOutputSwitcher = useBehavior(vm.audioOutputSwitcher$);
   const sharingScreen = useBehavior(vm.sharingScreen$);
+  const screenShareFailure = useBehavior(vm.screenShareFailure$);
   const localHandRaised = !!useBehavior(vm.handsRaised$)[
     `${client.getUserId()}:${client.getDeviceId()}`
   ];
@@ -687,7 +689,8 @@ export const InCallView: FC<InCallViewProps> = ({
       parentUrl,
       enabled: orisoEnabled,
       audioOnly: orisoAudioOnly,
-      rectangular: orisoVideoOneOnOne,
+      // #2233: the spotlight draws people as rounded rectangles too.
+      rectangular: rectangularStage(layout.type, orisoVideoOneOnOne),
     }),
     [
       orisoIdentities,
@@ -696,6 +699,7 @@ export const InCallView: FC<InCallViewProps> = ({
       orisoEnabled,
       orisoAudioOnly,
       orisoVideoOneOnOne,
+      layout.type,
     ],
   );
   const orisoShapes = useInitial(() => new OrisoShapeStore());
@@ -1119,6 +1123,25 @@ export const InCallView: FC<InCallViewProps> = ({
     </>
   );
 
+  /*
+   * #2233 (R8): a share that did not start used to leave the button off
+   * and say nothing. A closed picker stays silent (`screenShareFailure`).
+   */
+  const shareFailureToast = (
+    <Toast
+      onDismiss={vm.dismissScreenShareFailure}
+      open={screenShareFailure !== null}
+      autoDismiss={10000}
+      modal={false}
+    >
+      {screenShareFailure === "system"
+        ? t("oriso.share_failed_system")
+        : screenShareFailure === "blocked"
+          ? t("oriso.share_failed_blocked")
+          : t("oriso.share_failed")}
+    </Toast>
+  );
+
   const earpieceOverlay = (
     <EarpieceOverlay
       show={earpieceMode && !reconnecting}
@@ -1396,7 +1419,12 @@ export const InCallView: FC<InCallViewProps> = ({
                 : null
             }
             notesOpen={notesOpen}
-            screenShareInBar={orisoVideoCall}
+            /*
+             * Every call on a desktop, audio included (#2233, R8): an audio
+             * call hid the share in the ⋮ menu, where nobody found it. The
+             * phone's bar keeps it in the menu (`compact`).
+             */
+            screenShareInBar
           />
         ) : (
           <>
@@ -1490,6 +1518,7 @@ export const InCallView: FC<InCallViewProps> = ({
               <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
               <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
               {reconnectingToast}
+              {orisoEnabled && shareFailureToast}
               <InitialDeviceNotice />
               {earpieceOverlay}
               <ReactionsOverlay vm={vm} />

@@ -635,3 +635,13 @@ unconditionally select the container so we can use cqmin units */
   inset-inline: var(--oriso-circle-inset-inline, 8%);
   inset-block: var(--oriso-circle-inset-block, 8%);
 }
+
+/* A shared screen in the ORISO design (#2233, R25): a rectangle with only a
+   slight corner — the design's 24px, Compound's 6x space — and never a
+   bubble. On the tile rather than on the spotlight around it, because the
+   spotlight drops its corner to 0 when maximised and the grove's fixed slot
+   has none of its own. `.bg` inherits the radius and clips the picture. */
+.media[data-oriso-share="true"] {
+  --media-view-border-radius: var(--cpd-space-6x);
+  overflow: hidden;
+}

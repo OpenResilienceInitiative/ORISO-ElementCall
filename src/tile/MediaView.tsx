@@ -76,14 +76,30 @@ interface Props extends ComponentProps<typeof animated.div> {
   orisoParentUrl?: string | null;
   /** My own tile: a circle on the video stage (#2233, D1). */
   orisoOwn?: boolean;
+  /**
+   * This tile is a SHARED SCREEN in the ORISO design (#2233, R25).
+   *
+   * A screen is not a person, so it never gets a form: it stays upstream's
+   * tile, with no identity, and only its corner is the design's — a
+   * rectangle, slightly rounded (`SHARE_RADIUS`), on the tile itself so it
+   * holds wherever the share is drawn.
+   */
+  orisoShare?: boolean;
 }
 
+/*
+ * A rectangle on the video stage or in the spotlight. It carries no lift, so
+ * it has no halo either; whoever speaks gets the Einzelgespräch's inset rim
+ * instead (#2233 review), or in a spotlight of five nothing visible would
+ * change when somebody starts to talk.
+ */
 const VIDEO_STAGE_SHAPE: TileShape = {
   radius: "var(--cpd-space-5x)",
   tilt: 0,
   contentShare: 0.4,
   body: false,
   lifted: false,
+  speakingAs: "rim",
 };
 
 // #2233 (D1): on the video stage my own picture is a circle.
@@ -125,6 +141,7 @@ export const MediaView: FC<Props> = ({
   orisoSpeaking = false,
   orisoParentUrl = null,
   orisoOwn = false,
+  orisoShare = false,
   ...props
 }) => {
   const { t } = useTranslation();
@@ -288,6 +305,7 @@ export const MediaView: FC<Props> = ({
       data-oriso-side={orisoHalfSide}
       data-oriso-circle={orisoCircle === undefined ? undefined : "true"}
       data-oriso-name-side={orisoShape?.nameSide}
+      data-oriso-share={orisoShare ? "true" : undefined}
       // A running camera under the name: then the name is always a capsule,
       // whatever "Namen & Symbole" says (S5).
       data-oriso-camera={

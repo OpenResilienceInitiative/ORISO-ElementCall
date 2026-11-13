@@ -89,6 +89,7 @@ import { type ProcessorState } from "../../livekit/TrackProcessorContext";
 import { ElementWidgetActions, widget } from "../../widget";
 import { UserMedia } from "../UserMedia.ts";
 import { ScreenShare } from "../ScreenShare.ts";
+import { type ScreenShareFailure } from "../../oriso/screenShareFailure.ts";
 import {
   type GridLayoutMedia,
   type Layout,
@@ -261,6 +262,9 @@ export interface CallViewModel {
    * Whether we are sharing our screen.
    */
   sharingScreen$: Behavior<boolean>;
+  /** Why the last attempt to share the screen did not start, if it did not. */
+  screenShareFailure$: Behavior<ScreenShareFailure | null>;
+  dismissScreenShareFailure: () => void;
 
   // UI interactions
   /**
@@ -1627,6 +1631,8 @@ export function createCallViewModel$(
     join: localMembership.requestJoinAndPublish,
     toggleScreenSharing: toggleScreenSharing,
     sharingScreen$: sharingScreen$,
+    screenShareFailure$: localMembership.screenShareFailure$,
+    dismissScreenShareFailure: localMembership.dismissScreenShareFailure,
 
     tapScreen: (): void => screenTap$.next(),
     tapControls: (): void => controlsTap$.next(),

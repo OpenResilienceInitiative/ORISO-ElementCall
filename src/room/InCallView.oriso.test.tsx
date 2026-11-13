@@ -80,6 +80,7 @@ import { LivekitRoomAudioRenderer } from "../livekit/MatrixAudioRenderer";
 import { MediaDevicesContext } from "../MediaDevicesContext";
 import { HeaderStyle } from "../UrlParams";
 import { type ElementCallError } from "../utils/errors";
+import { type ScreenShareFailure } from "../oriso/screenShareFailure";
 
 vi.hoisted(
   () =>
@@ -246,6 +247,8 @@ function createInCallView({
   orisoLogo,
   cameraOn = false,
   solo = false,
+  canShare = false,
+  shareFailure = null,
   roomName = "Schuldnerberatung",
   topic,
 }: {
@@ -267,6 +270,10 @@ function createInCallView({
   cameraOn?: boolean;
   /** Nobody else in the call yet: the person waits alone. */
   solo?: boolean;
+  /** Whether this browser can capture a screen (jsdom cannot). */
+  canShare?: boolean;
+  /** Why the last attempt to share did not start. */
+  shareFailure?: ScreenShareFailure | null;
   /** The room's display name; "" is a room without a real name. */
   roomName?: string;
   /** `orisoTopic` on the URL (#2233 R6). */
@@ -355,6 +362,9 @@ function createInCallView({
     mediaError$: new BehaviorSubject(mediaError),
     retryMedia,
     orisoCameraOn$: new BehaviorSubject(cameraOn),
+    screenShareFailure$: new BehaviorSubject(shareFailure),
+    dismissScreenShareFailure: vi.fn(),
+    ...(canShare ? { toggleScreenSharing: vi.fn() } : {}),
   });
 
   rtcSession.joined = true;
@@ -1198,7 +1208,8 @@ describe("the call on a phone (S9)", () => {
   });
 
   it("gives a video 1:1 the camera in the bar, and no screen share there", async () => {
-    createInCallView({ callIntent: "video", published: {} });
+    // The phone keeps the share in the ⋮ menu, even where it can capture.
+    createInCallView({ callIntent: "video", published: {}, canShare: true });
     const toolbar = await screen.findByTestId("oriso-toolbar");
     expect(within(toolbar).getByTestId("incall_videomute")).toBeInTheDocument();
     expect(within(toolbar).queryByTestId("incall_screenshare")).toBeNull();
@@ -1247,6 +1258,55 @@ describe("the call on a phone (S9)", () => {
       const header = screen.getByTestId("oriso-header");
       expect(within(header).getByText("Flyer Schule")).toBeInTheDocument();
     });
+  });
+});
+
+/*
+ * #2233 (R8): "Bildschirm teilen fehlt komplett". The share sat in the bar of
+ * a video call only; an audio call — most of the calls on this platform —
+ * hid it in the ⋮ menu, and a share that did not start said nothing.
+ */
+describe("sharing a screen", () => {
+  it.each(["audio", "video"] as const)(
+    "puts the share in the bar of a %s call on a desktop",
+    async (callIntent) => {
+      createInCallView({ callIntent, published: {}, canShare: true });
+      const toolbar = await screen.findByTestId("oriso-toolbar");
+      expect(
+        within(toolbar).getByTestId("incall_screenshare"),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("offers no share where the browser cannot capture a screen", async () => {
+    createInCallView({ callIntent: "audio", published: {} });
+    const toolbar = await screen.findByTestId("oriso-toolbar");
+    expect(within(toolbar).queryByTestId("incall_screenshare")).toBeNull();
+  });
+
+  it.each([
+    ["system", /allow screen recording for the browser/i],
+    ["blocked", /blocked on this page/i],
+    ["failed", /could not be shared/i],
+  ] as const)(
+    "tells the person why a share did not start (%s)",
+    async (failure, message) => {
+      createInCallView({
+        callIntent: "audio",
+        published: {},
+        canShare: true,
+        shareFailure: failure,
+      });
+      expect(await screen.findByText(message)).toBeInTheDocument();
+    },
+  );
+
+  it("says nothing while no share has failed", async () => {
+    createInCallView({ callIntent: "audio", published: {}, canShare: true });
+    await screen.findByTestId("oriso-toolbar");
+    expect(
+      screen.queryByText(/could not be shared|screen recording/i),
+    ).toBeNull();
   });
 });
 
