@@ -122,6 +122,23 @@ describe("ORISO call mode", () => {
     expect(screen.getByTestId("oriso-initials")).toHaveTextContent("F");
   });
 
+  it("rings whoever speaks on a rectangular tile, which has no halo", () => {
+    const tile = (speaking: boolean): React.ReactNode => (
+      <OrisoStageContext value={{ ...stage, rectangular: true }}>
+        <MediaView
+          {...base}
+          orisoIdentity={identity}
+          orisoSpeaking={speaking}
+        />
+      </OrisoStageContext>
+    );
+    const { rerender } = render(tile(false));
+    expect(screen.queryByTestId("oriso-rim")).toBeNull();
+
+    rerender(tile(true));
+    expect(screen.getByTestId("oriso-rim")).toBeInTheDocument();
+  });
+
   describe("a shared screen (#2233, R25)", () => {
     it("is marked as the ORISO share: a rounded rectangle, no form", () => {
       render(<MediaView {...base} videoFit="contain" orisoShare />);

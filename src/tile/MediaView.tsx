@@ -85,12 +85,19 @@ interface Props extends ComponentProps<typeof animated.div> {
   orisoShare?: boolean;
 }
 
+/*
+ * A rectangle on the video stage or in the spotlight. It carries no lift, so
+ * it has no halo either; whoever speaks gets the Einzelgespräch's inset rim
+ * instead (#2233 review), or in a spotlight of five nothing visible would
+ * change when somebody starts to talk.
+ */
 const VIDEO_STAGE_SHAPE: TileShape = {
   radius: "var(--cpd-space-5x)",
   tilt: 0,
   contentShare: 0.4,
   body: false,
   lifted: false,
+  speakingAs: "rim",
 };
 
 export const MediaView: FC<Props> = ({
