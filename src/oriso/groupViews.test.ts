@@ -110,6 +110,25 @@ describe("the Kreis (S6)", () => {
     expect(seats[2].size).toBeGreaterThan(seats[0].size);
   });
 
+  it.each([
+    ["phone", { width: 390, height: 604 }],
+    ["phone, notes open, without the disc", { width: 390, height: 300 }],
+  ])("seats one person alone on the stage (%s, #2233 review)", (_, stage) => {
+    // One person is not the triangle of the smallest group: measured as
+    // one, the seats' reach came to zero and every position to NaN.
+    const { seats, centre, indicator } = kreisPlan(1, stage);
+    if (stage.height === 300) expect(indicator).toBe(false);
+    expect(seats).toHaveLength(1);
+    const [seat] = seats;
+    for (const v of [seat.x, seat.y, seat.size, centre.x, centre.y])
+      expect(Number.isFinite(v)).toBe(true);
+    expect(seat.size).toBeGreaterThan(0);
+    expect(seat.x).toBeGreaterThanOrEqual(0);
+    expect(seat.y).toBeGreaterThanOrEqual(0);
+    expect(seat.x + seat.size).toBeLessThanOrEqual(stage.width);
+    expect(seat.y + seat.size).toBeLessThanOrEqual(stage.height);
+  });
+
   it("still has a group of two on the circle (a group call stays a Kreis)", () => {
     expect(kreisPlan(2, { width: 900, height: 600 }).seats).toHaveLength(2);
   });

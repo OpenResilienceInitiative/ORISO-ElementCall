@@ -7,7 +7,13 @@ Please see LICENSE in the repository root for full details.
 
 import { describe, expect, it } from "vitest";
 
-import { type SpeakerBandInput, speakerBandPlace } from "./speakerBand";
+import {
+  kreisNamesSpeakerBeside,
+  type SpeakerBandInput,
+  speakerBandPlace,
+} from "./speakerBand";
+import { KREIS_CENTRE_TEXT_MIN, kreisPlan } from "./kreis";
+import { stageBesideSpotlight } from "./spotlightRoom";
 import { type StageView } from "./ViewSwitcher";
 
 const desktop: SpeakerBandInput = {
@@ -83,4 +89,39 @@ describe("where the speaker band goes (R27)", () => {
     ).toBeNull();
     expect(speakerBandPlace({ ...desktop, headerShown: false })).toBeNull();
   });
+});
+
+describe("the Kreis beside a shared screen (#2233 review)", () => {
+  // InCallView's grid at 1440x900 (header 72, bar 144).
+  const GRID = { width: 1440, height: 684 };
+
+  it("measures the centre on the stage the grove gives it, not the whole grid", () => {
+    // The whole grid has room for "Susanne P. spricht" in the middle…
+    expect(kreisNamesSpeakerBeside(GRID, null)).toBe(true);
+    // …but a shared screen takes its band off the top or the bottom, the
+    // centre shrinks below the name, and the header has to say it.
+    for (const side of ["start", "end"] as const) {
+      expect(kreisNamesSpeakerBeside(GRID, side)).toBe(false);
+      expect(
+        speakerBandPlace({
+          ...desktop,
+          view: "kreis",
+          kreisNamesSpeaker: kreisNamesSpeakerBeside(GRID, side),
+        }),
+      ).toBe("header");
+    }
+  });
+
+  it.each([null, "start", "end"] as const)(
+    "agrees with the centre the grove draws (%s)",
+    (side) => {
+      const { centre } = kreisPlan(
+        6,
+        stageBesideSpotlight(GRID.width, GRID.height, side),
+      );
+      expect(kreisNamesSpeakerBeside(GRID, side)).toBe(
+        centre.size >= KREIS_CENTRE_TEXT_MIN,
+      );
+    },
+  );
 });

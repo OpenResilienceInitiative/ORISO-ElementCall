@@ -24,7 +24,7 @@ import useMeasure from "react-use-measure";
 import { type MatrixRTCSession } from "matrix-js-sdk/lib/matrixrtc";
 import classNames from "classnames";
 import { BehaviorSubject, map } from "rxjs";
-import { useObservable } from "observable-hooks";
+import { useObservable, useObservableEagerState } from "observable-hooks";
 import { logger as rootLogger } from "matrix-js-sdk/lib/logger";
 import {
   ListBulletedIcon,
@@ -100,8 +100,11 @@ import {
   OrisoToolbar,
 } from "../oriso/OrisoToolbar";
 import { WaveBand } from "../oriso/WaveBand";
-import { PIP_BAND_BLOCK, speakerBandPlace } from "../oriso/speakerBand";
-import { kreisCentreNamesSpeaker } from "../oriso/kreis";
+import {
+  kreisNamesSpeakerBeside,
+  PIP_BAND_BLOCK,
+  speakerBandPlace,
+} from "../oriso/speakerBand";
 import { useStageScrolled } from "../oriso/useStageScrolled";
 import { OrisoNotes } from "../oriso/OrisoNotes";
 import { OrisoHeader } from "../oriso/OrisoHeader";
@@ -884,6 +887,13 @@ export const InCallView: FC<InCallViewProps> = ({
     onTouchEnd: onControlsTouchEnd,
   };
 
+  // A shared screen takes its band off the Kreis's stage (`OrisoGroveLayout`),
+  // so the centre is measured beside it, not on the whole grid (#2233 review).
+  const spotlightBlock = useObservableEagerState(spotlightAlignment$).block;
+  const kreisSpotlight =
+    layout.type === "grid" && layout.spotlight !== undefined
+      ? spotlightBlock
+      : null;
   // R27: who speaks, in every view and in the minimised call.
   const speakerBand = speakerBandPlace({
     enabled: orisoEnabled,
@@ -891,7 +901,7 @@ export const InCallView: FC<InCallViewProps> = ({
     headerShown: orisoEnabled && showControls && windowMode !== "pip",
     mobile: orisoMobile,
     view: stageView,
-    kreisNamesSpeaker: kreisCentreNamesSpeaker(gridBounds),
+    kreisNamesSpeaker: kreisNamesSpeakerBeside(gridBounds, kreisSpotlight),
   });
   // The Kacheln and the Felder scroll under the phone's header.
   const [stageScrolled, onStageScroll] = useStageScrolled();

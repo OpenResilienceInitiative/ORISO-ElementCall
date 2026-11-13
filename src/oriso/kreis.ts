@@ -97,7 +97,9 @@ export function kreisPlan(
 ): KreisPlan {
   const offsetY = stage.offsetY ?? 0;
   const side = Math.max(0, Math.min(stage.width, stage.height));
-  const small = count > 0 && count <= KREIS_SMALL_GROUP;
+  // One person is no group to measure as a triangle: their seats would
+  // reach nowhere (`reachY` 0) and every position became NaN (#2233 review).
+  const small = count >= 2 && count <= KREIS_SMALL_GROUP;
   const cx = stage.width / 2;
   const cy = offsetY + stage.height / 2;
   const share = Math.round(side * KREIS_CENTRE_SHARE);

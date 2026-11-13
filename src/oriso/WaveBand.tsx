@@ -35,6 +35,8 @@ const BARS = [
  * - `pip`: a slim line above the minimised call's one form.
  *
  * Reduced motion keeps the bars at their heights and stops the wave.
+ * Screen readers are not told of every change (no live region); the band
+ * is a group they can read when they come to it.
  */
 export const WaveBand: FC<{
   speaker: Speaker | null;
@@ -50,7 +52,10 @@ export const WaveBand: FC<{
       data-tone={tone}
       data-speaking={speaker !== null}
       data-testid="oriso-wave-band"
-      role="status"
+      // Not a live region: in every view now (R27), "status" read out each
+      // turn and each pause. A labelled group keeps the name readable on
+      // demand (#2233 review).
+      role="group"
       aria-label={t("oriso.wave_label")}
     >
       <span className={styles.bars} aria-hidden="true">

@@ -6,6 +6,8 @@ Please see LICENSE in the repository root for full details.
 */
 
 import { type StageView } from "./ViewSwitcher";
+import { kreisCentreNamesSpeaker } from "./kreis";
+import { type SpotlightSide, stageBesideSpotlight } from "./spotlightRoom";
 
 /**
  * Where the wave band with the speaker's name goes (R27, design 5b).
@@ -54,4 +56,21 @@ export function speakerBandPlace(input: SpeakerBandInput): SpeakerBandPlace {
   if (input.mobile) return "phone";
   if (input.view === "kreis" && input.kreisNamesSpeaker) return null;
   return "header";
+}
+
+/**
+ * Whether the Kreis's centre names the speaker, on the stage it really gets.
+ *
+ * With a shared screen the grove gives the Kreis only the stage beside it
+ * (`stageBesideSpotlight`). Measured on the whole grid instead, the header
+ * left the name to a centre too small to show it, and nobody was named at
+ * all (#2233 review).
+ */
+export function kreisNamesSpeakerBeside(
+  grid: { width: number; height: number },
+  spotlight: SpotlightSide,
+): boolean {
+  return kreisCentreNamesSpeaker(
+    stageBesideSpotlight(grid.width, grid.height, spotlight),
+  );
 }
