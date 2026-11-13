@@ -22,6 +22,8 @@ export default {
     "harness/buehne.tsx",
     "harness/settings.tsx",
     "harness/videoSpike.ts",
+    "harness/pointer.tsx",
+    "harness/pointer.shots.mjs",
     "harness/vite.harness.config.ts",
     "scripts/shootOrisoStage.mjs",
     "scripts/measureVideoInShape.mjs",
