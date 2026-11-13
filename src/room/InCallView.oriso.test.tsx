@@ -31,6 +31,7 @@ import {
   vi,
 } from "vitest";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -78,6 +79,7 @@ import { useRoomEncryptionSystem } from "../e2ee/sharedKeyManagement";
 import { LivekitRoomAudioRenderer } from "../livekit/MatrixAudioRenderer";
 import { MediaDevicesContext } from "../MediaDevicesContext";
 import { HeaderStyle } from "../UrlParams";
+import { setLocalStorageItemReactive } from "../useLocalStorage";
 import { type ElementCallError } from "../utils/errors";
 import { type ScreenShareFailure } from "../oriso/screenShareFailure";
 
@@ -116,11 +118,13 @@ vi.mock("../oriso/useOrisoWindow", async (importOriginal) => ({
  */
 let measured = 0;
 // A phone's width for S9's tests; reset to a desktop's before each test.
-const view = vi.hoisted(() => ({ width: 960 }));
+// `height` is the window's: a test that needs a stage too small for
+// something sets it, rather than counting renders.
+const view = vi.hoisted(() => ({ width: 960, height: 760 }));
 vi.mock("react-use-measure", () => ({
   default: (): [() => void, object] => {
     const rect = [
-      { width: view.width, height: 760 },
+      { width: view.width, height: view.height },
       { width: view.width, height: 60 },
       { width: view.width, height: 100 },
     ][measured++ % 3];
@@ -208,6 +212,7 @@ let useRoomEncryptionSystemMock: MockedFunction<typeof useRoomEncryptionSystem>;
 beforeEach(() => {
   vi.clearAllMocks();
   view.width = 960;
+  view.height = 760;
   hostWindow.send = null;
   hostWindow.fullscreen = true;
   // Views, atmosphere and name style are remembered per person (S5, S6);
@@ -859,7 +864,8 @@ describe("the call, in the ORISO design", () => {
     fireEvent.click(await screen.findByTestId("incall_menu"));
     const menu = screen.getByTestId("oriso-call-menu");
     expect(menu.querySelector('[data-entry="view"]')).toBeNull();
-    expect(menu.querySelector('[data-entry="names"]')).toBeTruthy();
+    // "Namen & Symbole" moved into the settings (#2233).
+    expect(menu.querySelector('[data-entry="names"]')).toBeNull();
   });
 
   it("keeps the chosen atmosphere for the person, carrier's motif by default", async () => {
@@ -892,15 +898,13 @@ describe("the call, in the ORISO design", () => {
     localStorage.removeItem("oriso-call-atmosphere");
   });
 
-  it("switches the names to dezent and remembers it", async () => {
+  it("follows the names setting while the call runs", async () => {
     localStorage.removeItem("oriso-call-names");
     const { container } = createInCallView({ crowd: true });
-    fireEvent.click(await screen.findByTestId("incall_menu"));
-    fireEvent.click(
-      screen
-        .getByTestId("oriso-call-menu")
-        .querySelector('[data-name-style="dezent"]')!,
-    );
+    await screen.findByTestId("incall_menu");
+    expect(container.querySelector('[data-oriso-names="popout"]')).toBeTruthy();
+    // What the settings dialog does when "Namen dezent" is picked.
+    act(() => setLocalStorageItemReactive("oriso-call-names", "dezent"));
     expect(container.querySelector('[data-oriso-names="dezent"]')).toBeTruthy();
     expect(localStorage.getItem("oriso-call-names")).toBe("dezent");
     localStorage.removeItem("oriso-call-names");
@@ -929,6 +933,45 @@ describe("the call, in the ORISO design", () => {
         .querySelector('[role="radio"][aria-checked="true"]')
         ?.getAttribute("data-view"),
     ).toBe("kreis");
+    localStorage.removeItem("oriso-call-view");
+  });
+
+  /*
+   * R27: who speaks, in every view. On a desktop the band is condensed into
+   * the header's middle; a Kreis whose centre already names the speaker
+   * leaves it to the centre rather than saying it twice.
+   */
+  it("names whoever speaks in the desktop header, the 1:1 included", async () => {
+    createInCallView({ callIntent: "audio", published: {} });
+    await screen.findByTestId("einzelgespraech");
+    const band = within(screen.getByTestId("oriso-header")).getByTestId(
+      "oriso-wave-band",
+    );
+    expect(band.dataset.variant).toBe("header");
+  });
+
+  it("names whoever speaks in the header of the Hain, and of a Kreis whose centre cannot", async () => {
+    localStorage.removeItem("oriso-call-view");
+    // A low window: whatever order the sizes are measured in, the Kreis's
+    // stage is at most 240px high, too small for a name in its centre.
+    // (The measure mock hands its sizes out in turn, so on 760px the stage
+    // depended on how often the view had rendered.)
+    view.height = 400;
+    createInCallView({ crowd: true });
+    const rail = await openViewRail();
+    fireEvent.click(rail.querySelector('[data-view="hain"]')!);
+    expect(
+      within(screen.getByTestId("oriso-header")).getByTestId("oriso-wave-band")
+        .dataset.variant,
+    ).toBe("header");
+
+    // The centre here is too small for a name, so the header keeps the band; a centre that names the speaker takes
+    // it over (`speakerBandPlace`, `kreisCentreNamesSpeaker`).
+    fireEvent.click(rail.querySelector('[data-view="kreis"]')!);
+    expect(screen.queryByTestId("oriso-kreis-speaker")).not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("oriso-header")).getByTestId("oriso-wave-band"),
+    ).toBeInTheDocument();
     localStorage.removeItem("oriso-call-view");
   });
 
@@ -1048,12 +1091,11 @@ describe("the call, in the ORISO design", () => {
   });
 
   /*
-   * S7: a video group gets the arrangements that carry a camera inside
-   * their forms. The Kreis — a sound indicator in the middle — is a voice
-   * view and is not offered; a stored Kreis falls back to the group's
-   * default, the Felder (#2233 D9).
+   * #2233: a video group gets all five views, the Kreis too — a
+   * Gesprächskreis meets in the Kreis with cameras or without. A stored
+   * Kreis is kept.
    */
-  it("offers a video group the video arrangements only, without the Kreis", async () => {
+  it("offers a video group all five views and keeps a stored Kreis", async () => {
     localStorage.setItem("oriso-call-view-group", "kreis");
     const { container } = createInCallView({
       crowd: true,
@@ -1065,18 +1107,25 @@ describe("the call, in the ORISO design", () => {
       [...rail.querySelectorAll('[role="radio"]')].map((r) =>
         r.getAttribute("data-view"),
       ),
-    ).toEqual(["hain", "felder", "kacheln", "spotlight"]);
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
     expect(
       rail
         .querySelector('[role="radio"][aria-checked="true"]')
         ?.getAttribute("data-view"),
-    ).toBe("felder");
+    ).toBe("kreis");
     expect(
-      container.querySelector(
-        '[data-testid="oriso-grove"][data-view="felder"]',
-      ),
+      container.querySelector('[data-testid="oriso-grove"][data-view="kreis"]'),
     ).toBeTruthy();
-    expect(screen.queryByTestId("oriso-kreis-centre")).toBeNull();
+    localStorage.removeItem("oriso-call-view-group");
+  });
+
+  it("puts the Kacheln's pager with the head count above the bar (#2233)", async () => {
+    localStorage.setItem("oriso-call-view-group", "kacheln");
+    createInCallView({ crowd: true, callType: "group" });
+    expect(await screen.findByTestId("oriso-kacheln-pager")).toHaveTextContent(
+      "3 participants",
+    );
+    localStorage.removeItem("oriso-call-view-group");
   });
 
   it("keeps names as capsules in a video group, whatever is stored", async () => {
@@ -1201,7 +1250,7 @@ describe("the call on a phone (S9)", () => {
     ).toBeNull();
   });
 
-  it("keeps the 1:1 in the shared circle, without a wave band", async () => {
+  it("keeps the 1:1 in the shared circle, with the wave band too (R27)", async () => {
     const { container } = createInCallView({
       callIntent: "audio",
       published: {},
@@ -1212,7 +1261,8 @@ describe("the call on a phone (S9)", () => {
     expect(
       within(screen.getByTestId("oriso-header")).getByText("encrypted"),
     ).toBeInTheDocument();
-    expect(screen.queryByTestId("oriso-wave-band")).toBeNull();
+    // Who speaks, in every view: the 1:1 no longer leaves it out.
+    expect(screen.getByTestId("oriso-wave-band").dataset.variant).toBe("phone");
     expect(container.querySelector('[data-testid="oriso-grove"]')).toBeNull();
   });
 

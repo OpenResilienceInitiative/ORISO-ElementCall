@@ -338,6 +338,13 @@ export const MediaView: FC<Props> = ({
           }
           shape={orisoShape}
           speaking={orisoSpeaking}
+          // The shapeless form sits in a tile that clips (the spotlight):
+          // its halo is drawn to the room around it rather than cut by it.
+          haloRoom={
+            orisoShape === undefined
+              ? (Math.min(targetWidth, targetHeight) - orisoSide) / 2
+              : undefined
+          }
           parentUrl={orisoParentUrl}
           // The camera takes the artwork's place and leaves the form alone.
           // With it off, the form carries the animal — there is no black

@@ -28,7 +28,7 @@ Please see LICENSE in the repository root for full details.
  *                                 (tilemenu: the first person's ⋮); the call
  *                                 menu is opened by clicking its ⋮
  *   ?notes=1                      the notes card docked on the right
- *   ?names=dezent|popout          "Namen & Symbole"
+ *   ?names=dezent|popout          "Namen & Symbole" (set in the settings)
  *   ?atmosphere=<motif>|traeger   the person's stored choice
  *   ?invite=1|error               "Link teilen" in the header (S8); the fake
  *                                 host answers with a link, or with an error
@@ -85,9 +85,13 @@ import { OrisoMobileMenu, OrisoToolbar } from "../src/oriso/OrisoToolbar";
 import { InviteLinkButton } from "../src/oriso/InviteLinkButton";
 import { type InviteLinkReply } from "../src/oriso/inviteLink";
 import { WaveBand } from "../src/oriso/WaveBand";
+import { speakerBandPlace } from "../src/oriso/speakerBand";
+import { kreisCentreNamesSpeaker } from "../src/oriso/kreis";
+import { useStageScrolled } from "../src/oriso/useStageScrolled";
 import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
 import { ViewSwitcher, type StageView } from "../src/oriso/ViewSwitcher";
+import { KachelnPager } from "../src/oriso/KachelnPager";
 import { type OrisoIdentity } from "../src/oriso/identity";
 import { OrisoStageContext } from "../src/oriso/useOrisoIdentities";
 import {
@@ -243,6 +247,18 @@ const CAST: { name: string; identity: OrisoIdentity }[] = [
 
 const people = Array.from({ length: count }, (_, i) => CAST[i % CAST.length]);
 const idOf = (i: number): string => `p${i}`;
+// "Teilnehmende" (#2233): the same people as Matrix users, named as the
+// stage names them. The ids are username-shaped, so the published name wins.
+const participants = people.map((_, i) => ({
+  userId: `@${idOf(i)}:oriso.test`,
+  displayName: `@${idOf(i)}:oriso.test`,
+}));
+const identities = new Map(
+  people.map((person, i) => [
+    `@${idOf(i)}:oriso.test`,
+    { ...person.identity, name: person.name },
+  ]),
+);
 const indexOf = (id: string): number => Number(id.slice(1));
 
 // What `OrisoGroveLayout` subscribes to on each tile: the media's id, its
@@ -384,9 +400,26 @@ function Stage(): React.ReactNode {
       }),
     [bounds$],
   );
+  // As InCallView decides it (R27).
+  const band = speakerBandPlace({
+    enabled: true,
+    pip: false,
+    headerShown: true,
+    mobile,
+    view,
+    kreisNamesSpeaker: kreisCentreNamesSpeaker({ width, height }),
+  });
+  const speaker =
+    speakingIndex >= 0 && speakingIndex < count
+      ? {
+          userId: idOf(speakingIndex),
+          displayName: CAST[speakingIndex % CAST.length].name,
+        }
+      : null;
+  const [stageScrolled, onStageScroll] = useStageScrolled();
   const stage = useMemo(
     () => ({
-      identities: new Map(),
+      identities,
       parentUrl: window.location.origin,
       enabled: true,
       audioOnly: intent === "audio",
@@ -402,6 +435,8 @@ function Stage(): React.ReactNode {
           <OrisoPinsContext value={pins}>
             <div
               className={styles.inRoom}
+              onScroll={onStageScroll}
+              data-stage-scrolled={stageScrolled ? "true" : undefined}
               data-oriso="true"
               data-notes-docked={notesOpen && !mobile ? "true" : undefined}
               data-oriso-names={intent === "video" ? "popout" : nameStyle}
@@ -440,10 +475,6 @@ function Stage(): React.ReactNode {
                           sharingScreen={false}
                           onOpenSoundSettings={() => {}}
                           onOpenSettings={() => {}}
-                          nameStyle={nameStyle}
-                          onNameStyleChange={
-                            intent === "video" ? null : (): void => {}
-                          }
                           views={{
                             offer: plan.offer,
                             active: view,
@@ -455,16 +486,7 @@ function Stage(): React.ReactNode {
                       </>
                     }
                   />
-                  <WaveBand
-                    speaker={
-                      speakingIndex >= 0 && speakingIndex < count
-                        ? {
-                            userId: idOf(speakingIndex),
-                            displayName: CAST[speakingIndex % CAST.length].name,
-                          }
-                        : null
-                    }
-                  />
+                  {band === "phone" && <WaveBand speaker={speaker} />}
                 </div>
               ) : (
                 <OrisoHeader
@@ -475,6 +497,11 @@ function Stage(): React.ReactNode {
                   meta={<span>{count} Teilnehmende</span>}
                   onWindow={(): void => {}}
                   fullscreen={false}
+                  speaker={
+                    band === "header" ? (
+                      <WaveBand variant="header" speaker={speaker} />
+                    ) : undefined
+                  }
                   actions={
                     <>
                       <AtmospherePicker
@@ -503,7 +530,17 @@ function Stage(): React.ReactNode {
                 Layout={layout.scrolling}
                 Tile={Tile as never}
               />
+              {/* The fixed layer, as InCallView draws it: the shared screen
+                  and the Kacheln's pager (#2233) stay put over the sheet. */}
+              <Grid
+                className={styles.fixedGrid}
+                style={{ insetBlockStart: HEADER, height }}
+                model={model}
+                Layout={layout.fixed}
+                Tile={Tile as never}
+              />
               <div className={classNames(styles.footer, styles.orisoFooter)}>
+                {view === "kacheln" && <KachelnPager count={count} />}
                 <Footer
                   compact={mobile}
                   notesOpen={notesOpen}
@@ -555,7 +592,6 @@ function Footer({
   const [audioMuted, setAudioMuted] = useState(false);
   const [videoMuted, setVideoMuted] = useState(intent === "audio");
   const [hand, setHand] = useState(false);
-  const [names, setNames] = useState(nameStyle);
   return (
     <OrisoToolbar
       className={styles.orisoToolbar}
@@ -571,8 +607,8 @@ function Footer({
       notesOpen={notesOpen}
       onHangup={() => {}}
       participantCount={count}
-      nameStyle={names}
-      onNameStyleChange={intent === "video" ? null : setNames}
+      participants={participants}
+      inviteRequest={fakeInvite}
       backgroundLabel={backgroundLabel}
       onOpenBackground={onOpenBackground}
       onToggleScreenShare={() => {}}

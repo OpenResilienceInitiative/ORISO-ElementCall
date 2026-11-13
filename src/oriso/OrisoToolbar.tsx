@@ -24,6 +24,7 @@ import {
   EndCallIcon,
   GroupIcon,
   CollapseIcon,
+  LinkIcon,
   FullScreenIcon,
   ImageIcon,
   ListBulletedIcon,
@@ -39,7 +40,11 @@ import {
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import styles from "./OrisoToolbar.module.css";
-import { type NameStyle } from "./nameStyle";
+import { type InviteLinkReply } from "./inviteLink";
+import {
+  type CallParticipant,
+  OrisoParticipantsPanel,
+} from "./OrisoParticipantsPanel";
 import { type StageView, ViewSwitcher } from "./ViewSwitcher";
 
 /** What the call menu (⋮) holds; shared by the bar and the mobile header. */
@@ -49,11 +54,15 @@ export interface CallMenuProps {
   onHangup: () => void;
   participantCount: number;
   /**
-   * "Namen & Symbole" (design 2a): dezent or as a capsule. Null hides the
-   * section, e.g. on the video stage where names are always capsules.
+   * Who is in the call, for "Teilnehmende" (#2233). Absent keeps the entry a
+   * plain count, as before.
    */
-  nameStyle?: NameStyle;
-  onNameStyleChange?: ((style: NameStyle) => void) | null;
+  participants?: readonly CallParticipant[];
+  /**
+   * Asks the host for the call's link: "Einladelink senden" in the menu and
+   * "Person einladen" in the participants panel. Null hides both.
+   */
+  inviteRequest?: (() => Promise<InviteLinkReply>) | null;
   /**
    * "Hintergrund": opens the atmosphere popover in the header. The label is
    * the motif that is on; null hides the entry (no atmosphere on this stage).
@@ -113,8 +122,8 @@ interface Props extends CallMenuProps {
  * One white bar with the microphone, the camera, the hand, the notes and a
  * `⋮`, and the hang-up beside it as a round button of its own. Upstream's
  * black buttons and the view rail are gone from the footer; the rail lives
- * in the call header (S5), the `⋮` menu holds "Namen & Symbole" and
- * "Hintergrund" as in design 2a.
+ * in the call header (S5), the `⋮` menu holds "Hintergrund" as in design 2a;
+ * "Namen & Symbole" moved into the settings (#2233).
  *
  * The menu is rendered INSIDE the toolbar rather than in a portal, so the
  * toolbar's own z-index is the menu's too. That is the stacking order's rule
@@ -132,8 +141,8 @@ export const OrisoToolbar: FC<Props> = ({
   notesOpen = false,
   onHangup,
   participantCount,
-  nameStyle = "popout",
-  onNameStyleChange = null,
+  participants,
+  inviteRequest = null,
   backgroundLabel = null,
   onOpenBackground = null,
   onToggleScreenShare,
@@ -162,6 +171,7 @@ export const OrisoToolbar: FC<Props> = ({
   }, []);
 
   useMenuPopover(menuOpen, setMenuOpen, triggerRef, menuRef);
+  const people = usePeoplePanel(triggerRef);
 
   const micLabel = audioMuted
     ? t("unmute_microphone_button_label")
@@ -181,8 +191,8 @@ export const OrisoToolbar: FC<Props> = ({
     ? t("action.lower_hand")
     : t("action.raise_hand");
 
-  /* Wide and spelled out (design 2a/2b, "Auflegen"): the one action that
-     ends the call should not be an icon to be guessed. Round on a phone. */
+  /* Round with the receiver only (Frank, 12 Nov, #2233): the word stays as
+     the button's name for a screen reader and its tooltip. */
   const hangup = (
     <button
       type="button"
@@ -271,7 +281,10 @@ export const OrisoToolbar: FC<Props> = ({
             state={menuOpen ? "open" : "off"}
             expanded={menuOpen}
             controls={menuId}
-            onClick={() => setMenuOpen((open) => !open)}
+            onClick={() => {
+              people.close(false);
+              setMenuOpen((open) => !open);
+            }}
             onTouchEnd={onTouchEnd}
             testId="incall_menu"
           >
@@ -293,8 +306,9 @@ export const OrisoToolbar: FC<Props> = ({
           id={menuId}
           onClose={closeMenu}
           participantCount={participantCount}
-          nameStyle={nameStyle}
-          onNameStyleChange={onNameStyleChange}
+          participants={participants}
+          inviteRequest={inviteRequest}
+          onOpenParticipants={participants ? people.open : null}
           backgroundLabel={backgroundLabel}
           onOpenBackground={onOpenBackground}
           onToggleScreenShare={onToggleScreenShare}
@@ -311,9 +325,45 @@ export const OrisoToolbar: FC<Props> = ({
           onTouchEnd={onTouchEnd}
         />
       )}
+      {people.inviting !== null && participants && !compact && (
+        <OrisoParticipantsPanel
+          ref={people.panelRef}
+          participants={participants}
+          inviteRequest={inviteRequest}
+          inviting={people.inviting}
+          onClose={people.close}
+          onTouchEnd={onTouchEnd}
+        />
+      )}
     </div>
   );
 };
+
+/**
+ * The participants panel's state, beside the menu that opens it: null while
+ * closed, else whether it was opened to invite somebody (#2233).
+ */
+function usePeoplePanel(triggerRef: RefObject<HTMLElement | null>): {
+  inviting: boolean | null;
+  open: (inviting: boolean) => void;
+  close: (refocus: boolean) => void;
+  panelRef: RefObject<HTMLDivElement | null>;
+} {
+  const [inviting, setInviting] = useState<boolean | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(
+    (refocus: boolean) => {
+      setInviting(null);
+      if (refocus) triggerRef.current?.focus();
+    },
+    [triggerRef],
+  );
+  const setOpen = useCallback((open: boolean) => {
+    if (!open) setInviting(null);
+  }, []);
+  useMenuPopover(inviting !== null, setOpen, triggerRef, panelRef);
+  return { inviting, open: setInviting, close, panelRef };
+}
 
 /**
  * A popover's own housekeeping: a click anywhere else closes it, and
@@ -346,6 +396,40 @@ export function useMenuPopover(
   }, [open, panelRef]);
 }
 
+/**
+ * Keeps a panel that hangs from its trigger's right edge on screen. Where
+ * the host keeps its own window buttons, the phone header's ⋮ sits 112px in
+ * from the edge, and on a narrow phone the panel would run off the left:
+ * slide it back so it keeps 16px free on either side (ORISO-ElementCall#145
+ * review). The call menu and "Teilnehmende" share the anchor, so they share
+ * this too (#2233 review).
+ */
+function useFitBesideTrigger(
+  open: boolean,
+  triggerRef: RefObject<HTMLElement | null>,
+  panelRef: RefObject<HTMLElement | null>,
+): void {
+  useEffect(() => {
+    if (!open) return;
+    const fit = (): void => {
+      const panel = panelRef.current;
+      const trigger = triggerRef.current;
+      if (!panel || !trigger) return;
+      const right = trigger.getBoundingClientRect().right;
+      const width = panel.getBoundingClientRect().width;
+      const edge = 16;
+      const shift = Math.min(
+        Math.max(0, edge - (right - width)),
+        Math.max(0, window.innerWidth - edge - right),
+      );
+      panel.style.right = shift > 0 ? `${-shift}px` : "";
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return (): void => window.removeEventListener("resize", fit);
+  }, [open, triggerRef, panelRef]);
+}
+
 interface CallMenuPanelProps extends CallMenuProps {
   ref?: Ref<HTMLDivElement>;
   id: string;
@@ -355,6 +439,11 @@ interface CallMenuPanelProps extends CallMenuProps {
   onClose: (refocus: boolean) => void;
   /** Sections above the usual ones: on a phone the view rail and the window. */
   extra?: ReactNode;
+  /**
+   * Opens the participants panel, to invite somebody or just to look. Null
+   * keeps "Teilnehmende" a plain count.
+   */
+  onOpenParticipants?: ((inviting: boolean) => void) | null;
   className?: string;
 }
 
@@ -371,8 +460,9 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
   extra,
   className,
   participantCount,
-  nameStyle = "popout",
-  onNameStyleChange = null,
+  participants,
+  inviteRequest = null,
+  onOpenParticipants = null,
   backgroundLabel = null,
   onOpenBackground = null,
   onToggleScreenShare,
@@ -404,6 +494,19 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
   const shareLabel = sharingScreen
     ? t("stop_screenshare_button_label")
     : t("screenshare_button_label");
+  // People, not devices: somebody on a laptop and a phone is one person, as
+  // in the "Teilnehmende" list this row opens (#2233 review).
+  const peopleCount = participants?.length ?? participantCount;
+  const participantsRow = (
+    <>
+      <span className={styles.rowLabel}>{t("oriso.menu_participants")}</span>
+      <span className={styles.rowHint}>
+        {peopleCount}
+        {waiting && <span className={styles.waiting}> · {waiting}</span>}
+      </span>
+      <GroupIcon aria-hidden width={21} height={21} />
+    </>
+  );
 
   return (
     // A popover of buttons rather than an ARIA menu: it holds the view
@@ -423,49 +526,32 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
       onTouchEnd={onTouchEnd}
     >
       {extra}
-      {onNameStyleChange !== null && (
-        <div className={styles.section} data-entry="names">
-          <span className={styles.sectionTitle} id={`${id}-names`}>
-            {t("oriso.names_title")}
-          </span>
-          <div
-            className={styles.nameCards}
-            role="radiogroup"
-            aria-labelledby={`${id}-names`}
-          >
-            {(["dezent", "popout"] as const).map((style) => (
-              <button
-                key={style}
-                type="button"
-                role="radio"
-                aria-checked={nameStyle === style}
-                className={styles.nameCard}
-                data-name-style={style}
-                // The menu stays open: the person sees the names change.
-                onClick={() => onNameStyleChange(style)}
-                onTouchEnd={onTouchEnd}
-              >
-                <span className={styles.nameSample} aria-hidden="true">
-                  {t("oriso.names_sample")}
-                </span>
-                <span>{t(`oriso.names_${style}`)}</span>
-              </button>
-            ))}
-          </div>
-          <span className={styles.rowDescription}>{t("oriso.names_hint")}</span>
-        </div>
-      )}
       <div className={styles.section}>
-        <div className={styles.row} data-entry="participants">
-          <span className={styles.rowLabel}>
-            {t("oriso.menu_participants")}
-          </span>
-          <span className={styles.rowHint}>
-            {participantCount}
-            {waiting && <span className={styles.waiting}> · {waiting}</span>}
-          </span>
-          <GroupIcon aria-hidden width={21} height={21} />
-        </div>
+        {onOpenParticipants === null ? (
+          <div className={styles.row} data-entry="participants">
+            {participantsRow}
+          </div>
+        ) : (
+          // Opens who is in the call, with inviting somebody (#2233).
+          <button
+            type="button"
+            className={classNames(styles.row, styles.entry)}
+            data-entry="participants"
+            aria-haspopup="dialog"
+            onClick={pick(() => onOpenParticipants(false))}
+          >
+            {participantsRow}
+          </button>
+        )}
+        {inviteRequest !== null && onOpenParticipants !== null && (
+          <MenuEntry
+            entry="invite"
+            label={t("oriso.menu_invite")}
+            onClick={pick(() => onOpenParticipants(true))}
+          >
+            <LinkIcon aria-hidden width={21} height={21} />
+          </MenuEntry>
+        )}
         {knock !== null && onKnockChange !== null && (
           <div className={styles.row} data-entry="knock">
             <span className={styles.rowLabel}>
@@ -694,29 +780,10 @@ export const OrisoMobileMenu: FC<MobileMenuProps> = ({
     if (refocus) triggerRef.current?.focus();
   }, []);
   useMenuPopover(open, setOpen, triggerRef, panelRef);
-  // The panel hangs from the ⋮'s right edge. Where the host keeps its own
-  // window buttons, the ⋮ sits 112px in from the edge, and on a narrow
-  // phone the panel would run off the left: slide it back so it keeps
-  // 16px free on either side (ORISO-ElementCall#145 review).
-  useEffect(() => {
-    if (!open) return;
-    const fit = (): void => {
-      const panel = panelRef.current;
-      const trigger = triggerRef.current;
-      if (!panel || !trigger) return;
-      const right = trigger.getBoundingClientRect().right;
-      const width = panel.getBoundingClientRect().width;
-      const edge = 16;
-      const shift = Math.min(
-        Math.max(0, edge - (right - width)),
-        Math.max(0, window.innerWidth - edge - right),
-      );
-      panel.style.right = shift > 0 ? `${-shift}px` : "";
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return (): void => window.removeEventListener("resize", fit);
-  }, [open]);
+  const people = usePeoplePanel(triggerRef);
+  // Both hang from the ⋮, so both slide back on a narrow phone (#2233).
+  useFitBesideTrigger(open, triggerRef, panelRef);
+  useFitBesideTrigger(people.inviting !== null, triggerRef, people.panelRef);
 
   const waitingCount = menu.waitingCount ?? 0;
   const waiting =
@@ -773,7 +840,10 @@ export const OrisoMobileMenu: FC<MobileMenuProps> = ({
         title={label}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        onClick={() => setOpen((was) => !was)}
+        onClick={() => {
+          people.close(false);
+          setOpen((was) => !was);
+        }}
         onTouchEnd={onTouchEnd}
         data-testid="oriso-mobile-menu"
       >
@@ -792,6 +862,18 @@ export const OrisoMobileMenu: FC<MobileMenuProps> = ({
           placement="header"
           onClose={close}
           extra={extra}
+          onOpenParticipants={menu.participants ? people.open : null}
+          onTouchEnd={onTouchEnd}
+        />
+      )}
+      {people.inviting !== null && menu.participants && (
+        <OrisoParticipantsPanel
+          ref={people.panelRef}
+          participants={menu.participants}
+          inviteRequest={menu.inviteRequest ?? null}
+          inviting={people.inviting}
+          placement="header"
+          onClose={people.close}
           onTouchEnd={onTouchEnd}
         />
       )}

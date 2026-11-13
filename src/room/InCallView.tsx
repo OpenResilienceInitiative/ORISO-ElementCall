@@ -24,7 +24,7 @@ import useMeasure from "react-use-measure";
 import { type MatrixRTCSession } from "matrix-js-sdk/lib/matrixrtc";
 import classNames from "classnames";
 import { BehaviorSubject, map } from "rxjs";
-import { useObservable } from "observable-hooks";
+import { useObservable, useObservableEagerState } from "observable-hooks";
 import { logger as rootLogger } from "matrix-js-sdk/lib/logger";
 import {
   ListBulletedIcon,
@@ -83,6 +83,7 @@ import { makeSpotlightPortraitLayout } from "../grid/SpotlightPortraitLayout";
 import { makeOrisoGroveLayout } from "../grid/OrisoGroveLayout";
 import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
 import { type StageView, ViewSwitcher } from "../oriso/ViewSwitcher";
+import { KachelnPager } from "../oriso/KachelnPager";
 import { AtmospherePicker } from "../oriso/AtmospherePicker";
 import {
   ATMOSPHERE_CHOICE_KEY,
@@ -90,17 +91,19 @@ import {
   readAtmosphereChoice,
   resolveAtmosphere,
 } from "../oriso/atmosphereChoice";
-import {
-  NAME_STYLE_KEY,
-  type NameStyle,
-  readNameStyle,
-} from "../oriso/nameStyle";
+import { useNameStyle } from "../oriso/nameStyle";
 import {
   type CallMenuProps,
   OrisoMobileMenu,
   OrisoToolbar,
 } from "../oriso/OrisoToolbar";
 import { WaveBand } from "../oriso/WaveBand";
+import {
+  kreisNamesSpeakerBeside,
+  PIP_BAND_BLOCK,
+  speakerBandPlace,
+} from "../oriso/speakerBand";
+import { useStageScrolled } from "../oriso/useStageScrolled";
 import { OrisoNotes } from "../oriso/OrisoNotes";
 import { OrisoHeader } from "../oriso/OrisoHeader";
 import { useOrisoWindow } from "../oriso/useOrisoWindow";
@@ -352,6 +355,7 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const audioParticipants = useBehavior(vm.audioParticipants$);
   const participantCount = useBehavior(vm.participantCount$);
+  const participantUserIds = useBehavior(vm.participantUserIds$);
   const reconnecting = useBehavior(vm.reconnecting$);
   const windowMode = useBehavior(vm.windowMode$);
   const layout = useBehavior(vm.layout$);
@@ -718,13 +722,9 @@ export const InCallView: FC<InCallViewProps> = ({
   // Only where the atmosphere is the stage: the video 1:1 is a dark stage.
   const atmosphereShown = orisoEnabled && !orisoVideoOneOnOne;
 
-  // "Namen & Symbole" (S5): dezent or as a capsule, kept in this browser.
-  const [storedNameStyle, setStoredNameStyle] = useLocalStorage(NAME_STYLE_KEY);
-  const nameStyle = readNameStyle(storedNameStyle);
-  const chooseNameStyle = useCallback(
-    (style: NameStyle) => setStoredNameStyle(style),
-    [setStoredNameStyle],
-  );
+  // "Namen & Symbole" (S5): dezent or as a capsule, chosen in the settings
+  // (#2233) and followed here while the call runs.
+  const [nameStyle] = useNameStyle();
 
   /*
    * The view is remembered, because it is a preference about how somebody
@@ -868,6 +868,19 @@ export const InCallView: FC<InCallViewProps> = ({
 
   useAppBarHidden(!showHeader);
 
+  // Names as the room has them; the panel's rows turn them into what the
+  // stage shows (the pseudonym, never a login name).
+  // Read again whenever somebody joins or leaves.
+  const callParticipants = useMemo(() => {
+    const names = new Map(
+      matrixRoom.getMembers().map((m) => [m.userId, m.name] as const),
+    );
+    return participantUserIds.map((userId) => ({
+      userId,
+      displayName: names.get(userId) ?? userId,
+    }));
+  }, [participantUserIds, matrixRoom]);
+
   // The call menu's contents, in the bar's ⋮ or the phone header's (S9).
   const callMenu: CallMenuProps = {
     onToggleNotes: toggleNotes,
@@ -878,10 +891,9 @@ export const InCallView: FC<InCallViewProps> = ({
     onPointingChange: sharePointer.onPointingChange,
     onHangup: (): void => vm.hangup(),
     participantCount,
-    // Over a camera names are always capsules, so a video call offers no
-    // choice.
-    nameStyle,
-    onNameStyleChange: orisoVideoCall ? null : chooseNameStyle,
+    // "Teilnehmende" lists them and invites somebody else (#2233).
+    participants: orisoEnabled ? callParticipants : undefined,
+    inviteRequest: orisoInviteRequest,
     // A phone's header has no room for the atmosphere popover (5b).
     backgroundLabel:
       atmosphereShown && !orisoMobile
@@ -897,6 +909,25 @@ export const InCallView: FC<InCallViewProps> = ({
     onOpenSettings: isPopupMode ? null : openSettings,
     onTouchEnd: onControlsTouchEnd,
   };
+
+  // A shared screen takes its band off the Kreis's stage (`OrisoGroveLayout`),
+  // so the centre is measured beside it, not on the whole grid (#2233 review).
+  const spotlightBlock = useObservableEagerState(spotlightAlignment$).block;
+  const kreisSpotlight =
+    layout.type === "grid" && layout.spotlight !== undefined
+      ? spotlightBlock
+      : null;
+  // R27: who speaks, in every view and in the minimised call.
+  const speakerBand = speakerBandPlace({
+    enabled: orisoEnabled,
+    pip: layout.type === "pip",
+    headerShown: orisoEnabled && showControls && windowMode !== "pip",
+    mobile: orisoMobile,
+    view: stageView,
+    kreisNamesSpeaker: kreisNamesSpeakerBeside(gridBounds, kreisSpotlight),
+  });
+  // The Kacheln and the Felder scroll under the phone's header.
+  const [stageScrolled, onStageScroll] = useStageScrolled();
 
   let header: ReactNode = null;
   if (orisoEnabled && showControls && windowMode !== "pip") {
@@ -949,10 +980,13 @@ export const InCallView: FC<InCallViewProps> = ({
               {callDuration}
             </span>
           ) : (
-            // 5b: "verschlüsselt · 6 Teilnehmende" on a phone.
+            // 5b: "verschlüsselt · 6 Teilnehmende" on a phone. People, not
+            // devices, as the ⋮'s "Teilnehmende" counts them (#2233 review).
             orisoMobile && (
               <span data-testid="oriso-header-participants">
-                {t("oriso.participants_count", { count: participantCount })}
+                {t("oriso.participants_count", {
+                  count: callParticipants.length,
+                })}
               </span>
             )
           )
@@ -960,6 +994,15 @@ export const InCallView: FC<InCallViewProps> = ({
         onWindow={orisoWindow.send}
         fullscreen={orisoWindow.fullscreen}
         onTouchEnd={onHeaderTouchEnd}
+        speaker={
+          speakerBand === "header" ? (
+            <WaveBand
+              variant="header"
+              tone={orisoVideoOneOnOne ? "dark" : "light"}
+              speaker={orisoSpeaker}
+            />
+          ) : undefined
+        }
         actions={
           <>
             {atmosphereShown && !orisoMobile && (
@@ -1037,11 +1080,12 @@ export const InCallView: FC<InCallViewProps> = ({
       />
     );
     header = orisoMobile ? (
-      // A phone: the header and, for a group, the wave band under it are
-      // measured together, so the stage starts below both.
+      // A phone: the header and the wave band under it are measured
+      // together, so the stage starts below both. In every view, the 1:1
+      // included (R27).
       <div ref={headerRef} className={styles.orisoMobileHeader}>
         {orisoHeader}
-        {!alone && <WaveBand speaker={orisoSpeaker} />}
+        {speakerBand === "phone" && <WaveBand speaker={orisoSpeaker} />}
       </div>
     ) : (
       orisoHeader
@@ -1218,18 +1262,26 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const renderContent = (): JSX.Element => {
     if (layout.type === "pip") {
+      // The minimised call has no header: the speaker band (R27) is a slim
+      // line above its one form, and the form takes the rest.
+      // (Upstream hands the two sides over swapped; the band comes off the
+      // height either way.)
+      const band = speakerBand === "pip" ? PIP_BAND_BLOCK : 0;
       return (
-        <SpotlightTile
-          className={classNames(styles.tile, styles.maximised)}
-          vm={layout.spotlight}
-          expanded
-          onToggleExpanded={null}
-          targetWidth={gridBounds.height}
-          targetHeight={gridBounds.width}
-          showIndicators={false}
-          focusable={!contentObscured}
-          aria-hidden={contentObscured}
-        />
+        <>
+          {band > 0 && <WaveBand variant="pip" speaker={orisoSpeaker} />}
+          <SpotlightTile
+            className={classNames(styles.tile, styles.maximised)}
+            vm={layout.spotlight}
+            expanded
+            onToggleExpanded={null}
+            targetWidth={gridBounds.height - band}
+            targetHeight={gridBounds.width}
+            showIndicators={false}
+            focusable={!contentObscured}
+            aria-hidden={contentObscured}
+          />
+        </>
       );
     }
 
@@ -1386,6 +1438,12 @@ export const InCallView: FC<InCallViewProps> = ({
       {headerStyle !== "none" && debugTileLayout
         ? `Tiles generation: ${tileStoreGeneration}`
         : undefined}
+      {/* #2233 (T12): the Kacheln's pager rides on the bar, which stays
+          put while the sheet scrolls. */}
+      {showControls &&
+        orisoEnabled &&
+        stageView === "kacheln" &&
+        layout.type === "grid" && <KachelnPager count={layout.grid.length} />}
       {showControls &&
         (orisoEnabled ? (
           <OrisoToolbar
@@ -1443,6 +1501,10 @@ export const InCallView: FC<InCallViewProps> = ({
               onTouchCancel={onTouchCancel}
               onPointerMove={onPointerMove}
               onPointerOut={onPointerOut}
+              onScroll={orisoEnabled ? onStageScroll : undefined}
+              data-stage-scrolled={
+                orisoEnabled && stageScrolled ? "true" : undefined
+              }
               data-oriso={orisoEnabled ? "true" : undefined}
               data-oriso-video-stage={orisoVideoOneOnOne ? "true" : undefined}
               style={

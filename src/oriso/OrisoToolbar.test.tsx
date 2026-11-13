@@ -24,8 +24,6 @@ const props = (
   onToggleNotes: vi.fn(),
   onHangup: vi.fn(),
   participantCount: 2,
-  nameStyle: "popout",
-  onNameStyleChange: vi.fn(),
   backgroundLabel: "Fluss von oben",
   onOpenBackground: vi.fn(),
   onToggleScreenShare: vi.fn(),
@@ -76,7 +74,7 @@ describe("the ORISO control bar", () => {
     ]);
   });
 
-  it("says what the hang-up does in a word", () => {
+  it("names the hang-up for a screen reader", () => {
     render(<OrisoToolbar {...props()} />);
     const hangup = screen.getByTestId("incall_leave");
     expect(hangup).toHaveTextContent("Hang up");
@@ -186,7 +184,6 @@ describe("the call menu behind ⋮", () => {
       (el) => (el as HTMLElement).dataset.entry,
     );
     expect(entries).toEqual([
-      "names",
       "participants",
       "share_screen",
       "background",
@@ -224,20 +221,9 @@ describe("the call menu behind ⋮", () => {
     expect(screen.queryByTestId("view-switcher")).toBeNull();
   });
 
-  it("offers Namen & Symbole as two cards and keeps the menu open", () => {
-    const p = open();
-    const menu = screen.getByTestId("oriso-call-menu");
-    const cards = menu.querySelectorAll('[data-entry="names"] [role="radio"]');
-    expect(cards).toHaveLength(2);
-    const popout = menu.querySelector('[data-name-style="popout"]')!;
-    expect(popout.getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(menu.querySelector('[data-name-style="dezent"]')!);
-    expect(p.onNameStyleChange).toHaveBeenCalledWith("dezent");
-    expect(screen.getByTestId("oriso-call-menu")).toBeTruthy();
-  });
-
-  it("leaves Namen & Symbole out where there is no choice", () => {
-    open({ onNameStyleChange: null });
+  // Moved into the settings (Frank, 12 Nov, #2233).
+  it("no longer holds Namen & Symbole", () => {
+    open();
     expect(
       screen
         .getByTestId("oriso-call-menu")
@@ -503,6 +489,45 @@ describe("the call menu in a phone's header (S9)", () => {
       window.innerWidth = 1024;
       fireEvent(window, new Event("resize"));
       expect(menu.style.right).toBe("");
+    } finally {
+      window.innerWidth = width;
+    }
+  });
+
+  it("slides Teilnehmende back on screen as it does the menu (#2233 review)", () => {
+    // The same phone as above: the panel hangs from the same ⋮ with the
+    // same width, so it would start at -80px just the same.
+    const width = window.innerWidth;
+    window.innerWidth = 320;
+    try {
+      render(
+        <OrisoMobileMenu
+          {...menuProps({
+            participants: [{ userId: "@a:oriso.org", displayName: "Anna" }],
+          })}
+        />,
+      );
+      const trigger = screen.getByTestId("oriso-mobile-menu");
+      fireEvent.click(trigger);
+      fireEvent.click(
+        screen
+          .getByTestId("oriso-call-menu")
+          .querySelector<HTMLElement>('[data-entry="participants"]')!,
+      );
+      const panel = screen.getByTestId("oriso-participants-panel");
+      expect(panel.dataset.placement).toBe("header");
+      let triggerRight = 208;
+      trigger.getBoundingClientRect = (): DOMRect =>
+        ({ right: triggerRight }) as DOMRect;
+      panel.getBoundingClientRect = (): DOMRect => ({ width: 288 }) as DOMRect;
+      fireEvent(window, new Event("resize"));
+      // Slid right by 96px: 16px free on the left, 16px on the right.
+      expect(panel.style.right).toBe("-96px");
+      // Wide enough: it hangs from the ⋮ as before.
+      triggerRight = 1024 - 112;
+      window.innerWidth = 1024;
+      fireEvent(window, new Event("resize"));
+      expect(panel.style.right).toBe("");
     } finally {
       window.innerWidth = width;
     }

@@ -104,3 +104,47 @@ describe("the call header's window buttons (S2)", () => {
     expect(css).not.toMatch(/\[data-host-chrome="call"\][^{]*\{[^}]*padding/);
   });
 });
+
+describe("who is speaking in the desktop header (R27)", () => {
+  it("sits between the title and the buttons", () => {
+    render(
+      <OrisoHeader
+        tone="light"
+        title="Gruppengespräch"
+        encrypted
+        onWindow={vi.fn()}
+        fullscreen={false}
+        speaker={<span data-testid="band">Susanne P. spricht</span>}
+        actions={<button type="button">Kreis</button>}
+      />,
+    );
+    const header = screen.getByTestId("oriso-header");
+    const order = Array.from(header.querySelectorAll("*"))
+      .map((el) =>
+        el.getAttribute("data-testid") === "band"
+          ? "band"
+          : el.textContent === "Kreis" && el.tagName === "BUTTON"
+            ? "actions"
+            : el.textContent === "Gruppengespräch"
+              ? "title"
+              : null,
+      )
+      .filter(Boolean);
+    expect(order).toEqual(["title", "band", "actions"]);
+  });
+
+  it("is left to the band under the header on a phone", () => {
+    render(
+      <OrisoHeader
+        tone="light"
+        compact
+        title="Gruppengespräch"
+        encrypted
+        onWindow={null}
+        fullscreen
+        speaker={<span data-testid="band">Susanne P. spricht</span>}
+      />,
+    );
+    expect(screen.queryByTestId("band")).toBeNull();
+  });
+});

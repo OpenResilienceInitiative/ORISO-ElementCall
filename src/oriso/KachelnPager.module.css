@@ -1,0 +1,59 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* The Kacheln's pager (#2233): a white capsule at the stage's bottom right,
+   in the bar's own colours, riding just above the bar (the footer, which
+   stays put) while the sheet scrolls under it. */
+.pager {
+  position: absolute;
+  inset-block-end: calc(100% + var(--cpd-space-2x));
+  inset-inline-end: var(--cpd-space-4x);
+  display: flex;
+  align-items: center;
+  gap: var(--cpd-space-1x);
+  padding: var(--cpd-space-1x);
+  border-radius: 999px;
+  background: #fff;
+  color: rgb(45 44 40);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 14%);
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.count {
+  padding-inline: var(--cpd-space-2x);
+  font: var(--cpd-font-body-sm-medium);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.step {
+  display: grid;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.step:hover:not(:disabled) {
+  background: rgb(0 0 0 / 6%);
+}
+
+.step:focus-visible {
+  outline: 2px solid var(--cpd-color-border-focused);
+  outline-offset: 1px;
+}
+
+.step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

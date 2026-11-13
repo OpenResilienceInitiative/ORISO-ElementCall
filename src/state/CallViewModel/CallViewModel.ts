@@ -310,6 +310,12 @@ export interface CallViewModel {
    *    multiple devices.
    */
   participantCount$: Behavior<number>;
+  /**
+   * Who is in the call, by Matrix user, in the order they joined; one entry
+   * per person even with several devices. Lists them in the participants
+   * panel (ORISO-Frontend#2233).
+   */
+  participantUserIds$: Behavior<readonly string[]>;
   /** Participants sorted by livekit room so they can be used in the audio rendering */
   audioParticipants$: Behavior<AudioLivekitItem[]>;
   /**
@@ -882,6 +888,15 @@ export function createCallViewModel$(
    */
   const participantCount$ = scope.behavior(
     matrixLivekitMembers$.pipe(map((ms) => ms.value.length)),
+  );
+
+  const participantUserIds$ = scope.behavior(
+    matrixLivekitMembers$.pipe(
+      map((ms) => [...new Set(ms.value.map((m) => m.userId))]),
+      distinctUntilChanged(
+        (a, b) => a.length === b.length && a.every((id, i) => id === b[i]),
+      ),
+    ),
   );
 
   const leaveSoundEffect$ = combineLatest([callPickupState$, userMedia$]).pipe(
@@ -1665,6 +1680,7 @@ export function createCallViewModel$(
     },
 
     participantCount$: participantCount$,
+    participantUserIds$,
     audioParticipants$: audioParticipants$,
     pointerRooms$: scope.behavior<PointerRooms>(
       combineLatest(
