@@ -24,7 +24,7 @@ import useMeasure from "react-use-measure";
 import { type MatrixRTCSession } from "matrix-js-sdk/lib/matrixrtc";
 import classNames from "classnames";
 import { BehaviorSubject, map } from "rxjs";
-import { useObservable } from "observable-hooks";
+import { useObservable, useObservableEagerState } from "observable-hooks";
 import { logger as rootLogger } from "matrix-js-sdk/lib/logger";
 import {
   ListBulletedIcon,
@@ -97,6 +97,12 @@ import {
   OrisoToolbar,
 } from "../oriso/OrisoToolbar";
 import { WaveBand } from "../oriso/WaveBand";
+import {
+  kreisNamesSpeakerBeside,
+  PIP_BAND_BLOCK,
+  speakerBandPlace,
+} from "../oriso/speakerBand";
+import { useStageScrolled } from "../oriso/useStageScrolled";
 import { OrisoNotes } from "../oriso/OrisoNotes";
 import { OrisoHeader } from "../oriso/OrisoHeader";
 import { useOrisoWindow } from "../oriso/useOrisoWindow";
@@ -893,6 +899,25 @@ export const InCallView: FC<InCallViewProps> = ({
     onTouchEnd: onControlsTouchEnd,
   };
 
+  // A shared screen takes its band off the Kreis's stage (`OrisoGroveLayout`),
+  // so the centre is measured beside it, not on the whole grid (#2233 review).
+  const spotlightBlock = useObservableEagerState(spotlightAlignment$).block;
+  const kreisSpotlight =
+    layout.type === "grid" && layout.spotlight !== undefined
+      ? spotlightBlock
+      : null;
+  // R27: who speaks, in every view and in the minimised call.
+  const speakerBand = speakerBandPlace({
+    enabled: orisoEnabled,
+    pip: layout.type === "pip",
+    headerShown: orisoEnabled && showControls && windowMode !== "pip",
+    mobile: orisoMobile,
+    view: stageView,
+    kreisNamesSpeaker: kreisNamesSpeakerBeside(gridBounds, kreisSpotlight),
+  });
+  // The Kacheln and the Felder scroll under the phone's header.
+  const [stageScrolled, onStageScroll] = useStageScrolled();
+
   let header: ReactNode = null;
   if (orisoEnabled && showControls && windowMode !== "pip") {
     /*
@@ -958,6 +983,15 @@ export const InCallView: FC<InCallViewProps> = ({
         onWindow={orisoWindow.send}
         fullscreen={orisoWindow.fullscreen}
         onTouchEnd={onHeaderTouchEnd}
+        speaker={
+          speakerBand === "header" ? (
+            <WaveBand
+              variant="header"
+              tone={orisoVideoOneOnOne ? "dark" : "light"}
+              speaker={orisoSpeaker}
+            />
+          ) : undefined
+        }
         actions={
           <>
             {atmosphereShown && !orisoMobile && (
@@ -1035,11 +1069,12 @@ export const InCallView: FC<InCallViewProps> = ({
       />
     );
     header = orisoMobile ? (
-      // A phone: the header and, for a group, the wave band under it are
-      // measured together, so the stage starts below both.
+      // A phone: the header and the wave band under it are measured
+      // together, so the stage starts below both. In every view, the 1:1
+      // included (R27).
       <div ref={headerRef} className={styles.orisoMobileHeader}>
         {orisoHeader}
-        {!alone && <WaveBand speaker={orisoSpeaker} />}
+        {speakerBand === "phone" && <WaveBand speaker={orisoSpeaker} />}
       </div>
     ) : (
       orisoHeader
@@ -1216,18 +1251,26 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const renderContent = (): JSX.Element => {
     if (layout.type === "pip") {
+      // The minimised call has no header: the speaker band (R27) is a slim
+      // line above its one form, and the form takes the rest.
+      // (Upstream hands the two sides over swapped; the band comes off the
+      // height either way.)
+      const band = speakerBand === "pip" ? PIP_BAND_BLOCK : 0;
       return (
-        <SpotlightTile
-          className={classNames(styles.tile, styles.maximised)}
-          vm={layout.spotlight}
-          expanded
-          onToggleExpanded={null}
-          targetWidth={gridBounds.height}
-          targetHeight={gridBounds.width}
-          showIndicators={false}
-          focusable={!contentObscured}
-          aria-hidden={contentObscured}
-        />
+        <>
+          {band > 0 && <WaveBand variant="pip" speaker={orisoSpeaker} />}
+          <SpotlightTile
+            className={classNames(styles.tile, styles.maximised)}
+            vm={layout.spotlight}
+            expanded
+            onToggleExpanded={null}
+            targetWidth={gridBounds.height - band}
+            targetHeight={gridBounds.width}
+            showIndicators={false}
+            focusable={!contentObscured}
+            aria-hidden={contentObscured}
+          />
+        </>
       );
     }
 
@@ -1447,6 +1490,10 @@ export const InCallView: FC<InCallViewProps> = ({
               onTouchCancel={onTouchCancel}
               onPointerMove={onPointerMove}
               onPointerOut={onPointerOut}
+              onScroll={orisoEnabled ? onStageScroll : undefined}
+              data-stage-scrolled={
+                orisoEnabled && stageScrolled ? "true" : undefined
+              }
               data-oriso={orisoEnabled ? "true" : undefined}
               data-oriso-video-stage={orisoVideoOneOnOne ? "true" : undefined}
               style={

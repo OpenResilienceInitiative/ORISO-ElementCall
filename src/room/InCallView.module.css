@@ -392,6 +392,16 @@ Please see LICENSE in the repository root for full details.
   z-index: var(--oriso-z-header);
 }
 
+/* The Kacheln and the Felder scroll under the phone's header. It stays put
+   (sticky), but transparent over the stage the tiles ran through its title
+   and "verschlüsselt · …"; once anything is under it, it takes a surface
+   (#2233). The wave band keeps its own pill on top of it. */
+.inRoom[data-stage-scrolled="true"] > .orisoMobileHeader {
+  background: rgb(250 247 245 / 82%);
+  backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 6%);
+}
+
 .footer.orisoFooter .orisoToolbar[data-compact] {
   justify-self: stretch;
 }

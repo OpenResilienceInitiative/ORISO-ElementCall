@@ -19,7 +19,7 @@ import { type ComponentProps } from "react";
 import { MediaView } from "./MediaView";
 import { EncryptionStatus } from "../state/MediaViewModel";
 import { mockLocalParticipant } from "../utils/test";
-import { HALO_ROOM_PX, shapelessFaceSide } from "../oriso/halo";
+import { HALO_ROOM_PX, haloFor, shapelessFaceSide } from "../oriso/halo";
 import { type OrisoIdentity } from "../oriso/identity";
 import { resetArtworkCache } from "../oriso/artwork";
 import { OrisoStageContext } from "../oriso/useOrisoIdentities";
@@ -199,6 +199,28 @@ describe("with an identity, the tile is a form", () => {
       liftFor(shapelessFaceSide(300, 200)),
     );
     expect(liftFor(shapelessFaceSide(300, 200))).not.toBe(liftFor(300));
+  });
+
+  it("draws a speaking halo that fits the room the spotlight leaves it", () => {
+    /*
+     * The spotlight clips (`SpotlightTile`'s `.contents`, `Grid`), and a
+     * small tile caps the room at 8%: 16px a side here. The whole stack
+     * reaches 56px, so drawn whole it was cut along the tile's top and
+     * bottom into a faint rectangle. Drawn to the room, nothing cuts it.
+     */
+    render(
+      <MediaView
+        {...base}
+        orisoIdentity={FOX}
+        orisoSpeaking
+        videoEnabled={false}
+      />,
+    );
+    const shadow = screen.getByTestId("oriso-face").style.boxShadow;
+    expect(shadow).not.toBe(haloFor(FOX.bg, true));
+    expect(shadow).toBe(
+      haloFor(FOX.bg, true, (200 - shapelessFaceSide(300, 200)) / 2),
+    );
   });
 
   it("is a circle, not an ellipse, when the layout gave it no shape", () => {

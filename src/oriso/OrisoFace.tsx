@@ -81,6 +81,12 @@ interface Props {
   contentSize?: number;
   shape?: TileShape;
   speaking?: boolean;
+  /**
+   * How much space the form has outside itself before its box clips it —
+   * given for the shapeless form in a spotlight, whose tile clips. The
+   * speaking halo is drawn to fit it (`haloFor`). Unset: the whole halo.
+   */
+  haloRoom?: number;
   /** The host's origin, for inheriting the artwork. */
   parentUrl?: string | null;
   /** The camera, when there is one. Replaces the artwork, keeps the form. */
@@ -109,6 +115,7 @@ export const OrisoFace: FC<Props> = ({
   contentSize,
   shape,
   speaking = false,
+  haloRoom,
   parentUrl = null,
   video,
   videoFit = "cover",
@@ -216,10 +223,19 @@ export const OrisoFace: FC<Props> = ({
       boxShadow: !lifted
         ? undefined
         : speaking
-          ? haloFor(identity.bg, true)
+          ? haloFor(identity.bg, true, haloRoom)
           : liftFor(size),
     }),
-    [shape, tilt, identity.bg, speaking, size, lifted, prefersReducedMotion],
+    [
+      shape,
+      tilt,
+      identity.bg,
+      speaking,
+      size,
+      lifted,
+      prefersReducedMotion,
+      haloRoom,
+    ],
   );
 
   // The contents stay upright while the form leans, and sit over their own

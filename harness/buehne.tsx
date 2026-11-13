@@ -85,6 +85,9 @@ import { OrisoMobileMenu, OrisoToolbar } from "../src/oriso/OrisoToolbar";
 import { InviteLinkButton } from "../src/oriso/InviteLinkButton";
 import { type InviteLinkReply } from "../src/oriso/inviteLink";
 import { WaveBand } from "../src/oriso/WaveBand";
+import { speakerBandPlace } from "../src/oriso/speakerBand";
+import { kreisCentreNamesSpeaker } from "../src/oriso/kreis";
+import { useStageScrolled } from "../src/oriso/useStageScrolled";
 import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
 import { ViewSwitcher, type StageView } from "../src/oriso/ViewSwitcher";
@@ -397,6 +400,23 @@ function Stage(): React.ReactNode {
       }),
     [bounds$],
   );
+  // As InCallView decides it (R27).
+  const band = speakerBandPlace({
+    enabled: true,
+    pip: false,
+    headerShown: true,
+    mobile,
+    view,
+    kreisNamesSpeaker: kreisCentreNamesSpeaker({ width, height }),
+  });
+  const speaker =
+    speakingIndex >= 0 && speakingIndex < count
+      ? {
+          userId: idOf(speakingIndex),
+          displayName: CAST[speakingIndex % CAST.length].name,
+        }
+      : null;
+  const [stageScrolled, onStageScroll] = useStageScrolled();
   const stage = useMemo(
     () => ({
       identities,
@@ -415,6 +435,8 @@ function Stage(): React.ReactNode {
           <OrisoPinsContext value={pins}>
             <div
               className={styles.inRoom}
+              onScroll={onStageScroll}
+              data-stage-scrolled={stageScrolled ? "true" : undefined}
               data-oriso="true"
               data-notes-docked={notesOpen && !mobile ? "true" : undefined}
               data-oriso-names={intent === "video" ? "popout" : nameStyle}
@@ -464,16 +486,7 @@ function Stage(): React.ReactNode {
                       </>
                     }
                   />
-                  <WaveBand
-                    speaker={
-                      speakingIndex >= 0 && speakingIndex < count
-                        ? {
-                            userId: idOf(speakingIndex),
-                            displayName: CAST[speakingIndex % CAST.length].name,
-                          }
-                        : null
-                    }
-                  />
+                  {band === "phone" && <WaveBand speaker={speaker} />}
                 </div>
               ) : (
                 <OrisoHeader
@@ -484,6 +497,11 @@ function Stage(): React.ReactNode {
                   meta={<span>{count} Teilnehmende</span>}
                   onWindow={(): void => {}}
                   fullscreen={false}
+                  speaker={
+                    band === "header" ? (
+                      <WaveBand variant="header" speaker={speaker} />
+                    ) : undefined
+                  }
                   actions={
                     <>
                       <AtmospherePicker
