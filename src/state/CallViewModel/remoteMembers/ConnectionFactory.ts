@@ -136,7 +136,14 @@ function generateRoomOption({
         ? undefined
         : devices.audioOutput.selected$.value?.id,
     },
-    e2ee: e2eeLivekitOptions,
+    /*
+     * `encryption`, not the deprecated `e2ee`: both encrypt the media the same
+     * way, but only `encryption` also seals data packets (publishData) with
+     * the participants' keys. ORISO's laser pointer travels as data packets;
+     * under `e2ee` they reached the SFU in the clear. Receivers decrypt
+     * sealed packets with either option, so older clients still read them.
+     */
+    encryption: e2eeLivekitOptions,
     // TODO test and consider this:
     // webAudioMix: true,
   };

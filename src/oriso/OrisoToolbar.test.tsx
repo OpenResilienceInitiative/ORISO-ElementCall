@@ -365,6 +365,49 @@ describe("knocking in the call (#108)", () => {
   });
 });
 
+describe("the laser pointer switch (#2233)", () => {
+  it("is not there while nobody else shares a screen", () => {
+    render(<OrisoToolbar {...props()} />);
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    expect(screen.queryByTestId("oriso-pointer-switch")).toBeNull();
+  });
+
+  it("turns pointing on, says what it does, and closes the menu", () => {
+    const onPointingChange = vi.fn();
+    render(<OrisoToolbar {...props({ pointing: false, onPointingChange })} />);
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    const pointer = screen.getByRole("switch", { name: "Laser pointer" });
+    expect(pointer.getAttribute("aria-checked")).toBe("false");
+    expect(pointer.getAttribute("aria-describedby")).toBeTruthy();
+    fireEvent.click(pointer);
+    expect(onPointingChange).toHaveBeenCalledWith(true);
+    // Closed: the next thing the person does is point at the screen.
+    expect(screen.queryByTestId("oriso-call-menu")).toBeNull();
+  });
+
+  it("says that nothing can be clicked while it is on", () => {
+    render(
+      <OrisoToolbar
+        {...props({ pointing: true, onPointingChange: vi.fn() })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    expect(screen.getByTestId("oriso-call-menu").textContent).toContain(
+      "Nothing can be clicked.",
+    );
+  });
+
+  it("has no accessibility violations", async () => {
+    const { container } = render(
+      <OrisoToolbar
+        {...props({ pointing: false, onPointingChange: vi.fn() })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
 /*
  * S9, designs 5b/5d: the phone's bar holds four or five buttons — the
  * microphone, the camera only in a video call, the hand, the notes and the

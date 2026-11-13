@@ -1,0 +1,79 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* Over the shared picture, under the name tag; never takes a click. */
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  /* No z-index: the name tag (.fg) comes later and stays on top. */
+}
+
+/* Pointing: the tile shows a crosshair, so it is clear the mouse is seen. */
+*:has(> .layer[data-pointing="true"]) {
+  cursor: crosshair;
+}
+
+.pointer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  inline-size: 0;
+  block-size: 0;
+  /* Eases between the ~16 positions a second. */
+  transition:
+    transform 70ms linear,
+    opacity 150ms ease-out;
+  will-change: transform;
+}
+
+.pointer[data-idle="true"] {
+  opacity: 0;
+  transition:
+    transform 70ms linear,
+    opacity 400ms ease-in;
+}
+
+/* The dot is centred on the point; the label hangs off to its right. */
+.spot {
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  inline-size: 16px;
+  block-size: 16px;
+  border-radius: 50%;
+  background: var(--oriso-pointer-bg);
+  /* A white ring and a soft glow: visible on dark and light screens alike. */
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 3px rgb(0 0 0 / 0.35),
+    0 0 12px 4px color-mix(in srgb, var(--oriso-pointer-bg) 70%, transparent);
+}
+
+.label {
+  position: absolute;
+  left: 14px;
+  top: 6px;
+  max-inline-size: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--oriso-pointer-bg);
+  color: var(--oriso-pointer-ink);
+  font: var(--cpd-font-body-xs-semibold, 600 12px / 16px sans-serif);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pointer,
+  .pointer[data-idle="true"] {
+    transition: none;
+  }
+}

@@ -74,6 +74,11 @@ interface Props extends ComponentProps<typeof animated.div> {
   orisoSpeaking?: boolean;
   /** The host's origin, so the artwork can be inherited rather than drawn. */
   orisoParentUrl?: string | null;
+  /**
+   * Drawn over the picture and under the name tag: the laser pointers on a
+   * shared screen. Must not take pointer events.
+   */
+  overlay?: ReactNode;
 }
 
 const VIDEO_STAGE_SHAPE: TileShape = {
@@ -113,6 +118,7 @@ export const MediaView: FC<Props> = ({
   orisoShape: layoutShape,
   orisoSpeaking = false,
   orisoParentUrl = null,
+  overlay,
   ...props
 }) => {
   const { t } = useTranslation();
@@ -332,6 +338,7 @@ export const MediaView: FC<Props> = ({
           videoFit={videoFit}
         />
       )}
+      {overlay}
       <div className={styles.fg}>
         <div className={styles.reactions}>
           <RaisedHandIndicator
