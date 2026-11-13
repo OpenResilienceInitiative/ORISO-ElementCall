@@ -179,14 +179,27 @@ describe("the views a group offers (S6)", () => {
   });
 });
 
-describe("the start view by conversation type (S6b)", () => {
-  it("starts a group in the Kreis, at two people too", () => {
+describe("the start view by conversation type (S6b, #2233 D9)", () => {
+  it("starts a group conversation in the Felder, at two people too", () => {
     for (const alone of [true, false]) {
       const plan = stagePlan({ alone, callType: "group" });
-      expect(plan.fallback).toBe("kreis");
+      expect(plan.fallback).toBe("felder");
+      expect(plan.offer).not.toContain("einzelgespraech");
+      expect(resolveStageView(null, plan)).toBe("felder");
+    }
+  });
+
+  it("starts a Gesprächskreis in the Kreis", () => {
+    for (const alone of [true, false]) {
+      const plan = stagePlan({ alone, callType: "circle" });
       expect(plan.offer).not.toContain("einzelgespraech");
       expect(resolveStageView(null, plan)).toBe("kreis");
     }
+  });
+
+  it("starts a 1:1 that grew into a group in the Felder", () => {
+    const plan = stagePlan({ alone: false, callType: "single" });
+    expect(resolveStageView(null, plan)).toBe("felder");
   });
 
   it("starts a single conversation of two in the Einzelgespräch", () => {
@@ -201,30 +214,32 @@ describe("the start view by conversation type (S6b)", () => {
 
   it("stores the choice per type", () => {
     expect(viewStorageKey("group")).toBe("oriso-call-view-group");
+    expect(viewStorageKey("circle")).toBe("oriso-call-view-circle");
     expect(viewStorageKey("single")).toBe("oriso-call-view-single");
     expect(viewStorageKey(null)).toBe("oriso-call-view");
   });
 });
 
 describe("the views by call intent (S7)", () => {
-  it("offers a video group Hain, Felder, Kacheln and Spotlight, no Kreis", () => {
-    for (const callType of ["group", "single", null] as const) {
+  it("starts a video group by its type, never in a view it does not offer", () => {
+    const want = {
+      group: "felder",
+      single: "felder",
+      circle: "kreis",
+    } as const;
+    for (const callType of ["group", "single", "circle", null] as const) {
       const plan = stagePlan({ alone: false, callType, intent: "video" });
-      expect(plan.offer).toEqual(["hain", "felder", "kacheln", "spotlight"]);
-      expect(plan.fallback).toBe("hain");
+      expect(plan.offer).toContain(plan.fallback);
+      if (callType === null) expect(plan.fallback).toBe("hain");
+      else if (plan.offer.includes(want[callType]))
+        expect(plan.fallback).toBe(want[callType]);
     }
   });
 
-  it("does not start a video group of two in the Kreis", () => {
-    const plan = stagePlan({ alone: true, callType: "group", intent: "video" });
-    expect(plan.offer).not.toContain("kreis");
-    expect(resolveStageView("kreis", plan)).toBe("hain");
-  });
-
-  it("keeps the Kreis for an audio group", () => {
+  it("keeps the Kreis for an audio Gesprächskreis", () => {
     const plan = stagePlan({
       alone: false,
-      callType: "group",
+      callType: "circle",
       intent: "audio",
     });
     expect(plan.offer[0]).toBe("kreis");

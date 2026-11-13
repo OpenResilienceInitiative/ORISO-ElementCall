@@ -51,7 +51,7 @@ import {
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import classNames from "classnames";
 import i18n from "i18next";
-import { initReactI18next } from "react-i18next";
+import { initReactI18next, useTranslation } from "react-i18next";
 
 import { Grid, type TileProps } from "../src/grid/Grid";
 import { makeEinzelgespraechLayout } from "../src/grid/EinzelgespraechLayout";
@@ -73,6 +73,7 @@ import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { Toast } from "../src/Toast";
 import { type OrisoIdentity, shownNameFor } from "../src/oriso/identity";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
+import { readTopic, stageTitle } from "../src/oriso/stageTitle";
 import { formatCallDuration } from "../src/oriso/useCallDuration";
 import { OrisoStageContext } from "../src/oriso/useOrisoIdentities";
 import { makeOneOnOneLayout } from "../src/grid/OneOnOneLayout";
@@ -299,7 +300,26 @@ function HostCornerButtons(): React.ReactNode {
   );
 }
 
+/*
+ * #2233 R6: the title the call builds from the host's topic
+ * (`?topic=Schuldnerberatung`), through the same `stageTitle` and strings.
+ */
+function useHarnessTitle(): string {
+  const { t } = useTranslation();
+  const parts = stageTitle({
+    roomName: "",
+    defaultRoomName: t("oriso_call_title"),
+    callType: "single",
+    topic: readTopic(params.get("topic")),
+    group: false,
+  });
+  return parts.kind === "one-on-one" && parts.topic !== null
+    ? t("oriso.one_on_one_title", { topic: parts.topic })
+    : t("oriso.view_one_on_one");
+}
+
 function Header(): React.ReactNode {
+  const title = useHarnessTitle();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -311,7 +331,7 @@ function Header(): React.ReactNode {
       logo={brand.orisoLogo}
       compact={mobile}
       tone={video ? "dark" : "light"}
-      title="Einzelgespräch"
+      title={title}
       encrypted
       meta={
         video && !mobile ? undefined : (

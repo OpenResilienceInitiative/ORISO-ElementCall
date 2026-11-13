@@ -310,8 +310,11 @@ Please see LICENSE in the repository root for full details.
   inset-inline-start: 0;
 }
 
+/* A margin, not padding: the footer sits above the card, and padding would
+   still be its box — clicks on the card's note field landed on the footer
+   (ORISO-Frontend#2174). */
 .inRoom[data-notes-docked="true"] > .footer {
-  padding-inline-end: var(--oriso-notes-inset);
+  margin-inline-end: var(--oriso-notes-inset);
 }
 
 .inRoom[data-oriso-video-stage="true"] {
