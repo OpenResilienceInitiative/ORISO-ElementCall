@@ -162,6 +162,12 @@ export class PointerChannel {
     encryption: EncryptionType | undefined,
   ): void {
     if (topic !== POINTER_TOPIC || participant === undefined) return;
+    /*
+     * GCM only for a packet livekit-client actually decrypted: upstream
+     * reports NONE even for those, which `.yarn/patches/livekit-client-*`
+     * fixes (pinned by `livekitPatch.test.ts`). A plain-text packet, e.g.
+     * one a server injects, always arrives as NONE and is dropped here.
+     */
     if (!this.available || encryption === EncryptionType.NONE) return;
     if (encryption === undefined) return;
     const msg = decodePointer(payload);
