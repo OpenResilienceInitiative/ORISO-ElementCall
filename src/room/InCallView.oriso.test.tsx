@@ -243,6 +243,8 @@ function createInCallView({
   callType,
   encrypted = false,
   orisoLogo,
+  roomName = "Schuldnerberatung",
+  topic,
 }: {
   mediaError?: ElementCallError | null;
   published?: Record<string, Record<string, string>>;
@@ -254,10 +256,14 @@ function createInCallView({
   crowd?: boolean;
   callIntent?: "audio" | "video";
   /** `orisoCallType` on the URL, and in the view model as InCallView passes it. */
-  callType?: "group" | "single";
+  callType?: "group" | "circle" | "single";
   encrypted?: boolean;
   /** The Träger's logo, as the app puts it into the call address. */
   orisoLogo?: string;
+  /** The room's display name; "" is a room without a real name. */
+  roomName?: string;
+  /** `orisoTopic` on the URL (#2233 R6). */
+  topic?: string;
 } = {}): RenderResult & {
   rtcSession: MockRTCSession;
   retryMedia: ReturnType<typeof vi.fn>;
@@ -351,6 +357,9 @@ function createInCallView({
             `&parentUrl=${encodeURIComponent(HOST)}` +
             (callIntent === undefined ? "" : `&callIntent=${callIntent}`) +
             (callType === undefined ? "" : `&orisoCallType=${callType}`) +
+            (topic === undefined
+              ? ""
+              : `&orisoTopic=${encodeURIComponent(topic)}`) +
             (orisoLogo === undefined
               ? ""
               : `&orisoLogo=${encodeURIComponent(orisoLogo)}`)
@@ -379,7 +388,7 @@ function createInCallView({
                   displayName: "",
                   avatarUrl: "",
                   roomId: "",
-                  roomName: "Schuldnerberatung",
+                  roomName,
                   roomAlias: null,
                   roomAvatar: null,
                   e2eeSystem: {
@@ -965,8 +974,8 @@ describe("the call, in the ORISO design", () => {
    * count. A group conversation of two starts in the Kreis with all five
    * views; a single conversation of two in the Einzelgespräch.
    */
-  it("starts a group conversation of two in the Kreis", async () => {
-    const { container } = createInCallView({ callType: "group" });
+  it("starts a Gesprächskreis of two in the Kreis (#2233 D9)", async () => {
+    const { container } = createInCallView({ callType: "circle" });
     const rail = await openViewRail();
     expect(
       [...rail.querySelectorAll('[role="radio"]')].map((r) =>
@@ -983,6 +992,26 @@ describe("the call, in the ORISO design", () => {
     ).toBeTruthy();
   });
 
+  it("starts an internal group of two in the Felder (#2233 D9)", async () => {
+    const { container } = createInCallView({ callType: "group" });
+    const rail = await openViewRail();
+    expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("felder");
+    expect(
+      container.querySelector(
+        '[data-testid="oriso-grove"][data-view="felder"]',
+      ),
+    ).toBeTruthy();
+  });
+
   it("starts a single conversation of two in the Einzelgespräch", async () => {
     createInCallView({ callType: "single" });
     const rail = await openViewRail();
@@ -996,9 +1025,9 @@ describe("the call, in the ORISO design", () => {
   /*
    * S8: a single conversation that somebody joined through the shared link
    * is a group now — the rail offers the group views and the stage starts
-   * in the group default, the Kreis.
+   * in the default for a grown 1:1, the Felder (#2233 D9).
    */
-  it("gives a single conversation of three the group rail, in the Kreis", async () => {
+  it("gives a single conversation of three the group rail, in the Felder", async () => {
     const { container } = createInCallView({
       callType: "single",
       crowd: true,
@@ -1010,7 +1039,9 @@ describe("the call, in the ORISO design", () => {
       ),
     ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
     expect(
-      container.querySelector('[data-testid="oriso-grove"][data-view="kreis"]'),
+      container.querySelector(
+        '[data-testid="oriso-grove"][data-view="felder"]',
+      ),
     ).toBeTruthy();
   });
 
@@ -1044,7 +1075,8 @@ describe("the call, in the ORISO design", () => {
   /*
    * S7: a video group gets the arrangements that carry a camera inside
    * their forms. The Kreis — a sound indicator in the middle — is a voice
-   * view and is not offered; a stored Kreis falls back to the Hain.
+   * view and is not offered; a stored Kreis falls back to the group's
+   * default, the Felder (#2233 D9).
    */
   it("offers a video group the video arrangements only, without the Kreis", async () => {
     localStorage.setItem("oriso-call-view-group", "kreis");
@@ -1063,9 +1095,11 @@ describe("the call, in the ORISO design", () => {
       rail
         .querySelector('[role="radio"][aria-checked="true"]')
         ?.getAttribute("data-view"),
-    ).toBe("hain");
+    ).toBe("felder");
     expect(
-      container.querySelector('[data-testid="oriso-grove"][data-view="hain"]'),
+      container.querySelector(
+        '[data-testid="oriso-grove"][data-view="felder"]',
+      ),
     ).toBeTruthy();
     expect(screen.queryByTestId("oriso-kreis-centre")).toBeNull();
   });
@@ -1218,6 +1252,46 @@ describe("the call on a phone (S9)", () => {
         "incall_video_header_notes",
       ),
     ).toBeNull();
+  });
+  /*
+   * #2233 R6: a 1:1 is titled by its topic, not "Anruf"; grown into a group
+   * it is the topic's group call; a real room name stays.
+   */
+  describe("the header title from the topic", () => {
+    it("titles a 1:1 'Einzelgespräch · <topic>'", () => {
+      createInCallView({
+        callType: "single",
+        roomName: "",
+        topic: "Schuldnerberatung",
+      });
+      const header = screen.getByTestId("oriso-header");
+      expect(
+        within(header).getByText("Conversation · Schuldnerberatung"),
+      ).toBeInTheDocument();
+    });
+
+    it("titles a 1:1 grown into a group '<topic> · Group call'", () => {
+      createInCallView({
+        callType: "single",
+        crowd: true,
+        roomName: "",
+        topic: "Schuldnerberatung",
+      });
+      const header = screen.getByTestId("oriso-header");
+      expect(
+        within(header).getByText("Schuldnerberatung · Group call"),
+      ).toBeInTheDocument();
+    });
+
+    it("keeps a real room name over the topic", () => {
+      createInCallView({
+        callType: "single",
+        roomName: "Flyer Schule",
+        topic: "Schuldnerberatung",
+      });
+      const header = screen.getByTestId("oriso-header");
+      expect(within(header).getByText("Flyer Schule")).toBeInTheDocument();
+    });
   });
 });
 

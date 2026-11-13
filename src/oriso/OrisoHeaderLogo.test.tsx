@@ -106,4 +106,53 @@ describe("OrisoHeaderLogo", () => {
       ).toBeEmptyDOMElement();
     });
   });
+  /*
+   * #2233 R29: the logo is the Träger's, or the platform operator's where
+   * the Träger has none. The operator's comes from the deployment's own
+   * config, not from the call address.
+   */
+  describe("the platform operator's logo as the fallback", () => {
+    const OPERATOR = "/oriso/operator-logo.svg";
+    const withOperator = (logo: string): void => {
+      vi.spyOn(Config, "get").mockReturnValue({
+        ...DEFAULT_CONFIG,
+        oriso: { operator_logo: logo },
+      });
+    };
+
+    it("draws the operator's logo when the Träger has none", () => {
+      withOperator(OPERATOR);
+      render(<OrisoHeaderLogo src={null} />);
+      expect(screen.getByTestId("oriso_header_logo")).toHaveAttribute(
+        "src",
+        `${window.location.origin}${OPERATOR}`,
+      );
+    });
+
+    it("prefers the Träger's logo", () => {
+      withOperator(OPERATOR);
+      render(<OrisoHeaderLogo src={LOGO} />);
+      expect(screen.getByTestId("oriso_header_logo")).toHaveAttribute(
+        "src",
+        LOGO,
+      );
+    });
+
+    it("falls back to it when the Träger's logo cannot be loaded", () => {
+      withOperator(OPERATOR);
+      render(<OrisoHeaderLogo src={LOGO} />);
+      fireEvent.error(screen.getByTestId("oriso_header_logo"));
+      expect(screen.getByTestId("oriso_header_logo")).toHaveAttribute(
+        "src",
+        `${window.location.origin}${OPERATOR}`,
+      );
+    });
+
+    it("draws nothing for an unusable operator address", () => {
+      withOperator("javascript:alert(1)");
+      expect(
+        render(<OrisoHeaderLogo src={null} />).container,
+      ).toBeEmptyDOMElement();
+    });
+  });
 });

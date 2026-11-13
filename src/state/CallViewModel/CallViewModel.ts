@@ -132,7 +132,12 @@ import {
 import { Publisher } from "./localMember/Publisher.ts";
 import { type Connection } from "./remoteMembers/Connection.ts";
 import { createLayoutModeSwitch } from "./LayoutSwitch.ts";
-import { type StagePlan, stagePlan } from "../../oriso/stageViews.ts";
+import {
+  isGroupConversation,
+  type OrisoCallType,
+  type StagePlan,
+  stagePlan,
+} from "../../oriso/stageViews.ts";
 
 const logger = rootLogger.getChild("[CallViewModel]");
 //TODO
@@ -176,7 +181,7 @@ export interface CallViewModelOptions {
    * keeps the group's arrangements, so it can start in the Kreis. Only read
    * when `orisoDesign` is on.
    */
-  orisoCallType?: "group" | "single" | null;
+  orisoCallType?: OrisoCallType | null;
   /**
    * Whether the call is a voice or a video call (`callIntent`). A video
    * group is offered the video-suited arrangements only — Hain, Felder,
@@ -1176,7 +1181,8 @@ export function createCallViewModel$(
    * and the handoff draws nothing for it.
    */
   const orisoGroup =
-    options.orisoDesign === true && options.orisoCallType === "group";
+    options.orisoDesign === true &&
+    isGroupConversation(options.orisoCallType ?? null);
   const orisoArrangement = (windowMode: WindowMode): Observable<LayoutMedia> =>
     gridMode$.pipe(
       switchMap((gridMode) => {
