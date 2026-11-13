@@ -920,10 +920,13 @@ export const InCallView: FC<InCallViewProps> = ({
               {callDuration}
             </span>
           ) : (
-            // 5b: "verschlüsselt · 6 Teilnehmende" on a phone.
+            // 5b: "verschlüsselt · 6 Teilnehmende" on a phone. People, not
+            // devices, as the ⋮'s "Teilnehmende" counts them (#2233 review).
             orisoMobile && (
               <span data-testid="oriso-header-participants">
-                {t("oriso.participants_count", { count: participantCount })}
+                {t("oriso.participants_count", {
+                  count: callParticipants.length,
+                })}
               </span>
             )
           )

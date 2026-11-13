@@ -135,6 +135,7 @@ describe("the participants panel", () => {
 describe("the call menu's people entries", () => {
   const bar = (
     inviteRequest: (() => Promise<{ url: string }>) | null,
+    participantCount = 2,
   ): ReturnType<typeof render> =>
     inStage(
       <OrisoToolbar
@@ -146,7 +147,7 @@ describe("the call menu's people entries", () => {
         onToggleHand={vi.fn()}
         onToggleNotes={vi.fn()}
         onHangup={vi.fn()}
-        participantCount={2}
+        participantCount={participantCount}
         participants={people}
         inviteRequest={inviteRequest}
         onToggleScreenShare={vi.fn()}
@@ -166,6 +167,16 @@ describe("the call menu's people entries", () => {
     fireEvent.click(entry("participants"));
     expect(screen.queryByTestId("oriso-call-menu")).toBeNull();
     expect(screen.getAllByTestId("oriso-participant")).toHaveLength(2);
+  });
+
+  it("counts people as the list does, not their devices (#2233 review)", () => {
+    // Two people, one of them on a laptop and a phone: three devices.
+    bar(link, 3);
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    // The menu row's label and its count, then the panel's title and its.
+    expect(entry("participants")).toHaveTextContent(/^Participants2$/);
+    fireEvent.click(entry("participants"));
+    expect(screen.getByRole("dialog")).toHaveTextContent(/^Participants2/);
   });
 
   it("sends the invite link from its own entry, under Teilnehmende", async () => {

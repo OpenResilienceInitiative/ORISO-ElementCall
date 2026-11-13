@@ -385,6 +385,40 @@ export function useMenuPopover(
   }, [open, panelRef]);
 }
 
+/**
+ * Keeps a panel that hangs from its trigger's right edge on screen. Where
+ * the host keeps its own window buttons, the phone header's ⋮ sits 112px in
+ * from the edge, and on a narrow phone the panel would run off the left:
+ * slide it back so it keeps 16px free on either side (ORISO-ElementCall#145
+ * review). The call menu and "Teilnehmende" share the anchor, so they share
+ * this too (#2233 review).
+ */
+function useFitBesideTrigger(
+  open: boolean,
+  triggerRef: RefObject<HTMLElement | null>,
+  panelRef: RefObject<HTMLElement | null>,
+): void {
+  useEffect(() => {
+    if (!open) return;
+    const fit = (): void => {
+      const panel = panelRef.current;
+      const trigger = triggerRef.current;
+      if (!panel || !trigger) return;
+      const right = trigger.getBoundingClientRect().right;
+      const width = panel.getBoundingClientRect().width;
+      const edge = 16;
+      const shift = Math.min(
+        Math.max(0, edge - (right - width)),
+        Math.max(0, window.innerWidth - edge - right),
+      );
+      panel.style.right = shift > 0 ? `${-shift}px` : "";
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return (): void => window.removeEventListener("resize", fit);
+  }, [open, triggerRef, panelRef]);
+}
+
 interface CallMenuPanelProps extends CallMenuProps {
   ref?: Ref<HTMLDivElement>;
   id: string;
@@ -415,6 +449,7 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
   extra,
   className,
   participantCount,
+  participants,
   inviteRequest = null,
   onOpenParticipants = null,
   backgroundLabel = null,
@@ -446,11 +481,14 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
   const shareLabel = sharingScreen
     ? t("stop_screenshare_button_label")
     : t("screenshare_button_label");
+  // People, not devices: somebody on a laptop and a phone is one person, as
+  // in the "Teilnehmende" list this row opens (#2233 review).
+  const peopleCount = participants?.length ?? participantCount;
   const participantsRow = (
     <>
       <span className={styles.rowLabel}>{t("oriso.menu_participants")}</span>
       <span className={styles.rowHint}>
-        {participantCount}
+        {peopleCount}
         {waiting && <span className={styles.waiting}> · {waiting}</span>}
       </span>
       <GroupIcon aria-hidden width={21} height={21} />
@@ -702,29 +740,9 @@ export const OrisoMobileMenu: FC<MobileMenuProps> = ({
   }, []);
   useMenuPopover(open, setOpen, triggerRef, panelRef);
   const people = usePeoplePanel(triggerRef);
-  // The panel hangs from the ⋮'s right edge. Where the host keeps its own
-  // window buttons, the ⋮ sits 112px in from the edge, and on a narrow
-  // phone the panel would run off the left: slide it back so it keeps
-  // 16px free on either side (ORISO-ElementCall#145 review).
-  useEffect(() => {
-    if (!open) return;
-    const fit = (): void => {
-      const panel = panelRef.current;
-      const trigger = triggerRef.current;
-      if (!panel || !trigger) return;
-      const right = trigger.getBoundingClientRect().right;
-      const width = panel.getBoundingClientRect().width;
-      const edge = 16;
-      const shift = Math.min(
-        Math.max(0, edge - (right - width)),
-        Math.max(0, window.innerWidth - edge - right),
-      );
-      panel.style.right = shift > 0 ? `${-shift}px` : "";
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return (): void => window.removeEventListener("resize", fit);
-  }, [open]);
+  // Both hang from the ⋮, so both slide back on a narrow phone (#2233).
+  useFitBesideTrigger(open, triggerRef, panelRef);
+  useFitBesideTrigger(people.inviting !== null, triggerRef, people.panelRef);
 
   const waitingCount = menu.waitingCount ?? 0;
   const waiting =
