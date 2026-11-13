@@ -29,7 +29,8 @@ function renderSheet(
   {
     scrollHeight,
     clientHeight,
-  }: { scrollHeight: number; clientHeight: number },
+    tile = 200,
+  }: { scrollHeight: number; clientHeight: number; tile?: number },
 ): { scroller: HTMLElement; scrollBy: ReturnType<typeof vi.fn> } {
   const { container } = render(
     <div data-testid="scroller" style={{ overflowY: "auto" }}>
@@ -53,7 +54,7 @@ function renderSheet(
   for (const slot of container.querySelectorAll<HTMLElement>("[data-row]")) {
     const row = Number(slot.dataset.row);
     slot.getBoundingClientRect = (): DOMRect =>
-      rect(row * 210, row * 210 + 200);
+      rect(row * (tile + 10), row * (tile + 10) + tile);
   }
   // The stage in sight: from the header's bottom to the bar's top.
   screen.getByTestId("oriso-header").getBoundingClientRect = (): DOMRect =>
@@ -99,5 +100,20 @@ describe("the Kacheln's pager (#2233)", () => {
     expect(scrollBy).toHaveBeenCalledWith(
       expect.objectContaining({ top: 210 }),
     );
+  });
+
+  it("keeps the arrows when no tile fits whole, as on a phone held sideways", () => {
+    renderSheet(4, { scrollHeight: 1100, clientHeight: 410, tile: 500 });
+    expect(screen.getByTestId("oriso-kacheln-pager")).toHaveTextContent(
+      "4 participants",
+    );
+    expect(screen.getByRole("button", { name: "Scroll down" })).toBeEnabled();
+  });
+
+  it("does not read the range out on every scroll", () => {
+    renderSheet(6, { scrollHeight: 640, clientHeight: 410 });
+    expect(
+      screen.getByTestId("oriso-kacheln-pager").querySelector("[aria-live]"),
+    ).toBeNull();
   });
 });

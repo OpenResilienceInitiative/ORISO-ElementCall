@@ -16,6 +16,7 @@ import {
   orderForKacheln,
 } from "./kacheln";
 import { formatHandDuration } from "./handDuration";
+import { haloRoomFor } from "./layout";
 import {
   arrangementFor,
   resolveStageView,
@@ -125,6 +126,14 @@ describe("the Kacheln (S6)", () => {
 
   it("puts two square tiles side by side on a phone (#2233)", () => {
     expect(kachelSize(14, 340, 6).columns).toBe(2);
+    // What the sheet really gets: the phone's width less the halo's room on
+    // both sides (360px phone, 302px sheet; a 320px phone, less still).
+    for (const phone of [320, 360, 390]) {
+      const sheet = phone - 2 * Math.round(haloRoomFor(phone, 700));
+      const size = kachelSize(14, sheet, 6);
+      expect(size.columns).toBe(2);
+      expect(size.width * 2 + 6).toBeLessThanOrEqual(sheet);
+    }
   });
 
   it("keeps a square tile to a size a face fills (#2233)", () => {

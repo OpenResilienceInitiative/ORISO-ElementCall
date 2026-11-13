@@ -14,9 +14,17 @@ Please see LICENSE in the repository root for full details.
  * so they stay in sight when the sheet scrolls.
  */
 export const KACHEL_MIN_WIDTH = 200;
-// A phone (#2233): two square tiles side by side on a 360px screen.
+// A phone (#2233): from three tiles in a row upwards, a tile is this wide.
 export const KACHEL_MIN_WIDTH_PHONE = 150;
 const PHONE_STAGE = 520;
+/**
+ * A phone always shows two tiles side by side when there are two people.
+ * After the halo's room on both sides a 360px phone leaves about 300px, too
+ * little for two tiles at the minimum: one column of huge tiles would follow.
+ */
+const PHONE_MIN_COLUMNS = 2;
+// …as long as a tile stays big enough for a face and a name.
+const PHONE_TILE_FLOOR = 120;
 // Square tiles (#2233, T12): a face fills a square, and more rows fit.
 export const KACHEL_MAX_WIDTH = 280;
 export const KACHEL_ASPECT = 1;
@@ -34,7 +42,13 @@ export function kachelSize(
   gutter: number,
 ): KachelSize {
   const min = width < PHONE_STAGE ? KACHEL_MIN_WIDTH_PHONE : KACHEL_MIN_WIDTH;
-  const fits = Math.floor((width + gutter) / (min + gutter));
+  const fitting = Math.floor((width + gutter) / (min + gutter));
+  const twoFit =
+    width >= PHONE_MIN_COLUMNS * PHONE_TILE_FLOOR + gutter;
+  const fits =
+    width < PHONE_STAGE && twoFit
+      ? Math.max(PHONE_MIN_COLUMNS, fitting)
+      : fitting;
   const columns = Math.max(1, Math.min(Math.max(1, count), fits));
   const tile = Math.min(
     KACHEL_MAX_WIDTH,

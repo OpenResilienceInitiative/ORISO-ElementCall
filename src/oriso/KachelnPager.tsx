@@ -126,11 +126,13 @@ export const KachelnPager: FC<{ count: number }> = ({ count }) => {
   );
 
   // Paged only while somebody is out of sight: a sheet that scrolls by its
-  // own padding has nobody to page to.
+  // own padding has nobody to page to. When no tile fits whole (a phone held
+  // sideways), somebody is out of sight too, and the arrows matter most.
   const paged =
     state.overflow &&
-    state.range !== null &&
-    (state.range.first > 1 || state.range.last < count);
+    (state.range === null ||
+      state.range.first > 1 ||
+      state.range.last < count);
   return (
     <div
       ref={ref}
@@ -151,11 +153,13 @@ export const KachelnPager: FC<{ count: number }> = ({ count }) => {
           <ChevronUpIcon aria-hidden width={20} height={20} />
         </button>
       )}
-      <span className={styles.count} aria-live="polite">
-        {paged
+      {/* Not a live region: the range changes on every scroll, and a screen
+          reader would read it out each time. */}
+      <span className={styles.count}>
+        {paged && state.range
           ? t("oriso.kacheln_range", {
-              first: state.range!.first,
-              last: state.range!.last,
+              first: state.range.first,
+              last: state.range.last,
               count,
             })
           : t("oriso.participants_count", { count })}
