@@ -1048,12 +1048,11 @@ describe("the call, in the ORISO design", () => {
   });
 
   /*
-   * S7: a video group gets the arrangements that carry a camera inside
-   * their forms. The Kreis — a sound indicator in the middle — is a voice
-   * view and is not offered; a stored Kreis falls back to the group's
-   * default, the Felder (#2233 D9).
+   * #2233: a video group gets all five views, the Kreis too — a
+   * Gesprächskreis meets in the Kreis with cameras or without. A stored
+   * Kreis is kept.
    */
-  it("offers a video group the video arrangements only, without the Kreis", async () => {
+  it("offers a video group all five views and keeps a stored Kreis", async () => {
     localStorage.setItem("oriso-call-view-group", "kreis");
     const { container } = createInCallView({
       crowd: true,
@@ -1065,18 +1064,25 @@ describe("the call, in the ORISO design", () => {
       [...rail.querySelectorAll('[role="radio"]')].map((r) =>
         r.getAttribute("data-view"),
       ),
-    ).toEqual(["hain", "felder", "kacheln", "spotlight"]);
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
     expect(
       rail
         .querySelector('[role="radio"][aria-checked="true"]')
         ?.getAttribute("data-view"),
-    ).toBe("felder");
+    ).toBe("kreis");
     expect(
-      container.querySelector(
-        '[data-testid="oriso-grove"][data-view="felder"]',
-      ),
+      container.querySelector('[data-testid="oriso-grove"][data-view="kreis"]'),
     ).toBeTruthy();
-    expect(screen.queryByTestId("oriso-kreis-centre")).toBeNull();
+    localStorage.removeItem("oriso-call-view-group");
+  });
+
+  it("puts the Kacheln's pager with the head count above the bar (#2233)", async () => {
+    localStorage.setItem("oriso-call-view-group", "kacheln");
+    createInCallView({ crowd: true, callType: "group" });
+    expect(await screen.findByTestId("oriso-kacheln-pager")).toHaveTextContent(
+      "3 participants",
+    );
+    localStorage.removeItem("oriso-call-view-group");
   });
 
   it("keeps names as capsules in a video group, whatever is stored", async () => {

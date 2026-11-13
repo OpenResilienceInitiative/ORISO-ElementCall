@@ -82,6 +82,7 @@ import { makeSpotlightPortraitLayout } from "../grid/SpotlightPortraitLayout";
 import { makeOrisoGroveLayout } from "../grid/OrisoGroveLayout";
 import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
 import { type StageView, ViewSwitcher } from "../oriso/ViewSwitcher";
+import { KachelnPager } from "../oriso/KachelnPager";
 import { AtmospherePicker } from "../oriso/AtmospherePicker";
 import {
   ATMOSPHERE_CHOICE_KEY,
@@ -1375,6 +1376,12 @@ export const InCallView: FC<InCallViewProps> = ({
       {headerStyle !== "none" && debugTileLayout
         ? `Tiles generation: ${tileStoreGeneration}`
         : undefined}
+      {/* #2233 (T12): the Kacheln's pager rides on the bar, which stays
+          put while the sheet scrolls. */}
+      {showControls &&
+        orisoEnabled &&
+        stageView === "kacheln" &&
+        layout.type === "grid" && <KachelnPager count={layout.grid.length} />}
       {showControls &&
         (orisoEnabled ? (
           <OrisoToolbar

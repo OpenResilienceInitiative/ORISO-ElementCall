@@ -8,8 +8,15 @@ Please see LICENSE in the repository root for full details.
 import { describe, expect, it } from "vitest";
 
 import { KREIS_CENTRE_MIN, KREIS_CENTRE_SHARE, kreisPlan } from "./kreis";
-import { KACHEL_MIN_WIDTH, kachelSize, orderForKacheln } from "./kacheln";
+import {
+  KACHEL_MAX_WIDTH,
+  KACHEL_MIN_WIDTH,
+  kachelSize,
+  kachelnRange,
+  orderForKacheln,
+} from "./kacheln";
 import { formatHandDuration } from "./handDuration";
+import { haloRoomFor } from "./layout";
 import {
   arrangementFor,
   resolveStageView,
@@ -113,7 +120,42 @@ describe("the Kacheln (S6)", () => {
   it("gives everybody the same tile and as many per row as fit", () => {
     const size = kachelSize(9, 1000, 6);
     expect(size.columns).toBe(Math.floor(1006 / (KACHEL_MIN_WIDTH + 6)));
-    expect(size.height).toBe(Math.round(size.width / (4 / 3)));
+    // #2233 (T12): square tiles.
+    expect(size.height).toBe(size.width);
+  });
+
+  it("puts two square tiles side by side on a phone (#2233)", () => {
+    expect(kachelSize(14, 340, 6).columns).toBe(2);
+    // What the sheet really gets: the phone's width less the halo's room on
+    // both sides (360px phone, 302px sheet; a 320px phone, less still).
+    for (const phone of [320, 360, 390]) {
+      const sheet = phone - 2 * Math.round(haloRoomFor(phone, 700));
+      const size = kachelSize(14, sheet, 6);
+      expect(size.columns).toBe(2);
+      expect(size.width * 2 + 6).toBeLessThanOrEqual(sheet);
+    }
+  });
+
+  it("keeps a square tile to a size a face fills (#2233)", () => {
+    const size = kachelSize(2, 3000, 6);
+    expect(size.width).toBeLessThanOrEqual(KACHEL_MAX_WIDTH);
+    expect(size.height).toBe(size.width);
+  });
+
+  it("names the people in sight by their place in the sheet (#2233)", () => {
+    const rows = [0, 0, 210, 210, 420, 420].map((top) => ({
+      top,
+      bottom: top + 200,
+    }));
+    expect(kachelnRange(rows, { top: 0, bottom: 410 })).toEqual({
+      first: 1,
+      last: 4,
+    });
+    expect(kachelnRange(rows, { top: 205, bottom: 620 })).toEqual({
+      first: 3,
+      last: 6,
+    });
+    expect(kachelnRange([], { top: 0, bottom: 400 })).toBeNull();
   });
 
   it("never goes below one column or above the people there are", () => {
@@ -221,6 +263,20 @@ describe("the start view by conversation type (S6b, #2233 D9)", () => {
 });
 
 describe("the views by call intent (S7)", () => {
+  it("offers a video group all five views, the Kreis too (#2233)", () => {
+    for (const callType of ["group", "single", "circle", null] as const) {
+      const plan = stagePlan({ alone: false, callType, intent: "video" });
+      expect(plan.offer).toEqual([
+        "kreis",
+        "hain",
+        "felder",
+        "kacheln",
+        "spotlight",
+      ]);
+      expect(resolveStageView("kreis", plan)).toBe("kreis");
+    }
+  });
+
   it("starts a video group by its type, never in a view it does not offer", () => {
     const want = {
       group: "felder",

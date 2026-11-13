@@ -714,7 +714,7 @@ describe.each([
     });
   });
 
-  it("plans a video group without the Kreis (S7)", () => {
+  it("plans a video group with all five views, the Kreis too (#2233)", () => {
     withTestScheduler(({ behavior, expectObservable }) => {
       withCallViewModel(
         {
@@ -725,7 +725,7 @@ describe.each([
         (vm) => {
           expectObservable(
             vm.orisoPlan$.pipe(map((plan) => plan.offer.join(","))),
-          ).toBe("a", { a: "hain,felder,kacheln,spotlight" });
+          ).toBe("a", { a: "kreis,hain,felder,kacheln,spotlight" });
         },
         { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "video" },
       );
