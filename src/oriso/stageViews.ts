@@ -18,15 +18,36 @@ import { type StageView } from "./ViewSwitcher";
  * the spotlight. Everybody else gets the five views of design 2a.
  *
  * The conversation type (`orisoCallType`, S6b) decides where a call starts,
- * not the head count: a group conversation starts in the Kreis and stays a
- * group at two people; a single conversation starts in the Einzelgespräch.
- * Without a type the head count decides, as it always did.
+ * not the head count: a Gesprächskreis starts in the Kreis, another group
+ * conversation in the Felder, and both stay groups at two people; a single
+ * conversation starts in the Einzelgespräch. Without a type the head count
+ * decides, as it always did.
  *
  * A single conversation that grows to three (S8, "Link teilen") gets the
- * group's rail and starts in the Kreis; back at two it is the
+ * group's rail and starts in the Felder; back at two it is the
  * Einzelgespräch again.
  */
-export type OrisoCallType = "group" | "single";
+export type OrisoCallType = "group" | "circle" | "single";
+
+/**
+ * A conversation of many: a Gesprächskreis (`circle`) or any other group,
+ * e.g. an internal team chat (`group`). It keeps the group's views at two
+ * people too.
+ */
+export const isGroupConversation = (callType: OrisoCallType | null): boolean =>
+  callType === "group" || callType === "circle";
+
+/*
+ * Where a typed conversation of three or more starts (#2233 D9, Frank,
+ * 12.11.): a Gesprächskreis in the Kreis, everything else in the Felder —
+ * an internal group chat, and a 1:1 that grew into a group through the
+ * shared link. Fixed defaults; there is no favourite view in the profile.
+ */
+const TYPE_FALLBACK: Record<OrisoCallType, StageView> = {
+  circle: "kreis",
+  group: "felder",
+  single: "felder",
+};
 export type OrisoCallIntent = "audio" | "video";
 export interface StagePlan {
   offer: readonly StageView[];
@@ -58,18 +79,16 @@ export function stagePlan({
   callType?: OrisoCallType | null;
   intent?: OrisoCallIntent | null;
 }): StagePlan {
-  if (alone && callType !== "group")
+  if (alone && !isGroupConversation(callType))
     return { offer: ONE_ON_ONE_OFFER, fallback: "einzelgespraech" };
-  if (intent === "video") return { offer: VIDEO_GROUP_OFFER, fallback: "hain" };
+  const offer = intent === "video" ? VIDEO_GROUP_OFFER : GROUP_OFFER;
   /*
-   * A typed conversation of three or more starts in the group default, the
-   * Kreis — a single conversation that grew to a group too (S8: somebody
-   * came in through the shared link). Without a type, the Hain as before.
+   * Without a type, the Hain as before. A typed default the offer does not
+   * have (the Kreis where a video group is not offered it) falls back to the
+   * Hain too, so a call never starts in a view its rail cannot show.
    */
-  return {
-    offer: GROUP_OFFER,
-    fallback: callType === null ? "hain" : "kreis",
-  };
+  const typed = callType === null ? "hain" : TYPE_FALLBACK[callType];
+  return { offer, fallback: offer.includes(typed) ? typed : "hain" };
 }
 
 const ARRANGEMENTS: readonly string[] = ["kreis", "hain", "felder", "kacheln"];
