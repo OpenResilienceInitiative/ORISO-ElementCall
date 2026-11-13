@@ -2840,6 +2840,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@material/material-color-utilities@npm:0.4.0":
+  version: 0.4.0
+  resolution: "@material/material-color-utilities@npm:0.4.0"
+  checksum: 10c0/cf4e6ea31ce4d357cd305efd2ef4f22f1830a2f3718f8da3f0968b6eb426290c86e148245530056311ff3d24d39aa9e7c931e5c5b345b3ed21294aa938976ea6
+  languageName: node
+  linkType: hard
+
 "@matrix-org/matrix-sdk-crypto-wasm@npm:^15.3.0":
   version: 15.3.0
   resolution: "@matrix-org/matrix-sdk-crypto-wasm@npm:15.3.0"
@@ -7203,6 +7210,7 @@ __metadata:
     "@livekit/components-react": "npm:^2.0.0"
     "@livekit/protocol": "npm:^1.42.2"
     "@livekit/track-processors": "npm:^0.5.5"
+    "@material/material-color-utilities": "npm:0.4.0"
     "@mediapipe/tasks-vision": "npm:^0.10.18"
     "@opentelemetry/api": "npm:^1.4.0"
     "@opentelemetry/core": "npm:^2.0.0"
@@ -7266,7 +7274,7 @@ __metadata:
     livekit-client: "npm:^2.13.0"
     lodash-es: "npm:^4.17.21"
     loglevel: "npm:^1.9.1"
-    matrix-js-sdk: "npm:^39.2.0"
+    matrix-js-sdk: "patch:matrix-js-sdk@npm%3A39.4.0#~/.yarn/patches/matrix-js-sdk-npm-39.4.0-40ff01f5ec.patch"
     matrix-widget-api: "npm:^1.14.0"
     normalize.css: "npm:^8.0.1"
     observable-hooks: "npm:^4.2.3"
@@ -10001,7 +10009,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"matrix-js-sdk@npm:^39.2.0":
+"matrix-js-sdk@npm:39.4.0":
   version: 39.4.0
   resolution: "matrix-js-sdk@npm:39.4.0"
   dependencies:
@@ -10020,6 +10028,28 @@ __metadata:
     unhomoglyph: "npm:^1.0.6"
     uuid: "npm:13"
   checksum: 10c0/ab9450f49399fea23337e839ded956f1344b807f2a7c83f630c695054ca3e5c0e9123d7e9528678a99f8667ffdb701f0b35c8fd5f328ad4c449b14e276caba9e
+  languageName: node
+  linkType: hard
+
+"matrix-js-sdk@patch:matrix-js-sdk@npm%3A39.4.0#~/.yarn/patches/matrix-js-sdk-npm-39.4.0-40ff01f5ec.patch":
+  version: 39.4.0
+  resolution: "matrix-js-sdk@patch:matrix-js-sdk@npm%3A39.4.0#~/.yarn/patches/matrix-js-sdk-npm-39.4.0-40ff01f5ec.patch::version=39.4.0&hash=887c56"
+  dependencies:
+    "@babel/runtime": "npm:^7.12.5"
+    "@matrix-org/matrix-sdk-crypto-wasm": "npm:^15.3.0"
+    another-json: "npm:^0.2.0"
+    bs58: "npm:^6.0.0"
+    content-type: "npm:^1.0.4"
+    jwt-decode: "npm:^4.0.0"
+    loglevel: "npm:^1.9.2"
+    matrix-events-sdk: "npm:0.0.1"
+    matrix-widget-api: "npm:^1.14.0"
+    oidc-client-ts: "npm:^3.0.1"
+    p-retry: "npm:7"
+    sdp-transform: "npm:^3.0.0"
+    unhomoglyph: "npm:^1.0.6"
+    uuid: "npm:13"
+  checksum: 10c0/a93f359ccfc808226ff1e7e61c2d9b6f94abfc30d6fe10d2c555960cd02e664e2f258db81f026e8737a79abd06584e61204626bb651991b46692a9d953411492
   languageName: node
   linkType: hard
 
