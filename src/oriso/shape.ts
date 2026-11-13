@@ -152,3 +152,34 @@ export function coverScale(tiltDeg: number): number {
   const t = (Math.abs(tiltDeg) * Math.PI) / 180;
   return Math.cos(t) + Math.sin(t);
 }
+
+/**
+ * The shared screen's corner (#2233, R25): a rectangle, only slightly
+ * rounded — a screen is not a person. The design's spotlight draws the share
+ * at `border-radius: 24px`, which is Compound's 6x space.
+ */
+export const SHARE_RADIUS = "var(--cpd-space-6x)";
+
+const SPOTLIGHT_LAYOUTS: readonly string[] = [
+  "spotlight-landscape",
+  "spotlight-portrait",
+  "spotlight-expanded",
+];
+
+/**
+ * Whether people are drawn as rectangles with slightly rounded corners
+ * rather than as forms (#2233).
+ *
+ * The one-to-one video stage always was (5a). The spotlight is too: like
+ * Element's own spotlight, the big picture of whoever speaks and the small
+ * ones beside it are rounded rectangles, with the animal or the initials
+ * inside when the camera is off (Frank, 13 Nov: "einfach ein normales
+ * Viereck … leicht gerundete Kanten"). Everywhere else — the grove, the
+ * Einzelgespräch, the minimised call — people keep their forms.
+ */
+export function rectangularStage(
+  layoutType: string,
+  videoOneOnOne: boolean,
+): boolean {
+  return videoOneOnOne || SPOTLIGHT_LAYOUTS.includes(layoutType);
+}

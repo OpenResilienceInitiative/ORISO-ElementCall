@@ -81,6 +81,7 @@ import { MediaDevicesContext } from "../MediaDevicesContext";
 import { HeaderStyle } from "../UrlParams";
 import { setLocalStorageItemReactive } from "../useLocalStorage";
 import { type ElementCallError } from "../utils/errors";
+import { type ScreenShareFailure } from "../oriso/screenShareFailure";
 
 vi.hoisted(
   () =>
@@ -245,6 +246,10 @@ function createInCallView({
   callType,
   encrypted = false,
   orisoLogo,
+  canShare = false,
+  shareFailure = null,
+  roomName = "Schuldnerberatung",
+  topic,
 }: {
   mediaError?: ElementCallError | null;
   published?: Record<string, Record<string, string>>;
@@ -256,10 +261,18 @@ function createInCallView({
   crowd?: boolean;
   callIntent?: "audio" | "video";
   /** `orisoCallType` on the URL, and in the view model as InCallView passes it. */
-  callType?: "group" | "single";
+  callType?: "group" | "circle" | "single";
   encrypted?: boolean;
   /** The Träger's logo, as the app puts it into the call address. */
   orisoLogo?: string;
+  /** Whether this browser can capture a screen (jsdom cannot). */
+  canShare?: boolean;
+  /** Why the last attempt to share did not start. */
+  shareFailure?: ScreenShareFailure | null;
+  /** The room's display name; "" is a room without a real name. */
+  roomName?: string;
+  /** `orisoTopic` on the URL (#2233 R6). */
+  topic?: string;
 } = {}): RenderResult & {
   rtcSession: MockRTCSession;
   retryMedia: ReturnType<typeof vi.fn>;
@@ -341,6 +354,9 @@ function createInCallView({
   Object.assign(vm, {
     mediaError$: new BehaviorSubject(mediaError),
     retryMedia,
+    screenShareFailure$: new BehaviorSubject(shareFailure),
+    dismissScreenShareFailure: vi.fn(),
+    ...(canShare ? { toggleScreenSharing: vi.fn() } : {}),
   });
 
   rtcSession.joined = true;
@@ -353,6 +369,9 @@ function createInCallView({
             `&parentUrl=${encodeURIComponent(HOST)}` +
             (callIntent === undefined ? "" : `&callIntent=${callIntent}`) +
             (callType === undefined ? "" : `&orisoCallType=${callType}`) +
+            (topic === undefined
+              ? ""
+              : `&orisoTopic=${encodeURIComponent(topic)}`) +
             (orisoLogo === undefined
               ? ""
               : `&orisoLogo=${encodeURIComponent(orisoLogo)}`)
@@ -381,7 +400,7 @@ function createInCallView({
                   displayName: "",
                   avatarUrl: "",
                   roomId: "",
-                  roomName: "Schuldnerberatung",
+                  roomName,
                   roomAlias: null,
                   roomAvatar: null,
                   e2eeSystem: {
@@ -931,8 +950,8 @@ describe("the call, in the ORISO design", () => {
    * count. A group conversation of two starts in the Kreis with all five
    * views; a single conversation of two in the Einzelgespräch.
    */
-  it("starts a group conversation of two in the Kreis", async () => {
-    const { container } = createInCallView({ callType: "group" });
+  it("starts a Gesprächskreis of two in the Kreis (#2233 D9)", async () => {
+    const { container } = createInCallView({ callType: "circle" });
     const rail = await openViewRail();
     expect(
       [...rail.querySelectorAll('[role="radio"]')].map((r) =>
@@ -949,6 +968,26 @@ describe("the call, in the ORISO design", () => {
     ).toBeTruthy();
   });
 
+  it("starts an internal group of two in the Felder (#2233 D9)", async () => {
+    const { container } = createInCallView({ callType: "group" });
+    const rail = await openViewRail();
+    expect(
+      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
+        r.getAttribute("data-view"),
+      ),
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
+    expect(
+      rail
+        .querySelector('[role="radio"][aria-checked="true"]')
+        ?.getAttribute("data-view"),
+    ).toBe("felder");
+    expect(
+      container.querySelector(
+        '[data-testid="oriso-grove"][data-view="felder"]',
+      ),
+    ).toBeTruthy();
+  });
+
   it("starts a single conversation of two in the Einzelgespräch", async () => {
     createInCallView({ callType: "single" });
     const rail = await openViewRail();
@@ -962,9 +1001,9 @@ describe("the call, in the ORISO design", () => {
   /*
    * S8: a single conversation that somebody joined through the shared link
    * is a group now — the rail offers the group views and the stage starts
-   * in the group default, the Kreis.
+   * in the default for a grown 1:1, the Felder (#2233 D9).
    */
-  it("gives a single conversation of three the group rail, in the Kreis", async () => {
+  it("gives a single conversation of three the group rail, in the Felder", async () => {
     const { container } = createInCallView({
       callType: "single",
       crowd: true,
@@ -976,7 +1015,9 @@ describe("the call, in the ORISO design", () => {
       ),
     ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
     expect(
-      container.querySelector('[data-testid="oriso-grove"][data-view="kreis"]'),
+      container.querySelector(
+        '[data-testid="oriso-grove"][data-view="felder"]',
+      ),
     ).toBeTruthy();
   });
 
@@ -1008,11 +1049,11 @@ describe("the call, in the ORISO design", () => {
   });
 
   /*
-   * S7: a video group gets the arrangements that carry a camera inside
-   * their forms. The Kreis — a sound indicator in the middle — is a voice
-   * view and is not offered; a stored Kreis falls back to the Hain.
+   * #2233: a video group gets all five views, the Kreis too — a
+   * Gesprächskreis meets in the Kreis with cameras or without. A stored
+   * Kreis is kept.
    */
-  it("offers a video group the video arrangements only, without the Kreis", async () => {
+  it("offers a video group all five views and keeps a stored Kreis", async () => {
     localStorage.setItem("oriso-call-view-group", "kreis");
     const { container } = createInCallView({
       crowd: true,
@@ -1024,16 +1065,25 @@ describe("the call, in the ORISO design", () => {
       [...rail.querySelectorAll('[role="radio"]')].map((r) =>
         r.getAttribute("data-view"),
       ),
-    ).toEqual(["hain", "felder", "kacheln", "spotlight"]);
+    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
     expect(
       rail
         .querySelector('[role="radio"][aria-checked="true"]')
         ?.getAttribute("data-view"),
-    ).toBe("hain");
+    ).toBe("kreis");
     expect(
-      container.querySelector('[data-testid="oriso-grove"][data-view="hain"]'),
+      container.querySelector('[data-testid="oriso-grove"][data-view="kreis"]'),
     ).toBeTruthy();
-    expect(screen.queryByTestId("oriso-kreis-centre")).toBeNull();
+    localStorage.removeItem("oriso-call-view-group");
+  });
+
+  it("puts the Kacheln's pager with the head count above the bar (#2233)", async () => {
+    localStorage.setItem("oriso-call-view-group", "kacheln");
+    createInCallView({ crowd: true, callType: "group" });
+    expect(await screen.findByTestId("oriso-kacheln-pager")).toHaveTextContent(
+      "3 participants",
+    );
+    localStorage.removeItem("oriso-call-view-group");
   });
 
   it("keeps names as capsules in a video group, whatever is stored", async () => {
@@ -1174,7 +1224,8 @@ describe("the call on a phone (S9)", () => {
   });
 
   it("gives a video 1:1 the camera in the bar, and no screen share there", async () => {
-    createInCallView({ callIntent: "video", published: {} });
+    // The phone keeps the share in the ⋮ menu, even where it can capture.
+    createInCallView({ callIntent: "video", published: {}, canShare: true });
     const toolbar = await screen.findByTestId("oriso-toolbar");
     expect(within(toolbar).getByTestId("incall_videomute")).toBeInTheDocument();
     expect(within(toolbar).queryByTestId("incall_screenshare")).toBeNull();
@@ -1182,6 +1233,95 @@ describe("the call on a phone (S9)", () => {
       within(screen.getByTestId("oriso-header")).queryByTestId(
         "incall_video_header_notes",
       ),
+    ).toBeNull();
+  });
+  /*
+   * #2233 R6: a 1:1 is titled by its topic, not "Anruf"; grown into a group
+   * it is the topic's group call; a real room name stays.
+   */
+  describe("the header title from the topic", () => {
+    it("titles a 1:1 'Einzelgespräch · <topic>'", () => {
+      createInCallView({
+        callType: "single",
+        roomName: "",
+        topic: "Schuldnerberatung",
+      });
+      const header = screen.getByTestId("oriso-header");
+      expect(
+        within(header).getByText("Conversation · Schuldnerberatung"),
+      ).toBeInTheDocument();
+    });
+
+    it("titles a 1:1 grown into a group '<topic> · Group call'", () => {
+      createInCallView({
+        callType: "single",
+        crowd: true,
+        roomName: "",
+        topic: "Schuldnerberatung",
+      });
+      const header = screen.getByTestId("oriso-header");
+      expect(
+        within(header).getByText("Schuldnerberatung · Group call"),
+      ).toBeInTheDocument();
+    });
+
+    it("keeps a real room name over the topic", () => {
+      createInCallView({
+        callType: "single",
+        roomName: "Flyer Schule",
+        topic: "Schuldnerberatung",
+      });
+      const header = screen.getByTestId("oriso-header");
+      expect(within(header).getByText("Flyer Schule")).toBeInTheDocument();
+    });
+  });
+});
+
+/*
+ * #2233 (R8): "Bildschirm teilen fehlt komplett". The share sat in the bar of
+ * a video call only; an audio call — most of the calls on this platform —
+ * hid it in the ⋮ menu, and a share that did not start said nothing.
+ */
+describe("sharing a screen", () => {
+  it.each(["audio", "video"] as const)(
+    "puts the share in the bar of a %s call on a desktop",
+    async (callIntent) => {
+      createInCallView({ callIntent, published: {}, canShare: true });
+      const toolbar = await screen.findByTestId("oriso-toolbar");
+      expect(
+        within(toolbar).getByTestId("incall_screenshare"),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("offers no share where the browser cannot capture a screen", async () => {
+    createInCallView({ callIntent: "audio", published: {} });
+    const toolbar = await screen.findByTestId("oriso-toolbar");
+    expect(within(toolbar).queryByTestId("incall_screenshare")).toBeNull();
+  });
+
+  it.each([
+    ["system", /allow screen recording for the browser/i],
+    ["blocked", /blocked on this page/i],
+    ["failed", /could not be shared/i],
+  ] as const)(
+    "tells the person why a share did not start (%s)",
+    async (failure, message) => {
+      createInCallView({
+        callIntent: "audio",
+        published: {},
+        canShare: true,
+        shareFailure: failure,
+      });
+      expect(await screen.findByText(message)).toBeInTheDocument();
+    },
+  );
+
+  it("says nothing while no share has failed", async () => {
+    createInCallView({ callIntent: "audio", published: {}, canShare: true });
+    await screen.findByTestId("oriso-toolbar");
+    expect(
+      screen.queryByText(/could not be shared|screen recording/i),
     ).toBeNull();
   });
 });

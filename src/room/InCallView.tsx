@@ -82,6 +82,7 @@ import { makeSpotlightPortraitLayout } from "../grid/SpotlightPortraitLayout";
 import { makeOrisoGroveLayout } from "../grid/OrisoGroveLayout";
 import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
 import { type StageView, ViewSwitcher } from "../oriso/ViewSwitcher";
+import { KachelnPager } from "../oriso/KachelnPager";
 import { AtmospherePicker } from "../oriso/AtmospherePicker";
 import {
   ATMOSPHERE_CHOICE_KEY,
@@ -109,6 +110,7 @@ import {
   useOrisoIdentities,
 } from "../oriso/useOrisoIdentities";
 import { OrisoShapeStore, OrisoShapesContext } from "../oriso/useOrisoShape";
+import { rectangularStage } from "../oriso/shape";
 import {
   type OrisoPins,
   OrisoPinsContext,
@@ -120,6 +122,7 @@ import {
   resolveStageView,
   viewStorageKey,
 } from "../oriso/stageViews";
+import { stageTitle } from "../oriso/stageTitle";
 import { useLocalStorage } from "../useLocalStorage";
 import { Atmosphere } from "../oriso/Atmosphere";
 import { GridTileViewModel, type TileViewModel } from "../state/TileViewModel";
@@ -357,6 +360,7 @@ export const InCallView: FC<InCallViewProps> = ({
   const earpieceMode = useBehavior(vm.earpieceMode$);
   const audioOutputSwitcher = useBehavior(vm.audioOutputSwitcher$);
   const sharingScreen = useBehavior(vm.sharingScreen$);
+  const screenShareFailure = useBehavior(vm.screenShareFailure$);
   const localHandRaised = !!useBehavior(vm.handsRaised$)[
     `${client.getUserId()}:${client.getDeviceId()}`
   ];
@@ -527,6 +531,7 @@ export const InCallView: FC<InCallViewProps> = ({
     orisoLogo,
     orisoHostChrome,
     orisoCallType,
+    orisoTopic,
     orisoInvite,
     callIntent,
   } = useUrlParams();
@@ -668,7 +673,8 @@ export const InCallView: FC<InCallViewProps> = ({
       parentUrl,
       enabled: orisoEnabled,
       audioOnly: orisoAudioOnly,
-      rectangular: orisoVideoOneOnOne,
+      // #2233: the spotlight draws people as rounded rectangles too.
+      rectangular: rectangularStage(layout.type, orisoVideoOneOnOne),
     }),
     [
       orisoIdentities,
@@ -677,6 +683,7 @@ export const InCallView: FC<InCallViewProps> = ({
       orisoEnabled,
       orisoAudioOnly,
       orisoVideoOneOnOne,
+      layout.type,
     ],
   );
   const orisoShapes = useInitial(() => new OrisoShapeStore());
@@ -894,6 +901,30 @@ export const InCallView: FC<InCallViewProps> = ({
      * it is where the window buttons live — without it the call would have
      * none at all.
      */
+    /*
+     * "Einzelgespräch · Schuldnerberatung" for a 1:1 the host gave a topic
+     * (#2233 R6); a room with a real name keeps it. See `stageTitle`.
+     */
+    const titleParts = stageTitle({
+      roomName: matrixInfo.roomName,
+      defaultRoomName: t("oriso_call_title"),
+      callType: orisoCallType,
+      topic: orisoTopic,
+      group: participantCount > 2,
+    });
+    const orisoTitle =
+      titleParts.kind === "one-on-one"
+        ? titleParts.topic === null
+          ? t("oriso.view_one_on_one")
+          : t("oriso.one_on_one_title", { topic: titleParts.topic })
+        : titleParts.kind === "group"
+          ? t("oriso.group_topic_title", { topic: titleParts.topic })
+          : titleParts.name ||
+            t(
+              orisoVideoCall
+                ? "oriso.video_stage_title"
+                : "oriso.audio_stage_title",
+            );
     const orisoHeader = (
       <OrisoHeader
         ref={orisoMobile ? undefined : headerRef}
@@ -901,14 +932,7 @@ export const InCallView: FC<InCallViewProps> = ({
         compact={orisoMobile}
         tone={orisoVideoOneOnOne ? "dark" : "light"}
         logo={orisoLogo}
-        title={
-          matrixInfo.roomName ||
-          t(
-            orisoVideoCall
-              ? "oriso.video_stage_title"
-              : "oriso.audio_stage_title",
-          )
-        }
+        title={orisoTitle}
         encrypted={matrixInfo.e2eeSystem.kind !== E2eeType.NONE}
         meta={
           callDuration !== null ? (
@@ -1080,6 +1104,25 @@ export const InCallView: FC<InCallViewProps> = ({
         {t("common.reconnecting")}
       </Toast>
     </>
+  );
+
+  /*
+   * #2233 (R8): a share that did not start used to leave the button off
+   * and say nothing. A closed picker stays silent (`screenShareFailure`).
+   */
+  const shareFailureToast = (
+    <Toast
+      onDismiss={vm.dismissScreenShareFailure}
+      open={screenShareFailure !== null}
+      autoDismiss={10000}
+      modal={false}
+    >
+      {screenShareFailure === "system"
+        ? t("oriso.share_failed_system")
+        : screenShareFailure === "blocked"
+          ? t("oriso.share_failed_blocked")
+          : t("oriso.share_failed")}
+    </Toast>
   );
 
   const earpieceOverlay = (
@@ -1341,6 +1384,12 @@ export const InCallView: FC<InCallViewProps> = ({
       {headerStyle !== "none" && debugTileLayout
         ? `Tiles generation: ${tileStoreGeneration}`
         : undefined}
+      {/* #2233 (T12): the Kacheln's pager rides on the bar, which stays
+          put while the sheet scrolls. */}
+      {showControls &&
+        orisoEnabled &&
+        stageView === "kacheln" &&
+        layout.type === "grid" && <KachelnPager count={layout.grid.length} />}
       {showControls &&
         (orisoEnabled ? (
           <OrisoToolbar
@@ -1359,7 +1408,12 @@ export const InCallView: FC<InCallViewProps> = ({
                 : null
             }
             notesOpen={notesOpen}
-            screenShareInBar={orisoVideoCall}
+            /*
+             * Every call on a desktop, audio included (#2233, R8): an audio
+             * call hid the share in the ⋮ menu, where nobody found it. The
+             * phone's bar keeps it in the menu (`compact`).
+             */
+            screenShareInBar
           />
         ) : (
           <>
@@ -1453,6 +1507,7 @@ export const InCallView: FC<InCallViewProps> = ({
               <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
               <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
               {reconnectingToast}
+              {orisoEnabled && shareFailureToast}
               <InitialDeviceNotice />
               {earpieceOverlay}
               <ReactionsOverlay vm={vm} />

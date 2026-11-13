@@ -190,6 +190,10 @@ Please see LICENSE in the repository root for full details.
 }
 
 .header[data-compact] .title {
+  /* A column aligned to its start does not stretch its items, so without a
+     cap a long title ("Einzelgespräch · Schuldnerberatung", #2233) ran under
+     the ⋮ instead of ending in an ellipsis. */
+  max-inline-size: 100%;
   font-size: 1.25rem;
   font-weight: 400;
 }

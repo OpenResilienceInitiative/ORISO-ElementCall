@@ -121,6 +121,40 @@ describe("ORISO call mode", () => {
     expect(screen.queryByTestId("video")).not.toBeInTheDocument();
     expect(screen.getByTestId("oriso-initials")).toHaveTextContent("F");
   });
+
+  it("rings whoever speaks on a rectangular tile, which has no halo", () => {
+    const tile = (speaking: boolean): React.ReactNode => (
+      <OrisoStageContext value={{ ...stage, rectangular: true }}>
+        <MediaView
+          {...base}
+          orisoIdentity={identity}
+          orisoSpeaking={speaking}
+        />
+      </OrisoStageContext>
+    );
+    const { rerender } = render(tile(false));
+    expect(screen.queryByTestId("oriso-rim")).toBeNull();
+
+    rerender(tile(true));
+    expect(screen.getByTestId("oriso-rim")).toBeInTheDocument();
+  });
+
+  describe("a shared screen (#2233, R25)", () => {
+    it("is marked as the ORISO share: a rounded rectangle, no form", () => {
+      render(<MediaView {...base} videoFit="contain" orisoShare />);
+      const tile = screen.getByTestId("videoTile");
+      expect(tile).toHaveAttribute("data-oriso-share", "true");
+      expect(screen.queryByTestId("oriso-face")).toBeNull();
+      expect(screen.getByTestId("video")).toBeInTheDocument();
+    });
+
+    it("is upstream's plain tile without the flag", () => {
+      render(<MediaView {...base} videoFit="contain" />);
+      expect(screen.getByTestId("videoTile")).not.toHaveAttribute(
+        "data-oriso-share",
+      );
+    });
+  });
 });
 
 describe("with an identity, the tile is a form", () => {

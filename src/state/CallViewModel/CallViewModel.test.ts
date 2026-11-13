@@ -714,7 +714,7 @@ describe.each([
     });
   });
 
-  it("plans a video group without the Kreis (S7)", () => {
+  it("plans a video group with all five views, the Kreis too (#2233)", () => {
     withTestScheduler(({ behavior, expectObservable }) => {
       withCallViewModel(
         {
@@ -725,14 +725,14 @@ describe.each([
         (vm) => {
           expectObservable(
             vm.orisoPlan$.pipe(map((plan) => plan.offer.join(","))),
-          ).toBe("a", { a: "hain,felder,kacheln,spotlight" });
+          ).toBe("a", { a: "kreis,hain,felder,kacheln,spotlight" });
         },
         { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "video" },
       );
     });
   });
 
-  it("plans an audio group of two in the Kreis (S6b, S7)", () => {
+  it("plans an audio Gesprächskreis of two in the Kreis (S6b, S7, #2233 D9)", () => {
     withTestScheduler(({ behavior, expectObservable }) => {
       withCallViewModel(
         {
@@ -745,6 +745,28 @@ describe.each([
             vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
           ).toBe("a", { a: "kreis" });
         },
+        {
+          orisoDesign: true,
+          orisoCallType: "circle",
+          orisoCallIntent: "audio",
+        },
+      );
+    });
+  });
+
+  it("plans an internal group of two in the Felder (#2233 D9)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
+          ).toBe("a", { a: "felder" });
+        },
         { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "audio" },
       );
     });
@@ -756,7 +778,7 @@ describe.each([
    * for the group default; when they leave, it is a 1:1 again.
    */
   it.each([
-    ["single", "kreis"],
+    ["single", "felder"],
     [null, "hain"],
   ] as const)(
     "turns a %s call of two into a group at three and back at two (S8)",

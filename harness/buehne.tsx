@@ -88,6 +88,7 @@ import { WaveBand } from "../src/oriso/WaveBand";
 import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
 import { ViewSwitcher, type StageView } from "../src/oriso/ViewSwitcher";
+import { KachelnPager } from "../src/oriso/KachelnPager";
 import { type OrisoIdentity } from "../src/oriso/identity";
 import { OrisoStageContext } from "../src/oriso/useOrisoIdentities";
 import {
@@ -511,7 +512,17 @@ function Stage(): React.ReactNode {
                 Layout={layout.scrolling}
                 Tile={Tile as never}
               />
+              {/* The fixed layer, as InCallView draws it: the shared screen
+                  and the Kacheln's pager (#2233) stay put over the sheet. */}
+              <Grid
+                className={styles.fixedGrid}
+                style={{ insetBlockStart: HEADER, height }}
+                model={model}
+                Layout={layout.fixed}
+                Tile={Tile as never}
+              />
               <div className={classNames(styles.footer, styles.orisoFooter)}>
+                {view === "kacheln" && <KachelnPager count={count} />}
                 <Footer
                   compact={mobile}
                   notesOpen={notesOpen}
@@ -584,7 +595,7 @@ function Footer({
       onOpenBackground={onOpenBackground}
       onToggleScreenShare={() => {}}
       sharingScreen={false}
-      screenShareInBar={intent === "video"}
+      screenShareInBar
       onOpenSoundSettings={() => {}}
       onOpenSettings={() => {}}
     />
