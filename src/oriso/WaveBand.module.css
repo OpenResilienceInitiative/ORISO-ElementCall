@@ -80,3 +80,99 @@ Please see LICENSE in the repository root for full details.
 .band[data-speaking="false"] .status {
   color: rgb(96 94 99);
 }
+
+/* R27 on a desktop: the same band, condensed into the header's middle —
+   bars and "Susanne P. spricht" on one 40px line, so the stage keeps its
+   height and the band covers no face and no part of the bar. */
+.band[data-variant="header"] {
+  flex: 0 1 340px;
+  min-inline-size: 0;
+  margin-inline: 0;
+  block-size: 40px;
+  padding-inline: 14px;
+  gap: 10px;
+  border-radius: 20px;
+  background: rgb(45 44 40 / 5%);
+  box-shadow: none;
+}
+
+.band[data-variant="header"],
+.band[data-variant="pip"] {
+  overflow: hidden;
+}
+
+/* A narrow header (a small window, or a full rail beside it): the name is
+   what the band is for, so the bars and "spricht" give way first. */
+@container oriso-speaker (max-width: 220px) {
+  .band[data-variant="header"] .bars,
+  .band[data-variant="header"] .status {
+    display: none;
+  }
+}
+
+.band[data-variant="header"][data-tone="dark"] {
+  background: rgb(251 244 211 / 10%);
+}
+
+.band[data-variant="header"] .bars {
+  block-size: 20px;
+  min-inline-size: 24px;
+}
+
+.band[data-variant="header"] .who,
+.band[data-variant="pip"] .who {
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  min-inline-size: 0;
+  max-inline-size: none;
+}
+
+.band[data-variant="header"] .name,
+.band[data-variant="pip"] .name {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+}
+
+.band[data-variant="header"] .name {
+  font-size: 0.875rem;
+}
+
+.band[data-variant="header"] .status,
+.band[data-variant="pip"] .status {
+  flex: none;
+  font-size: 0.75rem;
+}
+
+.band[data-variant="header"][data-tone="dark"] .bar {
+  background: var(--oriso-video-ink, #fbf4d3);
+}
+
+.band[data-variant="header"][data-tone="dark"] .name {
+  color: var(--oriso-video-ink, #fbf4d3);
+}
+
+.band[data-variant="header"][data-tone="dark"] .status,
+.band[data-variant="header"][data-tone="dark"][data-speaking="false"] .status {
+  color: rgb(251 244 211 / 70%);
+}
+
+/* The minimised call: one slim line above its single form. */
+.band[data-variant="pip"] {
+  flex-shrink: 0;
+  margin: 6px 6px 0;
+  block-size: 32px;
+  padding-inline: 10px;
+  gap: 8px;
+  border-radius: 16px;
+}
+
+.band[data-variant="pip"] .bars {
+  block-size: 16px;
+  min-inline-size: 18px;
+}
+
+.band[data-variant="pip"] .name {
+  font-size: 0.8125rem;
+}

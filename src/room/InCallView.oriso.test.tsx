@@ -913,6 +913,41 @@ describe("the call, in the ORISO design", () => {
     localStorage.removeItem("oriso-call-view");
   });
 
+  /*
+   * R27: who speaks, in every view. On a desktop the band is condensed into
+   * the header's middle; a Kreis whose centre already names the speaker
+   * leaves it to the centre rather than saying it twice.
+   */
+  it("names whoever speaks in the desktop header, the 1:1 included", async () => {
+    createInCallView({ callIntent: "audio", published: {} });
+    await screen.findByTestId("einzelgespraech");
+    const band = within(screen.getByTestId("oriso-header")).getByTestId(
+      "oriso-wave-band",
+    );
+    expect(band.dataset.variant).toBe("header");
+  });
+
+  it("names whoever speaks in the header of the Hain, and of a Kreis whose centre cannot", async () => {
+    localStorage.removeItem("oriso-call-view");
+    createInCallView({ crowd: true });
+    const rail = await openViewRail();
+    fireEvent.click(rail.querySelector('[data-view="hain"]')!);
+    expect(
+      within(screen.getByTestId("oriso-header")).getByTestId("oriso-wave-band")
+        .dataset.variant,
+    ).toBe("header");
+
+    // jsdom measures no stage, so the centre here is too small for a name
+    // and the header keeps the band; a centre that names the speaker takes
+    // it over (`speakerBandPlace`, `kreisCentreNamesSpeaker`).
+    fireEvent.click(rail.querySelector('[data-view="kreis"]')!);
+    expect(screen.queryByTestId("oriso-kreis-speaker")).not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("oriso-header")).getByTestId("oriso-wave-band"),
+    ).toBeInTheDocument();
+    localStorage.removeItem("oriso-call-view");
+  });
+
   it("starts in the spotlight when the spotlight was the last choice", async () => {
     localStorage.setItem("oriso-call-view", "spotlight");
     createInCallView({ crowd: true });
@@ -1157,7 +1192,7 @@ describe("the call on a phone (S9)", () => {
     ).toBeNull();
   });
 
-  it("keeps the 1:1 in the shared circle, without a wave band", async () => {
+  it("keeps the 1:1 in the shared circle, with the wave band too (R27)", async () => {
     const { container } = createInCallView({
       callIntent: "audio",
       published: {},
@@ -1168,7 +1203,8 @@ describe("the call on a phone (S9)", () => {
     expect(
       within(screen.getByTestId("oriso-header")).getByText("encrypted"),
     ).toBeInTheDocument();
-    expect(screen.queryByTestId("oriso-wave-band")).toBeNull();
+    // Who speaks, in every view: the 1:1 no longer leaves it out.
+    expect(screen.getByTestId("oriso-wave-band").dataset.variant).toBe("phone");
     expect(container.querySelector('[data-testid="oriso-grove"]')).toBeNull();
   });
 

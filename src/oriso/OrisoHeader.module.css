@@ -7,6 +7,7 @@ Please see LICENSE in the repository root for full details.
 
 /* The call header, 2a/2b (light) and 5a (dark). */
 .header {
+  container: oriso-header / inline-size;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -98,6 +99,30 @@ Please see LICENSE in the repository root for full details.
 .chip svg {
   inline-size: 12px;
   block-size: 12px;
+}
+
+/* R27: the speaker band in the middle of the desktop header. It gives way
+   first when the header is narrow — down to the bars and a cut name — so
+   the title and the buttons keep their room. */
+.speaker {
+  display: flex;
+  flex: 1 1 0;
+  justify-content: center;
+  min-inline-size: 0;
+  container: oriso-speaker / inline-size;
+}
+
+/* A desktop header with the speaker in it, in a window under 960px: the
+   chip keeps its lock and gives its words to the speaker's name, as a
+   phone's header does below 550px. Still read out. */
+@container oriso-header (max-width: 960px) {
+  .header:has(.speaker) .chipText {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
 }
 
 .actions {

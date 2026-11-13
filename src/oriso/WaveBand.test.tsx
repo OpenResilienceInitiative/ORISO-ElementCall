@@ -54,4 +54,26 @@ describe("the phone's wave band (S9, 5b)", () => {
     expect(band.dataset.speaking).toBe("false");
     expect(band).toHaveTextContent("quiet");
   });
+
+  it.each(["header", "pip"] as const)(
+    "comes condensed for the %s, with the same name and the same words",
+    (variant) => {
+      render(
+        <WaveBand
+          variant={variant}
+          speaker={{
+            userId: "@fox:oriso.test",
+            displayName: "ruhiger Fuchs 432",
+          }}
+        />,
+      );
+      const band = screen.getByTestId("oriso-wave-band");
+      expect(band.dataset.variant).toBe(variant);
+      expect(band).toHaveAttribute("role", "status");
+      expect(screen.getByTestId("oriso-wave-speaker")).toHaveTextContent(
+        "ruhiger Fuchs 432",
+      );
+      expect(band).toHaveTextContent("speaking");
+    },
+  );
 });

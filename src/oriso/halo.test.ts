@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   HALO_LIFT_PX,
+  HALO_REACH_PX,
   HALO_ROOM_PX,
   haloFor,
   QUIET_SHADOW,
@@ -150,6 +151,53 @@ describe("the room a halo needs outside the form", () => {
     expect(shapelessFaceSide(300, 200)).toBe(168);
     expect(shapelessFaceSide(120, 120)).toBe(Math.round(120 * 0.84));
   });
+
+  /*
+   * The FULL reach, which is what decides whether an edge is seen.
+   *
+   * `reachOf` above counts half the blur, which is where a blurred edge is
+   * at half strength — not where it ends. The blur radius is two standard
+   * deviations: at `spread + blur / 2` the glow is still at 16% of its 0.5
+   * alpha, and cut there it left a hard, rectangular step along the
+   * spotlight's top and bottom (measured on a phone: 32 levels from one row
+   * of pixels to the next). Only at `spread + blur` has it faded to nothing.
+   */
+  const fullReachOf = (shadow: string): number =>
+    Math.max(
+      ...shadow.split(/,(?![^(]*\))/).map((layer) => {
+        const [x = 0, y = 0, blur = 0, spread = 0] = layer
+          .replace(/[a-z-]+\([^)]*\)/gi, "")
+          .trim()
+          .split(/\s+/)
+          .filter((token) => /^-?\d+(?:\.\d+)?(?:px)?$/.test(token))
+          .map((token) => Number(token.replace("px", "")));
+        return Math.max(Math.abs(x), Math.abs(y)) + blur + spread;
+      }),
+    );
+
+  it("knows how far the whole stack reaches before it has faded out", () => {
+    expect(HALO_REACH_PX).toBe(
+      fullReachOf(haloFor("#FCE7E6", true)) + HALO_LIFT_PX,
+    );
+  });
+
+  it("is drawn whole where the form has the room", () => {
+    expect(haloFor("#FCE7E6", true, HALO_REACH_PX)).toBe(
+      haloFor("#FCE7E6", true),
+    );
+    expect(haloFor("#FCE7E6", true, 400)).toBe(haloFor("#FCE7E6", true));
+  });
+
+  it.each([17, 24, 36, 48])(
+    "fits the room a spotlight form has, so no edge cuts it (%ipx)",
+    (room) => {
+      const halo = haloFor("#A5000A", true, room);
+      expect(fullReachOf(halo) + HALO_LIFT_PX).toBeLessThanOrEqual(room + 0.5);
+      // Still the person's own colour lighting up, only tighter.
+      expect(halo).toContain("rgba(165, 0, 10, 0.5)");
+      expect(halo).toContain("rgba(165, 0, 10, 0.18)");
+    },
+  );
 
   it("answers a tile that has not measured itself yet", () => {
     // A stage mid-animation can report zero, and a NaN side would take the
