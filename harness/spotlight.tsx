@@ -66,6 +66,7 @@ import {
 } from "../src/oriso/useOrisoShape";
 import { Atmosphere } from "../src/oriso/Atmosphere";
 import { type OrisoIdentity } from "../src/oriso/identity";
+import { rectangularStage } from "../src/oriso/shape";
 import { OrisoStageContext } from "../src/oriso/useOrisoIdentities";
 import { ReactionsSenderProvider } from "../src/reactions/useReactionsSender";
 import { type CallViewModel } from "../src/state/CallViewModel/CallViewModel";
@@ -406,8 +407,9 @@ function Call(): React.ReactNode {
       parentUrl: window.location.origin,
       enabled: true,
       audioOnly: !video,
-      // As InCallView decides it: only the video 1:1 is rectangular.
-      rectangular: false,
+      // As InCallView decides it, from the layout's type; the
+      // minimised call is "pip", which is not rectangular.
+      rectangular: rectangularStage(pip ? "pip" : model.type, false),
     }),
     [],
   );

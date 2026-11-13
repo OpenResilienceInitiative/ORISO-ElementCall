@@ -16,6 +16,8 @@ Please see LICENSE in the repository root for full details.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { SHARE_RADIUS } from "../oriso/shape";
+
 // Read from the repository root: vitest runs there, and `import.meta.url` is
 // not a file URL once Vite has transformed this module.
 // Comments are stripped first: these rules document the selectors they
@@ -186,5 +188,21 @@ describe("a name on video", () => {
     const [, r, g, b, alpha] = rgba!.map(Number);
     expect(Math.max(r, g, b)).toBeLessThan(64);
     expect(alpha).toBeGreaterThanOrEqual(70);
+  });
+});
+
+describe("a shared screen in the ORISO design (#2233, R25)", () => {
+  it("is a rectangle with the design's slight corner, wherever it is drawn", () => {
+    /*
+     * On the tile itself rather than on the spotlight around it: the
+     * spotlight's `.contents` drops its corner to 0 when maximised, and the
+     * grove's fixed slot has none of its own.
+     */
+    const bodies = bodiesWhere((selector) =>
+      selector.includes('[data-oriso-share="true"]'),
+    );
+    expect(bodies.join()).toContain(
+      `--media-view-border-radius: ${SHARE_RADIUS}`,
+    );
   });
 });
