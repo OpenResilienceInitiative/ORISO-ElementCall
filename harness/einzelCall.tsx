@@ -70,6 +70,7 @@ import {
 import { Atmosphere } from "../src/oriso/Atmosphere";
 import { OrisoMobileMenu, OrisoToolbar } from "../src/oriso/OrisoToolbar";
 import { OrisoNotes } from "../src/oriso/OrisoNotes";
+import { Toast } from "../src/Toast";
 import { type OrisoIdentity, shownNameFor } from "../src/oriso/identity";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
 import { readTopic, stageTitle } from "../src/oriso/stageTitle";
@@ -115,6 +116,8 @@ const chrome = params.get("chrome");
 const names = params.get("names");
 const noArtwork = params.get("artwork") === "none";
 const mobile = params.get("mobile") === "1";
+/** `?shareFailed=system|blocked|failed`: the notice a failed share shows. */
+const shareFailed = params.get("shareFailed");
 
 const PEOPLE: Record<
   string,
@@ -260,7 +263,7 @@ function Footer({
       onToggleScreenShare={() => {}}
       sharingScreen={false}
       showVideo={callKind !== "audio"}
-      screenShareInBar={video}
+      screenShareInBar
       onOpenSoundSettings={() => {}}
       onOpenSettings={() => {}}
     />
@@ -494,6 +497,15 @@ createRoot(document.getElementById("root")!).render(
     <TooltipProvider>
       <div className="cpd-theme-dark" style={{ height: "100vh" }}>
         <Call />
+        {shareFailed !== null && (
+          <Toast open onDismiss={() => {}} modal={false}>
+            {shareFailed === "system"
+              ? i18n.t("oriso.share_failed_system")
+              : shareFailed === "blocked"
+                ? i18n.t("oriso.share_failed_blocked")
+                : i18n.t("oriso.share_failed")}
+          </Toast>
+        )}
       </div>
     </TooltipProvider>
   </StrictMode>,
