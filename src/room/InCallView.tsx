@@ -546,8 +546,14 @@ export const InCallView: FC<InCallViewProps> = ({
   const orisoCameraOneOnOne = orisoEnabled && cameraOn && !orisoAudioOnly;
   const orisoVideoOneOnOne =
     orisoCameraOneOnOne && layout.type === "one-on-one";
-  // #2233 (D2): the view rail and the atmosphere come with the third person.
-  const orisoGroupChrome = orisoEnabled && participantCount > 2;
+  /*
+   * #2233 (D2): the view rail and the atmosphere come with a group
+   * arrangement — whenever the stage is not the Einzelgespräch. That follows
+   * the plan (`orisoOneOnOne$`, which counts media, not people): a person
+   * waiting alone, or a 1:1 with a shared screen, gets a group arrangement
+   * too, and must keep the rail to leave a stored spotlight.
+   */
+  const orisoGroupChrome = orisoEnabled && !alone;
   // The window buttons in the header, when the host leaves them to the call.
   const orisoWindow = useOrisoWindow(orisoEnabled && orisoHostChrome);
   // "Link teilen" (S8): only when the host said it can make a link.

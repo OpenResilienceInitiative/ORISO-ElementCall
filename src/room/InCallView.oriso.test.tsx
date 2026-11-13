@@ -245,6 +245,7 @@ function createInCallView({
   encrypted = false,
   orisoLogo,
   cameraOn = false,
+  solo = false,
 }: {
   mediaError?: ElementCallError | null;
   published?: Record<string, Record<string, string>>;
@@ -262,6 +263,8 @@ function createInCallView({
   orisoLogo?: string;
   /** Whether either camera in a 1:1 is on (#2233 D1/D5). */
   cameraOn?: boolean;
+  /** Nobody else in the call yet: the person waits alone. */
+  solo?: boolean;
 } = {}): RenderResult & {
   rtcSession: MockRTCSession;
   retryMedia: ReturnType<typeof vi.fn>;
@@ -329,10 +332,12 @@ function createInCallView({
     },
   );
   const { vm, rtcSession } = getBasicCallViewModelEnvironment(
-    crowd ? [local, alice, bob] : [local, alice],
-    crowd
-      ? [localMember, aliceRtcMember, bobRtcMember]
-      : [localMember, aliceRtcMember],
+    solo ? [local] : crowd ? [local, alice, bob] : [local, alice],
+    solo
+      ? [localMember]
+      : crowd
+        ? [localMember, aliceRtcMember, bobRtcMember]
+        : [localMember, aliceRtcMember],
     {
       orisoDesign,
       orisoCallType: callType ?? null,
@@ -734,6 +739,20 @@ describe("the call, in the ORISO design", () => {
       ).toBeNull();
     },
   );
+
+  it("keeps the view rail and the atmosphere for a person waiting alone (#2233 D2)", async () => {
+    /*
+     * Alone, the stage is a group arrangement, not the Einzelgespräch. Without
+     * the rail, a stored spotlight held the person there until somebody came.
+     */
+    createInCallView({ solo: true });
+    const header = await screen.findByTestId("oriso-header");
+    expect(screen.queryByTestId("einzelgespraech")).toBeNull();
+    expect(within(header).getByTestId("view-switcher")).toBeInTheDocument();
+    expect(
+      within(header).getByTestId("oriso-atmosphere-button"),
+    ).toBeInTheDocument();
+  });
 
   it("takes focus along the rail when the arrows move the selection", async () => {
     /*
