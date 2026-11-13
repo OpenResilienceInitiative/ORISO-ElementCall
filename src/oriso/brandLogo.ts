@@ -127,3 +127,37 @@ export const allowedBrandLogo = (
   }
   return origins.includes(new URL(checked).origin) ? checked : null;
 };
+
+/**
+ * The platform operator's logo (#2233 R29): shown where the Träger has none,
+ * or where the Träger's cannot be loaded.
+ *
+ * It comes from the deployment's own config (`oriso.operator_logo`), not from
+ * the call address, so it is not held to the tenant logo route. It still has
+ * to be an image address and nothing else: a path on the call's own origin
+ * (`/oriso/operator-logo.svg`) or an absolute `https:` address (`http:` only on
+ * localhost / 127.0.0.1), without credentials. A protocol-relative `//host`,
+ * a relative path, `data:` and `javascript:` are refused.
+ */
+export const parseOperatorLogo = (
+  value: unknown,
+  ownOrigin: string,
+): string | null => {
+  if (typeof value !== "string" || value === "") return null;
+  let url: URL;
+  if (value.startsWith("/")) {
+    if (value.startsWith("//")) return null;
+    try {
+      url = new URL(value, ownOrigin);
+    } catch {
+      return null;
+    }
+  } else {
+    const parsed = parseUrl(value);
+    if (parsed === null) return null;
+    url = parsed;
+  }
+  return hasPermittedScheme(url) && url.username === "" && url.password === ""
+    ? url.href
+    : null;
+};
