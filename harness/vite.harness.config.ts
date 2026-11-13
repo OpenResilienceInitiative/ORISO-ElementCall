@@ -29,6 +29,29 @@ const artwork = process.env.ORISO_ARTWORK_DIR;
 
 export default defineConfig({
   root: ".",
+  /*
+   * `yarn build:harness`: the proof pages as static files, so ORISO-Frontend's
+   * Storybook can embed the real call views (ORISO-Frontend#2233). Relative
+   * asset paths, because Storybook serves them from a sub-folder. The animals
+   * load from the embedding page's own `/static/anon-animals` (`parentUrl` is
+   * the page origin), which Storybook serves from the Frontend's `public/`.
+   */
+  base: "./",
+  // The app's IndexedDB worker comes along with the shared modules; a
+  // multi-page build needs it as an ES module (the dev server never bundles).
+  worker: { format: "es" },
+  build: {
+    outDir: "dist-harness",
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        buehne: "harness/buehne.html",
+        einzelCall: "harness/einzelCall.html",
+        orisoStage: "harness/orisoStage.html",
+        settings: "harness/settings.html",
+      },
+    },
+  },
   plugins: [
     {
       // A stand-in Träger logo on the tenant logo route, so `orisoLogo` can

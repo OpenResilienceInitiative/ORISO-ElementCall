@@ -89,6 +89,7 @@ import { type ProcessorState } from "../../livekit/TrackProcessorContext";
 import { ElementWidgetActions, widget } from "../../widget";
 import { UserMedia } from "../UserMedia.ts";
 import { ScreenShare } from "../ScreenShare.ts";
+import { type ScreenShareFailure } from "../../oriso/screenShareFailure.ts";
 import {
   type GridLayoutMedia,
   type Layout,
@@ -132,7 +133,12 @@ import {
 import { Publisher } from "./localMember/Publisher.ts";
 import { type Connection } from "./remoteMembers/Connection.ts";
 import { createLayoutModeSwitch } from "./LayoutSwitch.ts";
-import { type StagePlan, stagePlan } from "../../oriso/stageViews.ts";
+import {
+  isGroupConversation,
+  type OrisoCallType,
+  type StagePlan,
+  stagePlan,
+} from "../../oriso/stageViews.ts";
 
 const logger = rootLogger.getChild("[CallViewModel]");
 //TODO
@@ -176,7 +182,7 @@ export interface CallViewModelOptions {
    * keeps the group's arrangements, so it can start in the Kreis. Only read
    * when `orisoDesign` is on.
    */
-  orisoCallType?: "group" | "single" | null;
+  orisoCallType?: OrisoCallType | null;
   /**
    * Whether the call is a voice or a video call (`callIntent`). A video
    * group is offered the video-suited arrangements only — Hain, Felder,
@@ -261,6 +267,9 @@ export interface CallViewModel {
    * Whether we are sharing our screen.
    */
   sharingScreen$: Behavior<boolean>;
+  /** Why the last attempt to share the screen did not start, if it did not. */
+  screenShareFailure$: Behavior<ScreenShareFailure | null>;
+  dismissScreenShareFailure: () => void;
 
   // UI interactions
   /**
@@ -1187,7 +1196,8 @@ export function createCallViewModel$(
    * and the handoff draws nothing for it.
    */
   const orisoGroup =
-    options.orisoDesign === true && options.orisoCallType === "group";
+    options.orisoDesign === true &&
+    isGroupConversation(options.orisoCallType ?? null);
   const orisoArrangement = (windowMode: WindowMode): Observable<LayoutMedia> =>
     gridMode$.pipe(
       switchMap((gridMode) => {
@@ -1626,6 +1636,8 @@ export function createCallViewModel$(
     join: localMembership.requestJoinAndPublish,
     toggleScreenSharing: toggleScreenSharing,
     sharingScreen$: sharingScreen$,
+    screenShareFailure$: localMembership.screenShareFailure$,
+    dismissScreenShareFailure: localMembership.dismissScreenShareFailure,
 
     tapScreen: (): void => screenTap$.next(),
     tapControls: (): void => controlsTap$.next(),

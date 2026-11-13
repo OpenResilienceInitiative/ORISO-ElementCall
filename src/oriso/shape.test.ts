@@ -14,6 +14,8 @@ import {
   NAME_CAPSULE_HALF,
   NAME_CAPSULE_HALF_PHONE,
   NAME_TAIL_CHARS,
+  SHARE_RADIUS,
+  rectangularStage,
 } from "./shape";
 
 describe("cutting a name that does not fit", () => {
@@ -105,5 +107,29 @@ describe("where a form hangs its name", () => {
     expect(nameSideFor(375 - NAME_CAPSULE_HALF_PHONE - 31, 62, 375, true)).toBe(
       "centre",
     );
+  });
+});
+
+describe("the spotlight's forms (#2233)", () => {
+  it("draws people as rounded rectangles in every spotlight layout", () => {
+    for (const type of [
+      "spotlight-landscape",
+      "spotlight-portrait",
+      "spotlight-expanded",
+    ])
+      expect(rectangularStage(type, false)).toBe(true);
+  });
+
+  it("keeps the one-to-one video stage's rectangles", () => {
+    expect(rectangularStage("one-on-one", true)).toBe(true);
+  });
+
+  it("leaves the grove, the Einzelgespräch and the minimised call alone", () => {
+    for (const type of ["grid", "one-on-one", "pip"])
+      expect(rectangularStage(type, false)).toBe(false);
+  });
+
+  it("gives a shared screen the design's slight 24px corner", () => {
+    expect(SHARE_RADIUS).toBe("var(--cpd-space-6x)");
   });
 });

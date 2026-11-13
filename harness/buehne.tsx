@@ -577,7 +577,7 @@ function Footer({
       onOpenBackground={onOpenBackground}
       onToggleScreenShare={() => {}}
       sharingScreen={false}
-      screenShareInBar={intent === "video"}
+      screenShareInBar
       onOpenSoundSettings={() => {}}
       onOpenSettings={() => {}}
     />

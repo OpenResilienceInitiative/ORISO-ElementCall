@@ -524,6 +524,28 @@ describe("UrlParams", () => {
         "single",
       );
     });
+
+    it("reads a Gesprächskreis (#2233 D9)", () => {
+      expect(computeUrlParams("", "#?orisoCallType=circle").orisoCallType).toBe(
+        "circle",
+      );
+    });
+  });
+  describe("orisoTopic", () => {
+    it("is unset without a topic", () => {
+      expect(computeUrlParams().orisoTopic).toBeNull();
+      expect(computeUrlParams("", "#?orisoTopic=%20%20").orisoTopic).toBeNull();
+    });
+
+    it("reads the conversation's topic as plain text", () => {
+      expect(
+        computeUrlParams("", "#?orisoTopic=Schuldner%C2%ADberatung%20")
+          .orisoTopic,
+      ).toBe("Schuldner\u00adberatung");
+      expect(
+        computeUrlParams("", "#?orisoTopic=%3Cb%3EHi%3C%2Fb%3E").orisoTopic,
+      ).toBe("<b>Hi</b>");
+    });
   });
   describe("orisoInvite", () => {
     it("is off unless the ORISO host can make a link", () => {

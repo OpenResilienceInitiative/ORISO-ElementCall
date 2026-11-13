@@ -75,18 +75,34 @@ interface Props extends ComponentProps<typeof animated.div> {
   /** The host's origin, so the artwork can be inherited rather than drawn. */
   orisoParentUrl?: string | null;
   /**
+   * This tile is a SHARED SCREEN in the ORISO design (#2233, R25).
+   *
+   * A screen is not a person, so it never gets a form: it stays upstream's
+   * tile, with no identity, and only its corner is the design's — a
+   * rectangle, slightly rounded (`SHARE_RADIUS`), on the tile itself so it
+   * holds wherever the share is drawn.
+   */
+  orisoShare?: boolean;
+  /**
    * Drawn over the picture and under the name tag: the laser pointers on a
    * shared screen. Must not take pointer events.
    */
   overlay?: ReactNode;
 }
 
+/*
+ * A rectangle on the video stage or in the spotlight. It carries no lift, so
+ * it has no halo either; whoever speaks gets the Einzelgespräch's inset rim
+ * instead (#2233 review), or in a spotlight of five nothing visible would
+ * change when somebody starts to talk.
+ */
 const VIDEO_STAGE_SHAPE: TileShape = {
   radius: "var(--cpd-space-5x)",
   tilt: 0,
   contentShare: 0.4,
   body: false,
   lifted: false,
+  speakingAs: "rim",
 };
 
 export const MediaView: FC<Props> = ({
@@ -118,6 +134,7 @@ export const MediaView: FC<Props> = ({
   orisoShape: layoutShape,
   orisoSpeaking = false,
   orisoParentUrl = null,
+  orisoShare = false,
   overlay,
   ...props
 }) => {
@@ -276,6 +293,7 @@ export const MediaView: FC<Props> = ({
       data-oriso-side={orisoHalfSide}
       data-oriso-circle={orisoCircle === undefined ? undefined : "true"}
       data-oriso-name-side={orisoShape?.nameSide}
+      data-oriso-share={orisoShare ? "true" : undefined}
       // A running camera under the name: then the name is always a capsule,
       // whatever "Namen & Symbole" says (S5).
       data-oriso-camera={
