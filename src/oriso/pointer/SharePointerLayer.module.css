@@ -71,6 +71,16 @@ Please see LICENSE in the repository root for full details.
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
 }
 
+.pointer[data-flip-x="true"] .label {
+  left: auto;
+  right: 14px;
+}
+
+.pointer[data-flip-y="true"] .label {
+  top: auto;
+  bottom: 6px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pointer,
   .pointer[data-idle="true"] {

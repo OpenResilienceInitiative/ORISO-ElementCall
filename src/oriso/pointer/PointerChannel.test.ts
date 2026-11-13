@@ -15,7 +15,7 @@ import {
   RoomEvent,
 } from "livekit-client";
 
-import { PointerChannel } from "./PointerChannel";
+import { POINTER_TTL_MS, PointerChannel } from "./PointerChannel";
 import { POINTER_TOPIC, decodePointer, encodePointer } from "./protocol";
 
 const SHARE = "@sharer:oriso.org:SHAREDEV";
@@ -41,6 +41,7 @@ function fakeRoom(): LivekitRoom & {
   const publishData = vi.fn().mockResolvedValue(undefined);
   Object.assign(room, {
     publishData,
+    isE2EEEnabled: true,
     localParticipant: { identity: "@me:oriso.org:MYDEV", publishData },
     receive: (
       from: string,
@@ -180,5 +181,64 @@ describe("PointerChannel", () => {
     expect(ch.pointers$.value.get(SHARE)).toHaveLength(1);
     ch.destroy();
     expect(a.listenerCount(RoomEvent.DataReceived)).toBe(0);
+  });
+
+  it("fails closed: sends nothing while the room's encryption is not running", () => {
+    const room = fakeRoom();
+    Object.assign(room, { isE2EEEnabled: false });
+    const ch = new PointerChannel({ encrypted: true });
+    ch.setRooms(room, [room]);
+    ch.point(SHARE, { x: 0.5, y: 0.5 });
+    ch.point(SHARE, null);
+    vi.advanceTimersByTime(600);
+    expect(room.publishData).not.toHaveBeenCalled();
+    ch.destroy();
+  });
+
+  it("keeps one pointer per sender, whatever share ids it sends", () => {
+    const room = fakeRoom();
+    const ch = new PointerChannel({ encrypted: true });
+    ch.setRooms(room, [room]);
+    for (let i = 0; i < 1000; i++)
+      room.receive(
+        "@flood:o.org:F",
+        encodePointer({ share: `fake-${i}`, x: 0.5, y: 0.5 }),
+      );
+    expect(ch.pointers$.value.size).toBe(1);
+    expect(ch.pointers$.value.get("fake-999")).toHaveLength(1);
+    ch.destroy();
+  });
+
+  it("ignores absurdly long share ids", () => {
+    const room = fakeRoom();
+    const ch = new PointerChannel({ encrypted: true });
+    ch.setRooms(room, [room]);
+    room.receive(
+      "@a:o.org:A",
+      encodePointer({ share: "x".repeat(5000), x: 0.5, y: 0.5 }),
+    );
+    expect(ch.pointers$.value.size).toBe(0);
+    ch.destroy();
+  });
+
+  it("drops stale pointers and those of people who left", () => {
+    let now = 0;
+    const room = fakeRoom();
+    const ch = new PointerChannel({ encrypted: true, now: (): number => now });
+    ch.setRooms(room, [room]);
+    room.receive("@a:o.org:A", encodePointer({ share: SHARE, x: 0.1, y: 0.1 }));
+    room.receive("@b:o.org:B", encodePointer({ share: SHARE, x: 0.2, y: 0.2 }));
+    room.emit(RoomEvent.ParticipantDisconnected, {
+      identity: "@b:o.org:B",
+    } as unknown as RemoteParticipant);
+    expect(ch.pointers$.value.get(SHARE)?.map((p) => p.identity)).toEqual([
+      "@a:o.org:A",
+    ]);
+    now = POINTER_TTL_MS + 1;
+    room.receive("@c:o.org:C", encodePointer({ share: SHARE, x: 0.3, y: 0.3 }));
+    expect(ch.pointers$.value.get(SHARE)?.map((p) => p.identity)).toEqual([
+      "@c:o.org:C",
+    ]);
+    ch.destroy();
   });
 });

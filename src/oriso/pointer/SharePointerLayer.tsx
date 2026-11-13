@@ -167,6 +167,8 @@ const Layer: FC<Props & { ctx: PointerContextValue }> = ({
   );
 };
 
+const FLIP_X = 0.6;
+const FLIP_Y = 0.9;
 const FALLBACK_BG = "#5e4491";
 const FALLBACK_INK = "#ffffff";
 
@@ -204,6 +206,10 @@ const PointerDot: FC<{
       className={styles.pointer}
       style={style}
       data-idle={idle ? "true" : undefined}
+      // Near the right or bottom edge the name hangs the other way, so it
+      // is not cut off by the tile.
+      data-flip-x={pointer.x > FLIP_X ? "true" : undefined}
+      data-flip-y={pointer.y > FLIP_Y ? "true" : undefined}
       data-testid="oriso-pointer"
       data-user={pointer.userId}
     >

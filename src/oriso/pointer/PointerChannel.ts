@@ -35,6 +35,15 @@ export interface RemotePointer {
   at: number;
 }
 
+/**
+ * How long a pointer is kept without news. Far longer than it is SHOWN
+ * (`POINTER_IDLE_MS`); this only bounds what a silent sender leaves behind.
+ */
+export const POINTER_TTL_MS = 10_000;
+
+/** A LiveKit identity is `${userId}:${deviceId}`; nothing real is longer. */
+const MAX_SHARE_ID = 512;
+
 /** Pointers by the share they point at (the sharer's LiveKit identity). */
 export type PointersByShare = ReadonlyMap<string, readonly RemotePointer[]>;
 
@@ -101,8 +110,14 @@ export class PointerChannel {
         topic?: string,
         encryption?: EncryptionType,
       ): void => this.receive(payload, participant, topic, encryption);
+      const onGone = (participant: RemoteParticipant): void =>
+        this.forget(participant.identity);
       room.on(RoomEvent.DataReceived, onData);
-      this.listening.set(room, () => room.off(RoomEvent.DataReceived, onData));
+      room.on(RoomEvent.ParticipantDisconnected, onGone);
+      this.listening.set(room, () => {
+        room.off(RoomEvent.DataReceived, onData);
+        room.off(RoomEvent.ParticipantDisconnected, onGone);
+      });
     }
   }
 
@@ -126,6 +141,12 @@ export class PointerChannel {
   private send(msg: PointerMessage): void {
     const room = this.publishRoom;
     if (room === null || !this.available) return;
+    /*
+     * Fail closed: the call being configured for E2EE is not enough, the
+     * room must report that encryption is actually running for me. Before
+     * the keys are in place (or after an encryption error) nothing is sent.
+     */
+    if (!room.isE2EEEnabled) return;
     room.localParticipant
       .publishData(encodePointer(msg), {
         reliable: false,
@@ -148,25 +169,37 @@ export class PointerChannel {
     const userId = userIdOfParticipant(participant.identity);
     if (userId === null) return;
 
-    const next = new Map(this.pointers$.value);
-    const others = (next.get(msg.share) ?? []).filter(
-      (p) => p.identity !== participant.identity,
-    );
-    if (msg.x === null || msg.y === null) {
-      if (others.length > 0) next.set(msg.share, others);
-      else next.delete(msg.share);
-    } else {
+    if (msg.share.length > MAX_SHARE_ID) return;
+
+    /*
+     * Bounded by the number of people in the call, whatever arrives: one
+     * pointer per sender across ALL shares (a new position drops the old one
+     * wherever it was), stale ones pruned, a leaver's dropped.
+     */
+    const now = this.now();
+    const next = this.without(participant.identity, now);
+    if (msg.x !== null && msg.y !== null) {
       next.set(msg.share, [
-        ...others,
-        {
-          identity: participant.identity,
-          userId,
-          x: msg.x,
-          y: msg.y,
-          at: this.now(),
-        },
+        ...(next.get(msg.share) ?? []),
+        { identity: participant.identity, userId, x: msg.x, y: msg.y, at: now },
       ]);
     }
     this.pointersSubject$.next(next);
+  }
+
+  private forget(identity: string): void {
+    this.pointersSubject$.next(this.without(identity, this.now()));
+  }
+
+  /** The current pointers minus one sender's and minus the stale ones. */
+  private without(identity: string, now: number): Map<string, RemotePointer[]> {
+    const next = new Map<string, RemotePointer[]>();
+    for (const [share, list] of this.pointers$.value) {
+      const kept = list.filter(
+        (p) => p.identity !== identity && now - p.at < POINTER_TTL_MS,
+      );
+      if (kept.length > 0) next.set(share, kept);
+    }
+    return next;
   }
 }

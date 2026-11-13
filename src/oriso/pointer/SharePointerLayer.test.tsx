@@ -144,6 +144,10 @@ describe("SharePointerLayer", () => {
     expect(anna.style.transform).toBe("translate(400px, 175px)");
     expect(ben.style.transform).toBe("translate(800px, 625px)");
     expect(anna.textContent).toBe("Anna Berg");
+    // Ben is in the bottom-right corner: his name hangs left and up.
+    expect(anna.dataset.flipX).toBeUndefined();
+    expect(ben.dataset.flipX).toBe("true");
+    expect(ben.dataset.flipY).toBe("true");
     // In the person's own ORISO colour.
     expect(anna.style.getPropertyValue("--oriso-pointer-bg")).toBe("#165E83");
     expect(anna.style.getPropertyValue("--oriso-pointer-ink")).toBe("#FFFFFF");
