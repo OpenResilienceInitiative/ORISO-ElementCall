@@ -32,6 +32,7 @@ import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { useOrisoPins, useOrisoView } from "../oriso/useOrisoView";
 import { kreisPlan } from "../oriso/kreis";
+import { trioShapes } from "../oriso/trio";
 import { useMediaQuery } from "../useMediaQuery";
 import { kachelSize, orderForKacheln } from "../oriso/kacheln";
 import { KreisCentre } from "../oriso/KreisCentre";
@@ -315,8 +316,9 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
          *
          * So the positions come from the fields' own division, with the
          * grove's forms inscribed in them. Design decided this on
-         * 2026-10-17; three, five and six still overlap and are left to the
-         * prototype's packing until that has its own answer.
+         * 2026-10-17. Three have their own placement below (T4); five and
+         * six still overlap and are left to the prototype's packing until
+         * that has its own answer.
          */
         if (seats.length === 2) {
           const room = Math.round(haloRoomFor(stage.width, stage.height));
@@ -348,7 +350,10 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         // organic form into an ellipse. Inset by the room a speaking halo
         // needs — see `groveBox`.
         const { box, offsetX, offsetY } = groveBox(stage.width, stage.height);
-        return packShapes(
+        // Three, the smallest group, stand together rather than burying one
+        // another in the packing (T4, see `trioShapes`).
+        const arrange = seats.length === 3 ? trioShapes : packShapes;
+        return arrange(
           seats.map((s) => s.seed),
           box,
           seats.map(weightOf),
@@ -523,7 +528,20 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
       );
 
     // Left out where the stage is too small for it (`KREIS_CENTRE_MIN`).
-    const kreis = view === "kreis" ? kreisPlan(seats.length, stage) : null;
+    // With the same emphasis as the seats: a small group is centred as a
+    // whole, so where the disc sits depends on how big the speaker is.
+    const kreis =
+      view === "kreis"
+        ? kreisPlan(
+            seats.length,
+            stage,
+            new Set(
+              seats.flatMap((seat, i) =>
+                seat.speaking || seat.pinned ? [i] : [],
+              ),
+            ),
+          )
+        : null;
     return (
       <div
         ref={ref}

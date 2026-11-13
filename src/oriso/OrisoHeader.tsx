@@ -32,6 +32,11 @@ interface Props {
   encrypted: boolean;
   /** After the chip, e.g. the call's duration. */
   meta?: ReactNode;
+  /**
+   * Who is speaking, condensed (R27): in the middle, between the title and
+   * the buttons. Not on a phone, where the band sits under the header.
+   */
+  speaker?: ReactNode;
   /** The header's own buttons, at its right end before the window's. */
   actions?: ReactNode;
   /**
@@ -68,6 +73,7 @@ export const OrisoHeader: FC<Props> = ({
   title,
   encrypted,
   meta,
+  speaker,
   actions,
   onWindow,
   fullscreen,
@@ -111,6 +117,7 @@ export const OrisoHeader: FC<Props> = ({
           </span>
         )}
       </div>
+      {speaker && !compact && <div className={styles.speaker}>{speaker}</div>}
       {(actions || (onWindow && !compact)) && (
         <div className={styles.actions}>
           {actions}

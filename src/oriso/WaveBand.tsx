@@ -23,20 +23,39 @@ const BARS = [
 ];
 
 /**
- * The wave band under a phone's header in a group call (5b, S9): the
- * room's sound across the width and, at its end, who is speaking.
+ * The wave band (5b, S9): the room's sound across the width and, at its
+ * end, who is speaking.
  *
- * The forms already say who speaks; this says it once more in words, at
- * the top, because on a phone the speaker's form may be off screen.
+ * The forms already say who speaks; this says it once more in words,
+ * because the speaker's form may be off screen, small, or one of many.
+ * In every view (R27), in three sizes — see `speakerBandPlace`:
+ *
+ * - `phone`: 5b's pill under the phone's header, name above "spricht".
+ * - `header`: condensed into the desktop header, one 40px line.
+ * - `pip`: a slim line above the minimised call's one form.
+ *
+ * Reduced motion keeps the bars at their heights and stops the wave.
+ * Screen readers are not told of every change (no live region); the band
+ * is a group they can read when they come to it.
  */
-export const WaveBand: FC<{ speaker: Speaker | null }> = ({ speaker }) => {
+export const WaveBand: FC<{
+  speaker: Speaker | null;
+  variant?: "phone" | "header" | "pip";
+  /** The header it sits in: light (2a/2b) or the dark video stage (5a). */
+  tone?: "light" | "dark";
+}> = ({ speaker, variant = "phone", tone = "light" }) => {
   const { t } = useTranslation();
   return (
     <div
       className={styles.band}
+      data-variant={variant}
+      data-tone={tone}
       data-speaking={speaker !== null}
       data-testid="oriso-wave-band"
-      role="status"
+      // Not a live region: in every view now (R27), "status" read out each
+      // turn and each pause. A labelled group keeps the name readable on
+      // demand (#2233 review).
+      role="group"
       aria-label={t("oriso.wave_label")}
     >
       <span className={styles.bars} aria-hidden="true">

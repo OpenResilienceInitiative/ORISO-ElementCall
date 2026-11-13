@@ -76,6 +76,7 @@ import { Toast } from "../src/Toast";
 import { type OrisoIdentity, shownNameFor } from "../src/oriso/identity";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
 import { readTopic, stageTitle } from "../src/oriso/stageTitle";
+import { WaveBand } from "../src/oriso/WaveBand";
 import { formatCallDuration } from "../src/oriso/useCallDuration";
 import { OrisoStageContext } from "../src/oriso/useOrisoIdentities";
 import { makeOneOnOneLayout } from "../src/grid/OneOnOneLayout";
@@ -277,8 +278,17 @@ function Footer({
 
 /** What `InCallView` subtracts for its footer before handing on the stage. */
 const FOOTER_BLOCK = mobile ? 104 : 144;
-/** The ORISO header's height, when it is shown. */
-const HEADER_BLOCK = mobile ? 72 : showHeader ? 64 : 0;
+/** The ORISO header's height, when it is shown; a phone's band under it. */
+const HEADER_BLOCK = mobile ? 72 + 64 : showHeader ? 64 : 0;
+
+/** Who the band names (R27), as `orisoSpeaker$` would. */
+const speaker =
+  speaking === "first" || speaking === "second"
+    ? {
+        userId: `@${speaking === "first" ? "remote" : "local"}:oriso.test`,
+        displayName: resolved(speaking === "first" ? "remote" : "local").name,
+      }
+    : null;
 
 /** The four buttons ORISO-Frontend draws over the iframe without `orisoHostChrome`. */
 function HostCornerButtons(): React.ReactNode {
@@ -364,6 +374,16 @@ function Header(): React.ReactNode {
       }
       onWindow={chrome === "call" ? (): void => {} : null}
       fullscreen={false}
+      // R27: condensed in the middle of a desktop header, the 1:1 included.
+      speaker={
+        mobile ? undefined : (
+          <WaveBand
+            variant="header"
+            tone={video ? "dark" : "light"}
+            speaker={speaker}
+          />
+        )
+      }
     />
   );
 }

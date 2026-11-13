@@ -1,0 +1,138 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* "Teilnehmende" (#2233): in the call menu's place and frame. */
+.panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 12px 8px 20px;
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font:
+    500 17px / 22px Inter,
+    sans-serif;
+}
+
+.count {
+  font-weight: 400;
+  color: rgb(150 148 152);
+}
+
+.close {
+  appearance: none;
+  display: flex;
+  padding: 8px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.close:focus-visible,
+.inviteButton:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
+}
+
+.list {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  overflow: auto;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-block-size: 52px;
+  padding-inline: 20px;
+}
+
+.face {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 36px;
+  block-size: 36px;
+  border-radius: 50%;
+  font:
+    600 13px / 1 Inter,
+    sans-serif;
+}
+
+.artwork {
+  inline-size: 24px;
+  block-size: 24px;
+  object-fit: contain;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font:
+    400 15px / 20px Inter,
+    sans-serif;
+}
+
+.role {
+  font:
+    400 13px / 18px Inter,
+    sans-serif;
+  color: rgb(96 94 99);
+}
+
+.invite {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 20px 16px;
+  border-block-start: 1px solid rgb(0 0 0 / 9%);
+}
+
+.inviteButton {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  block-size: 44px;
+  border: 1px solid rgb(0 0 0 / 12%);
+  border-radius: 22px;
+  background: #fff;
+  color: rgb(45 44 40);
+  font:
+    500 15px / 20px Inter,
+    sans-serif;
+  cursor: pointer;
+}
+
+@media (hover) {
+  .inviteButton:hover {
+    background: rgb(0 0 0 / 4%);
+  }
+}

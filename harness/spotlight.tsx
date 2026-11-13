@@ -20,6 +20,10 @@ Please see LICENSE in the repository root for full details.
  *   ?share=1             the first person shares their screen
  *   ?speaking=<i>        who holds the floor (default 0)
  *
+ *   ?pip=1               the minimised call: the one form, maximised, with
+ *                        the speaker band above it (R27), as InCallView
+ *                        renders `layout.type === "pip"`
+ *
  * The layout follows the window as `CallViewModel` does: at most 600px wide
  * is the portrait spotlight, anything wider the landscape one.
  */
@@ -67,6 +71,8 @@ import { OrisoStageContext } from "../src/oriso/useOrisoIdentities";
 import { ReactionsSenderProvider } from "../src/reactions/useReactionsSender";
 import { type CallViewModel } from "../src/state/CallViewModel/CallViewModel";
 import styles from "../src/room/InCallView.module.css";
+import { WaveBand } from "../src/oriso/WaveBand";
+import { PIP_BAND_BLOCK } from "../src/oriso/speakerBand";
 import de from "../locales/de/app.json";
 import en from "../locales/en/app.json";
 import "../src/index.css";
@@ -87,6 +93,7 @@ const video = params.get("call") === "video";
 const share = params.get("share") === "1";
 const speakingIndex = Number(params.get("speaking") ?? 0);
 const portrait = window.innerWidth <= 600;
+const pip = params.get("pip") === "1";
 
 const CAST: { name: string; identity: OrisoIdentity }[] = [
   ["ruhiger Fuchs 432", "fox.svg", "#62937A", "#FBF4D3"],
@@ -400,9 +407,9 @@ function Call(): React.ReactNode {
       parentUrl: window.location.origin,
       enabled: true,
       audioOnly: !video,
-      rectangular: false,
-      // As InCallView decides it, from the layout's type.
-      rectangular: rectangularStage(model.type, false),
+      // As InCallView decides it, from the layout's type; the
+      // minimised call is "pip", which is not rectangular.
+      rectangular: rectangularStage(pip ? "pip" : model.type, false),
     }),
     [],
   );
@@ -414,23 +421,47 @@ function Call(): React.ReactNode {
             <div className={styles.orisoBackdrop} aria-hidden="true">
               <Atmosphere palette="duene" />
             </div>
-            <Grid
-              className={styles.scrollingGrid}
-              style={{
-                marginBlockStart: HEADER_BLOCK,
-                marginBlockEnd: FOOTER_BLOCK,
-              }}
-              model={model}
-              Layout={layout.scrolling}
-              Tile={Tile as never}
-            />
-            <Grid
-              className={styles.fixedGrid}
-              style={{ insetBlockStart: HEADER_BLOCK, height }}
-              model={model}
-              Layout={layout.fixed}
-              Tile={Tile as never}
-            />
+            {pip ? (
+              <>
+                <WaveBand
+                  variant="pip"
+                  speaker={{
+                    userId: speaker.userId,
+                    displayName: CAST[speakingIndex % CAST.length].name,
+                  }}
+                />
+                <SpotlightTile
+                  className={classNames(styles.tile, styles.maximised)}
+                  vm={model.spotlight}
+                  expanded
+                  onToggleExpanded={null}
+                  targetWidth={window.innerHeight - PIP_BAND_BLOCK}
+                  targetHeight={window.innerWidth}
+                  showIndicators={false}
+                  focusable
+                />
+              </>
+            ) : (
+              <>
+                <Grid
+                  className={styles.scrollingGrid}
+                  style={{
+                    marginBlockStart: HEADER_BLOCK,
+                    marginBlockEnd: FOOTER_BLOCK,
+                  }}
+                  model={model}
+                  Layout={layout.scrolling}
+                  Tile={Tile as never}
+                />
+                <Grid
+                  className={styles.fixedGrid}
+                  style={{ insetBlockStart: HEADER_BLOCK, height }}
+                  model={model}
+                  Layout={layout.fixed}
+                  Tile={Tile as never}
+                />
+              </>
+            )}
           </div>
         </ReactionsSenderProvider>
       </OrisoShapesContext>
