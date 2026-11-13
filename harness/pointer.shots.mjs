@@ -1,7 +1,7 @@
 // Screenshots for the laser pointer PR (#2233). Usage:
 //   npx vite --config harness/vite.harness.config.ts --port 6250 &
 //   node harness/pointer.shots.mjs http://127.0.0.1:6250 <out-dir>
-import { chromium } from "playwright";
+import { chromium } from "@playwright/test";
 
 const [base = "http://127.0.0.1:6250", out = "."] = process.argv.slice(2);
 // PW_CHROMIUM: an already-installed browser, if this playwright's is not.
