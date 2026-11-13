@@ -18,6 +18,7 @@ import { Config } from "./config/Config";
 import { type EncryptionSystem } from "./e2ee/sharedKeyManagement";
 import { E2eeType } from "./e2ee/e2eeType";
 import { parseBrandLogo } from "./oriso/brandLogo";
+import { readTopic } from "./oriso/stageTitle";
 import { platform } from "./Platform";
 import { parseBrandHex } from "./oriso/theme/brandParams";
 
@@ -103,7 +104,14 @@ export interface UrlProperties {
    * a single conversation in the "Einzelgespräch". Without it (an older
    * host) the head count decides as before. Anything else is ignored.
    */
-  orisoCallType: "group" | "single" | null;
+  orisoCallType: "group" | "circle" | "single" | null;
+  /**
+   * The conversation's topic, for the header of a 1:1 (#2233 R6):
+   * "Einzelgespräch · Schuldnerberatung". Plain text, trimmed and cut to one
+   * line (`readTopic`); null without one. Set by ORISO-Frontend for single
+   * conversations only.
+   */
+  orisoTopic: string | null;
   /**
    * Whether this person may hand out a link to the running call.
    *
@@ -481,7 +489,12 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const orisoHostChrome = parser.getFlagParam("orisoHostChrome");
   const orisoInvite = parser.getFlagParam("orisoInvite");
   const orisoCallType =
-    parser.getEnumParam("orisoCallType", ["group", "single"] as const) ?? null;
+    parser.getEnumParam("orisoCallType", [
+      "group",
+      "circle",
+      "single",
+    ] as const) ?? null;
+  const orisoTopic = readTopic(parser.getParam("orisoTopic"));
   const orisoPrimary = parseBrandHex(parser.getParam("orisoPrimary"));
   const orisoAccent = parseBrandHex(parser.getParam("orisoAccent"));
   const orisoSignal = parseBrandHex(parser.getParam("orisoSignal"));
@@ -606,6 +619,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     orisoDesign,
     orisoHostChrome,
     orisoCallType,
+    orisoTopic,
     orisoInvite,
     orisoPrimary,
     orisoAccent,

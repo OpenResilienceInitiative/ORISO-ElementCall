@@ -688,7 +688,7 @@ describe.each([
           expectObservable(vm.orisoOneOnOne$).toBe("ab", { a: true, b: false });
           expectObservable(
             vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
-          ).toBe("ab", { a: "einzelgespraech", b: "kreis" });
+          ).toBe("ab", { a: "einzelgespraech", b: "felder" });
         },
         { orisoDesign: true, orisoCallType: "group" },
       );
@@ -752,13 +752,53 @@ describe.each([
     });
   });
 
+  it("plans an audio Gesprächskreis of three in the Kreis (S6b, S7, #2233 D9)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
+          ).toBe("a", { a: "kreis" });
+        },
+        {
+          orisoDesign: true,
+          orisoCallType: "circle",
+          orisoCallIntent: "audio",
+        },
+      );
+    });
+  });
+
+  it("plans an internal group of three in the Felder (#2233 D9)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
+          ).toBe("a", { a: "felder" });
+        },
+        { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "audio" },
+      );
+    });
+  });
+
   /*
    * S8: a 1:1 that somebody joins through the shared link. At three people
    * the rail offers the group views and the stage leaves the Einzelgespräch
    * for the group default; when they leave, it is a 1:1 again.
    */
   it.each([
-    ["single", "kreis"],
+    ["single", "felder"],
     [null, "hain"],
   ] as const)(
     "turns a %s call of two into a group at three and back at two (S8)",
