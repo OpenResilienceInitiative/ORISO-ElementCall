@@ -30,6 +30,7 @@ import {
   readIdentity,
   shownNameFor,
 } from "./identity";
+import { type PointerContextValue } from "./pointer/SharePointerLayer";
 
 export type Identities = ReadonlyMap<string, OrisoIdentity>;
 
@@ -384,6 +385,11 @@ export interface OrisoStage {
    * from; see `shownRole`.
    */
   counsellors?: ReadonlySet<string> | null;
+  /**
+   * The laser pointer on a shared screen (#2233). Carried here rather than in
+   * a context of its own so the call view needs no further wrapper.
+   */
+  pointer?: PointerContextValue | null;
 }
 
 const EMPTY: OrisoStage = {

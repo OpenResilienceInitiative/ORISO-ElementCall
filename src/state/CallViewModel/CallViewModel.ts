@@ -217,6 +217,11 @@ interface LayoutScanState {
 }
 
 type MediaItem = UserMedia | ScreenShare;
+export interface PointerRooms {
+  publish: LivekitRoom | null;
+  listen: LivekitRoom[];
+}
+
 type AudioLivekitItem = {
   livekitRoom: LivekitRoom;
   participants: string[];
@@ -313,6 +318,12 @@ export interface CallViewModel {
   participantUserIds$: Behavior<readonly string[]>;
   /** Participants sorted by livekit room so they can be used in the audio rendering */
   audioParticipants$: Behavior<AudioLivekitItem[]>;
+  /**
+   * The LiveKit rooms the ORISO laser pointer uses: the one my own media goes
+   * out on (null until connected), and every room of the call, since others
+   * may publish to a different SFU.
+   */
+  pointerRooms$: Behavior<PointerRooms>;
   /** List of participants raising their hand */
   handsRaised$: Behavior<Record<string, RaisedHandInfo>>;
   /** List of reactions. Keys are: membership.membershipId (currently predefined as: `${membershipEvent.userId}:${membershipEvent.deviceId}`)*/
@@ -1671,6 +1682,20 @@ export function createCallViewModel$(
     participantCount$: participantCount$,
     participantUserIds$,
     audioParticipants$: audioParticipants$,
+    pointerRooms$: scope.behavior<PointerRooms>(
+      combineLatest(
+        [localMembership.connection$, connectionManager.connectionManagerData$],
+        (local, { value: data }) => {
+          const publish = local?.livekitRoom ?? null;
+          const listen = new Set(
+            data.getConnections().map((c) => c.livekitRoom),
+          );
+          if (publish !== null) listen.add(publish);
+          return { publish, listen: [...listen] };
+        },
+      ),
+      { publish: null, listen: [] },
+    ),
 
     handsRaised$: handsRaised$,
     reactions$: reactions$,

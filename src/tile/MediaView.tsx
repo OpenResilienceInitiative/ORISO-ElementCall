@@ -83,6 +83,11 @@ interface Props extends ComponentProps<typeof animated.div> {
    * holds wherever the share is drawn.
    */
   orisoShare?: boolean;
+  /**
+   * Drawn over the picture and under the name tag: the laser pointers on a
+   * shared screen. Must not take pointer events.
+   */
+  overlay?: ReactNode;
 }
 
 /*
@@ -130,6 +135,7 @@ export const MediaView: FC<Props> = ({
   orisoSpeaking = false,
   orisoParentUrl = null,
   orisoShare = false,
+  overlay,
   ...props
 }) => {
   const { t } = useTranslation();
@@ -357,6 +363,7 @@ export const MediaView: FC<Props> = ({
           videoFit={videoFit}
         />
       )}
+      {overlay}
       <div className={styles.fg}>
         <div className={styles.reactions}>
           <RaisedHandIndicator

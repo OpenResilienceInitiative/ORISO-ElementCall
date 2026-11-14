@@ -6,7 +6,7 @@ Please see LICENSE in the repository root for full details.
 */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { Room as LivekitRoom } from "livekit-client";
+import { type BaseKeyProvider, Room as LivekitRoom } from "livekit-client";
 import { BehaviorSubject } from "rxjs";
 import fetchMock from "fetch-mock";
 import { logger } from "matrix-js-sdk/lib/logger";
@@ -130,4 +130,37 @@ describe("ECConnectionFactory - ControlledAudioDevice", () => {
 afterEach(() => {
   testScope.end();
   fetchMock.reset();
+});
+
+describe("ECConnectionFactory - data packet encryption (#2233)", () => {
+  test("uses `encryption`, so data packets are sealed too, not only media", () => {
+    // jsdom has no Worker; the E2EE worker is constructed, never used here.
+    vi.stubGlobal(
+      "Worker",
+      class {
+        public postMessage(): void {}
+        public terminate(): void {}
+      },
+    );
+    const RoomConstructor = vi.mocked(LivekitRoom);
+    const keyProvider = {} as BaseKeyProvider;
+    const ecConnectionFactory = new ECConnectionFactory(
+      mockClient,
+      mockMediaDevices({}),
+      new BehaviorSubject<ProcessorState>({
+        supported: true,
+        processor: undefined,
+      }),
+      keyProvider,
+      false,
+    );
+    ecConnectionFactory.createConnection(exampleTransport, testScope, logger);
+    const options = RoomConstructor.mock.lastCall?.[0];
+    expect(options?.encryption).toEqual(
+      expect.objectContaining({ keyProvider }),
+    );
+    // The deprecated option would leave publishData unencrypted.
+    expect(options?.e2ee).toBeUndefined();
+    vi.unstubAllGlobals();
+  });
 });

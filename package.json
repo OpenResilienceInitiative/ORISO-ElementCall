@@ -108,7 +108,7 @@
     "i18next-parser": "^9.1.0",
     "jsdom": "^26.0.0",
     "knip": "^5.27.2",
-    "livekit-client": "^2.13.0",
+    "livekit-client": "patch:livekit-client@npm%3A2.16.1#~/.yarn/patches/livekit-client-npm-2.16.1-7730df99ba.patch",
     "lodash-es": "^4.17.21",
     "loglevel": "^1.9.1",
     "matrix-js-sdk": "patch:matrix-js-sdk@npm%3A39.4.0#~/.yarn/patches/matrix-js-sdk-npm-39.4.0-40ff01f5ec.patch",

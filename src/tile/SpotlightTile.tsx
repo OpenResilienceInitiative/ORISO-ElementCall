@@ -31,6 +31,7 @@ import { type TrackReferenceOrPlaceholder } from "@livekit/components-core";
 import FullScreenMaximiseIcon from "../icons/FullScreenMaximise.svg?react";
 import FullScreenMinimiseIcon from "../icons/FullScreenMinimise.svg?react";
 import { MediaView } from "./MediaView";
+import { SharePointerLayer } from "../oriso/pointer/SharePointerLayer";
 import styles from "./SpotlightTile.module.css";
 import {
   type EncryptionStatus,
@@ -253,6 +254,14 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
       mirror={false}
       orisoShare={orisoEnabled}
       {...baseProps}
+      overlay={
+        video ? (
+          <SharePointerLayer
+            share={video.participant.identity}
+            local={vm.local}
+          />
+        ) : undefined
+      }
     />
   ) : (
     <SpotlightUserMediaItem vm={vm} {...baseProps} />

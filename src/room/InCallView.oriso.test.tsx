@@ -118,11 +118,13 @@ vi.mock("../oriso/useOrisoWindow", async (importOriginal) => ({
  */
 let measured = 0;
 // A phone's width for S9's tests; reset to a desktop's before each test.
-const view = vi.hoisted(() => ({ width: 960 }));
+// `height` is the window's: a test that needs a stage too small for
+// something sets it, rather than counting renders.
+const view = vi.hoisted(() => ({ width: 960, height: 760 }));
 vi.mock("react-use-measure", () => ({
   default: (): [() => void, object] => {
     const rect = [
-      { width: view.width, height: 760 },
+      { width: view.width, height: view.height },
       { width: view.width, height: 60 },
       { width: view.width, height: 100 },
     ][measured++ % 3];
@@ -210,6 +212,7 @@ let useRoomEncryptionSystemMock: MockedFunction<typeof useRoomEncryptionSystem>;
 beforeEach(() => {
   vi.clearAllMocks();
   view.width = 960;
+  view.height = 760;
   hostWindow.send = null;
   hostWindow.fullscreen = true;
   // Views, atmosphere and name style are remembered per person (S5, S6);
@@ -949,6 +952,11 @@ describe("the call, in the ORISO design", () => {
 
   it("names whoever speaks in the header of the Hain, and of a Kreis whose centre cannot", async () => {
     localStorage.removeItem("oriso-call-view");
+    // A low window: whatever order the sizes are measured in, the Kreis's
+    // stage is at most 240px high, too small for a name in its centre.
+    // (The measure mock hands its sizes out in turn, so on 760px the stage
+    // depended on how often the view had rendered.)
+    view.height = 400;
     createInCallView({ crowd: true });
     const rail = await openViewRail();
     fireEvent.click(rail.querySelector('[data-view="hain"]')!);
@@ -957,8 +965,7 @@ describe("the call, in the ORISO design", () => {
         .dataset.variant,
     ).toBe("header");
 
-    // jsdom measures no stage, so the centre here is too small for a name
-    // and the header keeps the band; a centre that names the speaker takes
+    // The centre here is too small for a name, so the header keeps the band; a centre that names the speaker takes
     // it over (`speakerBandPlace`, `kreisCentreNamesSpeaker`).
     fireEvent.click(rail.querySelector('[data-view="kreis"]')!);
     expect(screen.queryByTestId("oriso-kreis-speaker")).not.toBeInTheDocument();

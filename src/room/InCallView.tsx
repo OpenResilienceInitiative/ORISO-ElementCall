@@ -68,6 +68,7 @@ import { useInitial } from "../useInitial";
 import { SpotlightTile } from "../tile/SpotlightTile";
 import { type EncryptionSystem } from "../e2ee/sharedKeyManagement";
 import { E2eeType } from "../e2ee/e2eeType";
+import { useSharePointer } from "../oriso/pointer/useSharePointer";
 import { makeGridLayout } from "../grid/GridLayout";
 import {
   type CallLayoutOutputs,
@@ -670,6 +671,12 @@ export const InCallView: FC<InCallViewProps> = ({
    * different question and only asked once the design is on.
    * ---------------------------------------------------------------------- */
   const orisoIdentities = useOrisoIdentities(matrixRoom);
+  // The laser pointer on a shared screen (#2233); only in an E2EE call.
+  const sharePointer = useSharePointer(
+    vm,
+    matrixInfo.e2eeSystem.kind !== E2eeType.NONE,
+    matrixRoom,
+  );
   // Who the host says is a counsellor: the only source of "Beratung".
   const orisoCounsellors = useOrisoCounsellors();
   const orisoStage = useMemo(
@@ -681,6 +688,7 @@ export const InCallView: FC<InCallViewProps> = ({
       audioOnly: orisoAudioOnly,
       // #2233: the spotlight draws people as rounded rectangles too.
       rectangular: rectangularStage(layout.type, orisoVideoOneOnOne),
+      pointer: sharePointer.context,
     }),
     [
       orisoIdentities,
@@ -689,6 +697,7 @@ export const InCallView: FC<InCallViewProps> = ({
       orisoEnabled,
       orisoAudioOnly,
       orisoVideoOneOnOne,
+      sharePointer.context,
       layout.type,
     ],
   );
@@ -878,6 +887,8 @@ export const InCallView: FC<InCallViewProps> = ({
     waitingCount: orisoKnock.waiting,
     knock: orisoKnock.knock,
     onKnockChange: orisoKnock.setKnock,
+    pointing: sharePointer.pointing,
+    onPointingChange: sharePointer.onPointingChange,
     onHangup: (): void => vm.hangup(),
     participantCount,
     // "Teilnehmende" lists them and invites somebody else (#2233).

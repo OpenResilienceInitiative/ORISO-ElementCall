@@ -80,6 +80,13 @@ export interface CallMenuProps {
   /** "Anklopfen" of this call's link; null hides the switch (no link to switch). */
   knock?: boolean | null;
   onKnockChange?: ((knock: boolean) => void) | null;
+  /**
+   * "Laserpointer": whether the others see where I point on a shared screen.
+   * Null hides the switch — nobody else is sharing, or the call is not
+   * end-to-end encrypted.
+   */
+  pointing?: boolean | null;
+  onPointingChange?: ((pointing: boolean) => void) | null;
   onTouchEnd?: (e: TouchEvent) => void;
 }
 
@@ -146,6 +153,8 @@ export const OrisoToolbar: FC<Props> = ({
   waitingCount = 0,
   knock = null,
   onKnockChange = null,
+  pointing = null,
+  onPointingChange = null,
   onTouchEnd,
   compact = false,
   className,
@@ -304,6 +313,8 @@ export const OrisoToolbar: FC<Props> = ({
           onOpenBackground={onOpenBackground}
           onToggleScreenShare={onToggleScreenShare}
           sharingScreen={sharingScreen}
+          pointing={pointing}
+          onPointingChange={onPointingChange}
           onToggleNotes={onToggleNotes}
           onOpenSoundSettings={onOpenSoundSettings}
           onOpenSettings={onOpenSettings}
@@ -463,6 +474,8 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
   waitingCount = 0,
   knock = null,
   onKnockChange = null,
+  pointing = null,
+  onPointingChange = null,
   onTouchEnd,
 }) => {
   const { t } = useTranslation();
@@ -566,6 +579,34 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
         )}
       </div>
       <div className={styles.section}>
+        {pointing !== null && onPointingChange !== null && (
+          <div className={styles.row} data-entry="pointer">
+            <span className={styles.rowLabel}>
+              <span id={`${id}-pointer`}>{t("oriso.pointer_label")}</span>
+              <span
+                id={`${id}-pointer-state`}
+                className={styles.rowDescription}
+              >
+                {t(pointing ? "oriso.pointer_on" : "oriso.pointer_off")}
+              </span>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={pointing}
+              aria-labelledby={`${id}-pointer`}
+              aria-describedby={`${id}-pointer-state`}
+              className={styles.switch}
+              data-state={pointing ? "on" : "off"}
+              // Picking closes the menu: the next thing is to point.
+              onClick={pick(() => onPointingChange(!pointing))}
+              onTouchEnd={onTouchEnd}
+              data-testid="oriso-pointer-switch"
+            >
+              <span className={styles.switchThumb} aria-hidden="true" />
+            </button>
+          </div>
+        )}
         {onToggleScreenShare !== null && (
           <MenuEntry
             entry="share_screen"
