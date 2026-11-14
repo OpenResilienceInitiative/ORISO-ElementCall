@@ -134,11 +134,11 @@ import { Publisher } from "./localMember/Publisher.ts";
 import { type Connection } from "./remoteMembers/Connection.ts";
 import { createLayoutModeSwitch } from "./LayoutSwitch.ts";
 import {
-  isGroupConversation,
   type OrisoCallType,
   type StagePlan,
   stagePlan,
 } from "../../oriso/stageViews.ts";
+import { cameraOnInOneOnOne$ } from "../../oriso/oneOnOneCamera.ts";
 
 const logger = rootLogger.getChild("[CallViewModel]");
 //TODO
@@ -384,6 +384,11 @@ export interface CallViewModel {
    * whatever mode is on. See the comment where it is built.
    */
   orisoOneOnOne$: Behavior<boolean>;
+  /**
+   * Whether either camera is on in a 1:1 (#2233, D1/D5): the split circle
+   * while both are off, the video stage once one is on.
+   */
+  orisoCameraOn$: Behavior<boolean>;
   /**
    * The ORISO views this call offers and the one it starts in, from the
    * head count, the conversation type and the call intent. See
@@ -1210,16 +1215,12 @@ export function createCallViewModel$(
    * `pip` keeps upstream's: it is a thumbnail of a call happening elsewhere,
    * and the handoff draws nothing for it.
    */
-  const orisoGroup =
-    options.orisoDesign === true &&
-    isGroupConversation(options.orisoCallType ?? null);
   const orisoArrangement = (windowMode: WindowMode): Observable<LayoutMedia> =>
     gridMode$.pipe(
       switchMap((gridMode) => {
         switch (gridMode) {
           case "grid":
-            // A group conversation stays a group at two people (S6b).
-            if (orisoGroup) return gridLayoutMedia$;
+            // Two people get the 1:1, whatever the type (#2233, D7).
             return oneOnOneLayoutMedia$.pipe(
               switchMap((oneOnOne) =>
                 oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
@@ -1254,10 +1255,15 @@ export function createCallViewModel$(
 
   /*
    * Whether the design's two-person arrangement is the one GRID mode would
-   * choose — whatever mode is actually on. A group conversation never is.
+   * choose — whatever mode is actually on. Two people are a 1:1 whatever
+   * the conversation type (#2233, D7).
    */
   const orisoOneOnOne$ = scope.behavior(
-    oneOnOneLayoutMedia$.pipe(map((media) => media !== null && !orisoGroup)),
+    oneOnOneLayoutMedia$.pipe(map((media) => media !== null)),
+    false,
+  );
+  const orisoCameraOn$ = scope.behavior(
+    oneOnOneLayoutMedia$.pipe(switchMap(cameraOnInOneOnOne$)),
     false,
   );
 
@@ -1730,6 +1736,7 @@ export function createCallViewModel$(
      * share makes a third, which is why a count of people would not do.
      */
     orisoOneOnOne$: orisoOneOnOne$,
+    orisoCameraOn$: orisoCameraOn$,
     orisoPlan$: scope.behavior(
       orisoOneOnOne$.pipe(
         map((alone) =>

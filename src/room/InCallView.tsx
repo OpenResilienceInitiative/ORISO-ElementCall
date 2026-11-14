@@ -545,7 +545,24 @@ export const InCallView: FC<InCallViewProps> = ({
   const orisoEnabled = orisoDesign;
   const orisoAudioOnly = orisoEnabled && callIntent === "audio";
   const orisoVideoCall = orisoEnabled && callIntent === "video";
-  const orisoVideoOneOnOne = orisoVideoCall && layout.type === "one-on-one";
+  const alone = useBehavior(vm.orisoOneOnOne$);
+  /*
+   * #2233 (D1/D5): the cameras decide what two people see, not the call's
+   * intent — the split circle while both are off, the video stage with the
+   * other person large once one is on. An audio call has no camera.
+   */
+  const cameraOn = useBehavior(vm.orisoCameraOn$);
+  const orisoCameraOneOnOne = orisoEnabled && cameraOn && !orisoAudioOnly;
+  const orisoVideoOneOnOne =
+    orisoCameraOneOnOne && layout.type === "one-on-one";
+  /*
+   * #2233 (D2): the view rail and the atmosphere come with a group
+   * arrangement — whenever the stage is not the Einzelgespräch. That follows
+   * the plan (`orisoOneOnOne$`, which counts media, not people): a person
+   * waiting alone, or a 1:1 with a shared screen, gets a group arrangement
+   * too, and must keep the rail to leave a stored spotlight.
+   */
+  const orisoGroupChrome = orisoEnabled && !alone;
   // The window buttons in the header, when the host leaves them to the call.
   const orisoWindow = useOrisoWindow(orisoEnabled && orisoHostChrome);
   // "Link teilen" (S8): only when the host said it can make a link.
@@ -557,14 +574,16 @@ export const InCallView: FC<InCallViewProps> = ({
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
   const [notesRef, notesBounds] = useMeasure();
-  const alone = useBehavior(vm.orisoOneOnOne$);
   // The call's duration in the header of a 1:1 over the atmosphere (2b).
   const orisoMobile =
     orisoEnabled && bounds.width > 0 && bounds.width <= MOBILE_MAX_WIDTH;
   // 2b on a desktop; on a phone the video 1:1 shows it too (5d).
   const callDuration = useCallDuration(
     rtcSession,
-    orisoEnabled && showControls && (!orisoVideoCall || orisoMobile) && alone,
+    orisoEnabled &&
+      showControls &&
+      (!orisoVideoOneOnOne || orisoMobile) &&
+      alone,
   );
   // The wave band names whoever speaks (5b).
   const orisoSpeaker = useBehavior(vm.orisoSpeaker$);
@@ -642,15 +661,10 @@ export const InCallView: FC<InCallViewProps> = ({
   const pipAlignment$ = useInitial(
     () =>
       new BehaviorSubject<Alignment>(
-        orisoVideoCall ? { inline: "end", block: "end" } : defaultPipAlignment,
+        // #2233 (D1): my own picture is a circle at the bottom left.
+        orisoEnabled ? { inline: "start", block: "end" } : defaultPipAlignment,
       ),
   );
-
-  // 5d: on a phone my own picture sits top right, the other person fills.
-  useEffect(() => {
-    if (orisoMobile && orisoVideoCall)
-      pipAlignment$.next({ inline: "end", block: "start" });
-  }, [orisoMobile, orisoVideoCall, pipAlignment$]);
 
   const setGridMode = useCallback(
     (mode: GridMode) => vm.setGridMode(mode),
@@ -720,7 +734,7 @@ export const InCallView: FC<InCallViewProps> = ({
   );
   const openAtmosphere = useCallback(() => setAtmosphereOpen(true), []);
   // Only where the atmosphere is the stage: the video 1:1 is a dark stage.
-  const atmosphereShown = orisoEnabled && !orisoVideoOneOnOne;
+  const atmosphereShown = orisoGroupChrome && !orisoVideoOneOnOne;
 
   // "Namen & Symbole" (S5): dezent or as a capsule, chosen in the settings
   // (#2233) and followed here while the call runs.
@@ -782,6 +796,14 @@ export const InCallView: FC<InCallViewProps> = ({
     restoredView.current = true;
     if (storedView === "spotlight") setGridMode("spotlight");
   }, [orisoEnabled, storedView, setGridMode]);
+  /*
+   * #2233 (D2): two people have no view rail, so nothing could bring them
+   * back from a spotlight a group left behind. A shared screen is not two
+   * people and keeps its spotlight.
+   */
+  useEffect(() => {
+    if (orisoEnabled && alone && gridMode === "spotlight") setGridMode("grid");
+  }, [orisoEnabled, alone, gridMode, setGridMode]);
 
   // "Anheften — bleibt groß" (S6): mine alone, for this call.
   const [pinnedIds, setPinnedIds] = useState<ReadonlySet<string>>(
@@ -1017,7 +1039,7 @@ export const InCallView: FC<InCallViewProps> = ({
             )}
             {/* S5: the view rail is in the header (2a), inactive views as an
                 icon, the active one with its word. */}
-            {orisoOffer.length > 1 && !orisoMobile && (
+            {orisoGroupChrome && orisoOffer.length > 1 && !orisoMobile && (
               <ViewSwitcher
                 tone={orisoVideoOneOnOne ? "dark" : "light"}
                 active={stageView}
@@ -1053,11 +1075,15 @@ export const InCallView: FC<InCallViewProps> = ({
               <OrisoMobileMenu
                 {...callMenu}
                 onTouchEnd={onHeaderTouchEnd}
-                views={{
-                  offer: orisoOffer,
-                  active: stageView,
-                  onChange: setStageView,
-                }}
+                views={
+                  orisoGroupChrome
+                    ? {
+                        offer: orisoOffer,
+                        active: stageView,
+                        onChange: setStageView,
+                      }
+                    : undefined
+                }
                 onToggleWindow={
                   orisoWindow.send === null
                     ? null
@@ -1248,16 +1274,16 @@ export const InCallView: FC<InCallViewProps> = ({
       "spotlight-portrait": makeSpotlightPortraitLayout(inputs),
       "spotlight-expanded": makeSpotlightExpandedLayout(inputs),
       "one-on-one":
-        orisoEnabled && !orisoVideoCall
+        orisoEnabled && !orisoCameraOneOnOne
           ? makeEinzelgespraechLayout(inputs)
-          : makeOneOnOneLayout({ ...inputs, fillStage: orisoVideoCall }),
+          : makeOneOnOneLayout({ ...inputs, fillStage: orisoEnabled }),
     };
   }, [
     gridBoundsObservable$,
     spotlightAlignment$,
     pipAlignment$,
     orisoEnabled,
-    orisoVideoCall,
+    orisoCameraOneOnOne,
   ]);
 
   const renderContent = (): JSX.Element => {

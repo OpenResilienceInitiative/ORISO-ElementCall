@@ -13,15 +13,15 @@ import { type StageView } from "./ViewSwitcher";
  * choice means — one place, so the rail, the stage and the storage cannot
  * disagree.
  *
- * Two people in a call that is not a group get the Einzelgespräch, which is
- * not a choice but the name of what two people are in; the alternative is
- * the spotlight. Everybody else gets the five views of design 2a.
+ * Two people get the Einzelgespräch, which is not a choice but the name of
+ * what two people are in; the alternative is the spotlight. Everybody else
+ * gets the five views of design 2a.
  *
- * The conversation type (`orisoCallType`, S6b) decides where a call starts,
- * not the head count: a Gesprächskreis starts in the Kreis, another group
- * conversation in the Felder, and both stay groups at two people; a single
- * conversation starts in the Einzelgespräch. Without a type the head count
- * decides, as it always did.
+ * The head count decides first (#2233, D7): a group conversation with only
+ * two people in it is a 1:1 until the third arrives. From three on, the
+ * conversation type (`orisoCallType`, S6b) decides where a call starts: a
+ * Gesprächskreis in the Kreis, any other group conversation in the Felder.
+ * Without a type the Hain, as it always did.
  *
  * A single conversation that grows to three (S8, "Link teilen") gets the
  * group's rail and starts in the Felder; back at two it is the
@@ -31,8 +31,8 @@ export type OrisoCallType = "group" | "circle" | "single";
 
 /**
  * A conversation of many: a Gesprächskreis (`circle`) or any other group,
- * e.g. an internal team chat (`group`). It keeps the group's views at two
- * people too.
+ * e.g. an internal team chat (`group`). At two people it is a 1:1 all the
+ * same (#2233, D7); its type only decides where three or more start.
  */
 export const isGroupConversation = (callType: OrisoCallType | null): boolean =>
   callType === "group" || callType === "circle";
@@ -79,8 +79,8 @@ export function stagePlan({
   callType?: OrisoCallType | null;
   intent?: OrisoCallIntent | null;
 }): StagePlan {
-  if (alone && !isGroupConversation(callType))
-    return { offer: ONE_ON_ONE_OFFER, fallback: "einzelgespraech" };
+  // Two people are a 1:1 whatever the conversation type (#2233, D7).
+  if (alone) return { offer: ONE_ON_ONE_OFFER, fallback: "einzelgespraech" };
   const offer = intent === "video" ? VIDEO_GROUP_OFFER : GROUP_OFFER;
   /*
    * Without a type, the Hain as before. A typed default the offer does not

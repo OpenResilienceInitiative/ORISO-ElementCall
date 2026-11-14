@@ -35,6 +35,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
   type RenderResult,
 } from "@testing-library/react";
@@ -249,6 +250,8 @@ function createInCallView({
   callType,
   encrypted = false,
   orisoLogo,
+  cameraOn = false,
+  solo = false,
   canShare = false,
   shareFailure = null,
   roomName = "Schuldnerberatung",
@@ -268,6 +271,10 @@ function createInCallView({
   encrypted?: boolean;
   /** The Träger's logo, as the app puts it into the call address. */
   orisoLogo?: string;
+  /** Whether either camera in a 1:1 is on (#2233 D1/D5). */
+  cameraOn?: boolean;
+  /** Nobody else in the call yet: the person waits alone. */
+  solo?: boolean;
   /** Whether this browser can capture a screen (jsdom cannot). */
   canShare?: boolean;
   /** Why the last attempt to share did not start. */
@@ -343,10 +350,12 @@ function createInCallView({
     },
   );
   const { vm, rtcSession } = getBasicCallViewModelEnvironment(
-    crowd ? [local, alice, bob] : [local, alice],
-    crowd
-      ? [localMember, aliceRtcMember, bobRtcMember]
-      : [localMember, aliceRtcMember],
+    solo ? [local] : crowd ? [local, alice, bob] : [local, alice],
+    solo
+      ? [localMember]
+      : crowd
+        ? [localMember, aliceRtcMember, bobRtcMember]
+        : [localMember, aliceRtcMember],
     {
       orisoDesign,
       orisoCallType: callType ?? null,
@@ -357,6 +366,7 @@ function createInCallView({
   Object.assign(vm, {
     mediaError$: new BehaviorSubject(mediaError),
     retryMedia,
+    orisoCameraOn$: new BehaviorSubject(cameraOn),
     screenShareFailure$: new BehaviorSubject(shareFailure),
     dismissScreenShareFailure: vi.fn(),
     ...(canShare ? { toggleScreenSharing: vi.fn() } : {}),
@@ -507,28 +517,41 @@ describe("the call, in the ORISO design", () => {
     );
   });
 
-  it("shows the video layout and both identities with the cameras off", async () => {
-    const { container } = createInCallView({
-      callIntent: "video",
-      published: {},
-    });
-
-    expect(screen.queryByTestId("einzelgespraech")).not.toBeInTheDocument();
+  it("keeps the split circle in a video call while both cameras are off (#2233 D5)", async () => {
+    createInCallView({ callIntent: "video", published: {} });
+    expect(await screen.findByTestId("einzelgespraech")).toBeInTheDocument();
     expect(screen.getByTestId("incall_videomute")).toBeInTheDocument();
     const symbols = await screen.findAllByTestId("oriso-initials");
     expect(symbols).toHaveLength(2);
-    expect(symbols.every((symbol) => symbol.textContent?.trim())).toBe(true);
-    expect(
-      container.querySelector(
-        '[data-block-alignment="end"][data-inline-alignment="end"]',
-      ),
-    ).toBeInTheDocument();
   });
+
+  it.each(["video", undefined] as const)(
+    "turns a %s 1:1 into the video stage once a camera is on, me round at the bottom left (#2233 D1)",
+    async (callIntent) => {
+      const { container } = createInCallView({
+        callIntent,
+        published: {},
+        cameraOn: true,
+      });
+      expect(screen.queryByTestId("einzelgespraech")).not.toBeInTheDocument();
+      const own = container.querySelector(
+        '[data-block-alignment="end"][data-inline-alignment="start"]',
+      );
+      expect(own).toBeInTheDocument();
+      // The slot marks the place; the tile itself is drawn in the tile layer.
+      await waitFor(() =>
+        expect(
+          container.querySelectorAll('[data-oriso-round="true"]'),
+        ).toHaveLength(1),
+      );
+    },
+  );
 
   it("opens docked notes from the header of an embedded video call", () => {
     const { container } = createInCallView({
       callIntent: "video",
       published: {},
+      cameraOn: true,
     });
     expect(screen.getByText("Schuldnerberatung")).toBeInTheDocument();
 
@@ -560,7 +583,7 @@ describe("the call, in the ORISO design", () => {
    * header keeps their corner free; the notes button sits inside it.
    */
   it("keeps the host's window corner free of the header's own buttons", () => {
-    createInCallView({ callIntent: "video", published: {} });
+    createInCallView({ callIntent: "video", published: {}, cameraOn: true });
     const header = screen.getByTestId("oriso-header");
     expect(header.dataset.hostChrome).toBe("host");
     expect(header.dataset.tone).toBe("dark");
@@ -578,6 +601,7 @@ describe("the call, in the ORISO design", () => {
     const { container } = createInCallView({
       callIntent: "video",
       published: {},
+      cameraOn: true,
     });
     const header = screen.getByTestId("oriso-header");
     expect(within(header).getByText("Schuldnerberatung")).toBeInTheDocument();
@@ -727,49 +751,31 @@ describe("the call, in the ORISO design", () => {
     ).toBeTruthy();
   });
 
-  it("offers only what the stage can honour when there are two people", async () => {
-    /*
-     * `layoutMedia$` reaches for the one-on-one layout first and it matches at
-     * exactly two media items, so the stage is the Einzelgespräch whichever
-     * arrangement is selected. Kreis and Kacheln were BOTH no-ops there: the
-     * radio moved and nothing else did. The rail names the arrangement that is
-     * on and offers the one real alternative.
-     */
-    createInCallView();
-    const rail = await openViewRail();
-    const views = [...rail.querySelectorAll('[role="radio"]')].map((radio) =>
-      radio.getAttribute("data-view"),
-    );
-    expect(views).toEqual(["einzelgespraech", "spotlight"]);
-    expect(
-      rail
-        .querySelector('[role="radio"][aria-checked="true"]')
-        ?.getAttribute("data-view"),
-    ).toBe("einzelgespraech");
-  });
+  it.each([undefined, "single", "group"] as const)(
+    "shows no view rail and no atmosphere to two people (%s) (#2233 D2, D7)",
+    async (callType) => {
+      createInCallView({ callType });
+      const header = await screen.findByTestId("oriso-header");
+      expect(await screen.findByTestId("einzelgespraech")).toBeInTheDocument();
+      expect(within(header).queryByTestId("view-switcher")).toBeNull();
+      expect(
+        within(header).queryByTestId("oriso-atmosphere-button"),
+      ).toBeNull();
+    },
+  );
 
-  it("keeps the two-person rail constrained after the spotlight is picked", async () => {
+  it("keeps the view rail and the atmosphere for a person waiting alone (#2233 D2)", async () => {
     /*
-     * The rail used to read `layout.type`, which only answers this in grid
-     * mode: picking the spotlight at two people makes the layout a spotlight,
-     * so the rail decided it was no longer a two-person call and offered the
-     * grove and the fields again — and both of those land straight back on
-     * the Einzelgespräch. It asks the view model now, which counts media
-     * items whatever mode is on.
+     * Alone, the stage is a group arrangement, not the Einzelgespräch. Without
+     * the rail, a stored spotlight held the person there until somebody came.
      */
-    createInCallView();
-    const rail = await openViewRail();
-    fireEvent.click(rail.querySelector('[data-view="spotlight"]')!);
-
-    const views = [...rail.querySelectorAll('[role="radio"]')].map((radio) =>
-      radio.getAttribute("data-view"),
-    );
-    expect(views).toEqual(["einzelgespraech", "spotlight"]);
+    createInCallView({ solo: true });
+    const header = await screen.findByTestId("oriso-header");
+    expect(screen.queryByTestId("einzelgespraech")).toBeNull();
+    expect(within(header).getByTestId("view-switcher")).toBeInTheDocument();
     expect(
-      rail
-        .querySelector('[role="radio"][aria-checked="true"]')
-        ?.getAttribute("data-view"),
-    ).toBe("spotlight");
+      within(header).getByTestId("oriso-atmosphere-button"),
+    ).toBeInTheDocument();
   });
 
   it("takes focus along the rail when the arrows move the selection", async () => {
@@ -832,7 +838,7 @@ describe("the call, in the ORISO design", () => {
      * a `⋮`, and the hang-up beside it rather than in it. Dev still showed
      * Element Call's black round buttons and the view rail bottom-right.
      */
-    const { container } = createInCallView();
+    const { container } = createInCallView({ crowd: true });
     const toolbar = await screen.findByTestId("oriso-toolbar");
     const bar = within(toolbar).getByRole("toolbar");
 
@@ -988,18 +994,12 @@ describe("the call, in the ORISO design", () => {
   });
 
   /*
-   * S6b: the conversation type decides where a call starts, not the head
-   * count. A group conversation of two starts in the Kreis with all five
-   * views; a single conversation of two in the Einzelgespräch.
+   * S6b: from three people on, the conversation type decides where a call
+   * starts (#2233 D9); at two, everybody gets the Einzelgespräch (D7).
    */
-  it("starts a Gesprächskreis of two in the Kreis (#2233 D9)", async () => {
-    const { container } = createInCallView({ callType: "circle" });
+  it("starts a Gesprächskreis of three in the Kreis (#2233 D9)", async () => {
+    const { container } = createInCallView({ callType: "circle", crowd: true });
     const rail = await openViewRail();
-    expect(
-      [...rail.querySelectorAll('[role="radio"]')].map((r) =>
-        r.getAttribute("data-view"),
-      ),
-    ).toEqual(["kreis", "hain", "felder", "kacheln", "spotlight"]);
     expect(
       rail
         .querySelector('[role="radio"][aria-checked="true"]')
@@ -1010,8 +1010,8 @@ describe("the call, in the ORISO design", () => {
     ).toBeTruthy();
   });
 
-  it("starts an internal group of two in the Felder (#2233 D9)", async () => {
-    const { container } = createInCallView({ callType: "group" });
+  it("starts an internal group of three in the Felder (#2233 D9)", async () => {
+    const { container } = createInCallView({ callType: "group", crowd: true });
     const rail = await openViewRail();
     expect(
       [...rail.querySelectorAll('[role="radio"]')].map((r) =>
@@ -1028,16 +1028,6 @@ describe("the call, in the ORISO design", () => {
         '[data-testid="oriso-grove"][data-view="felder"]',
       ),
     ).toBeTruthy();
-  });
-
-  it("starts a single conversation of two in the Einzelgespräch", async () => {
-    createInCallView({ callType: "single" });
-    const rail = await openViewRail();
-    expect(
-      rail
-        .querySelector('[role="radio"][aria-checked="true"]')
-        ?.getAttribute("data-view"),
-    ).toBe("einzelgespraech");
   });
 
   /*
@@ -1064,7 +1054,7 @@ describe("the call, in the ORISO design", () => {
   });
 
   it("keeps the choice per conversation type", async () => {
-    const { unmount } = createInCallView({ callType: "group" });
+    const { unmount } = createInCallView({ callType: "group", crowd: true });
     fireEvent.click(
       (await openViewRail()).querySelector('[data-view="kacheln"]')!,
     );
@@ -1072,17 +1062,18 @@ describe("the call, in the ORISO design", () => {
     expect(localStorage.getItem("oriso-call-view-single")).toBeNull();
     unmount();
 
-    // A single conversation is not affected by the group's choice…
-    const single = createInCallView({ callType: "single" });
+    // A single conversation is not affected by the group's choice: grown
+    // to three, it starts in its own default, the Felder (#2233 D9)…
+    const single = createInCallView({ callType: "single", crowd: true });
     expect(
       (await openViewRail())
         .querySelector('[role="radio"][aria-checked="true"]')
         ?.getAttribute("data-view"),
-    ).toBe("einzelgespraech");
+    ).toBe("felder");
     single.unmount();
 
     // …and the next group conversation starts in the Kacheln.
-    createInCallView({ callType: "group" });
+    createInCallView({ callType: "group", crowd: true });
     expect(
       (await openViewRail())
         .querySelector('[role="radio"][aria-checked="true"]')
