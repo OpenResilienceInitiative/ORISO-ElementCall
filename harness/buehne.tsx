@@ -335,7 +335,8 @@ const identities = new Map(
 const indexOf = (id: string): number => Number(id.slice(1));
 
 // What `OrisoGroveLayout` subscribes to on each tile: the media's id, its
-// user, the name and whether that person speaks.
+// user, the name, whether that person speaks, and the hand and microphone
+// beside the name.
 const model: GridLayout = {
   type: "grid",
   grid: people.map((person, i) => ({
@@ -345,6 +346,8 @@ const model: GridLayout = {
       userId: `@${idOf(i)}:oriso.test`,
       displayName$: new BehaviorSubject(person.name),
       speaking$: new BehaviorSubject(i === speakingIndex),
+      handRaised$: new BehaviorSubject(hands.has(i) ? new Date() : null),
+      audioEnabled$: new BehaviorSubject(!muted.has(i)),
     }),
   })) as unknown as GridLayout["grid"],
   setVisibleTiles: () => {},

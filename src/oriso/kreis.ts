@@ -248,6 +248,30 @@ const CHAR_PX = 7;
 export const KREIS_NAME_MIN = 44;
 
 /**
+ * What the capsule shows beside the name (`MediaView`'s `nameTag`): the
+ * raised hand with how long it has been up, and the microphone only while it
+ * is off.
+ */
+export interface KreisStatus {
+  hand: boolean;
+  muted: boolean;
+}
+
+/**
+ * The raised hand: 14px icon, 3px gap, the time at its widest common length
+ * ("12:03", so the layout does not move every minute), 6px padding and the
+ * 1px separator, then the capsule's 6px gap to the name.
+ */
+const HAND_PX = 14 + 3 + 5 * CHAR_PX + 6 + 1 + 6;
+/** The muted microphone: the 15px icon and the capsule's 6px gap. */
+const MUTED_PX = 15 + 6;
+
+/** How much wider than its name a capsule is with this status in it. */
+export function kreisStatusWidth(status: KreisStatus | undefined): number {
+  return (status?.hand ? HAND_PX : 0) + (status?.muted ? MUTED_PX : 0);
+}
+
+/**
  * Where everybody's name goes in the Kreis, so no two capsules overlap.
  *
  * Every capsule sits on its form's top edge and is as wide as its name, up
@@ -263,7 +287,13 @@ export const KREIS_NAME_MIN = 44;
  * that tells two foxes apart stays.
  *
  * Pure: `forms` are the seats as boxes on the stage, `names` the names they
- * carry (only their length is used, as a guess at the width).
+ * carry as their capsules show them (only their length is used, as a guess
+ * at the width), `status` what else each capsule carries — a raised hand, a
+ * muted microphone (`kreisStatusWidth`). The status is never cut, so it
+ * comes out of the name's share. One case does not fit: a raised hand on the
+ * very top or bottom seat of a ring of 14 or more, whose neighbours leave
+ * less room than a hand and the shortest name need; that name stays at the
+ * minimum and its capsule touches theirs.
  */
 export function kreisNames(
   forms: readonly { x: number; y: number; size: number }[],
@@ -271,9 +301,14 @@ export function kreisNames(
   stageWidth: number,
   cap: number,
   side: (x: number, width: number) => KreisName["side"],
+  status: readonly (KreisStatus | undefined)[] = [],
 ): KreisName[] {
+  const extra = forms.map((_, i) => kreisStatusWidth(status[i]));
   const guess = (i: number): number =>
-    Math.min(cap, [...(names[i] ?? "")].length * CHAR_PX) + CAPSULE_PAD;
+    Math.min(cap, [...(names[i] ?? "")].length * CHAR_PX) +
+    CAPSULE_PAD +
+    extra[i];
+  const floor = (i: number): number => KREIS_NAME_MIN + CAPSULE_PAD + extra[i];
   const first = forms.map((f) => side(f.x, f.size));
   const widths = forms.map((_, i) => guess(i));
   if (!anyOverlap(forms, first, widths))
@@ -296,13 +331,9 @@ export function kreisNames(
         : outward[i] === "end"
           ? f.x + f.size
           : 2 * Math.min(f.x + f.size / 2, stageWidth - f.x - f.size / 2);
-    widths[i] = Math.max(
-      KREIS_NAME_MIN + CAPSULE_PAD,
-      Math.min(widths[i], room),
-    );
+    widths[i] = Math.max(floor(i), Math.min(widths[i], room));
   }
   // Shrink whatever still meets, a little at a time, until nothing does.
-  const floor = KREIS_NAME_MIN + CAPSULE_PAD;
   for (let round = 0; round < 40; round++) {
     let moved = false;
     for (let i = 0; i < forms.length; i++)
@@ -315,7 +346,7 @@ export function kreisNames(
         // Which edge faces the other, and how fast shrinking moves it.
         const [left, right] = a.l + a.r <= b.l + b.r ? [i, j] : [j, i];
         const rate = (k: number, facingRight: boolean): number =>
-          widths[k] <= floor
+          widths[k] <= floor(k)
             ? 0
             : outward[k] === "centre"
               ? 0.5
@@ -326,15 +357,15 @@ export function kreisNames(
         const rr = rate(right, false);
         if (rl + rr === 0) continue;
         const cut = overlap / (rl + rr);
-        if (rl > 0) widths[left] = Math.max(floor, widths[left] - cut);
-        if (rr > 0) widths[right] = Math.max(floor, widths[right] - cut);
+        if (rl > 0) widths[left] = Math.max(floor(left), widths[left] - cut);
+        if (rr > 0) widths[right] = Math.max(floor(right), widths[right] - cut);
         moved = true;
       }
     if (!moved) break;
   }
   return outward.map((s, i) => ({
     side: s,
-    max: Math.min(cap, Math.floor(widths[i] - CAPSULE_PAD)),
+    max: Math.min(cap, Math.floor(widths[i] - CAPSULE_PAD - extra[i])),
   }));
 }
 

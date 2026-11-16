@@ -7,6 +7,7 @@ Please see LICENSE in the repository root for full details.
 
 import { type ReactNode, useCallback, useMemo } from "react";
 import { useObservableEagerState } from "observable-hooks";
+import { useTranslation } from "react-i18next";
 import { combineLatest, distinctUntilChanged, map, of, switchMap } from "rxjs";
 
 import { type GridLayout as GridLayoutModel } from "../state/layout-types.ts";
@@ -32,6 +33,7 @@ import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { useOrisoPins, useOrisoView } from "../oriso/useOrisoView";
 import { kreisNames, kreisPlan } from "../oriso/kreis";
+import { shownNameOnStage, useOrisoStage } from "../oriso/useOrisoIdentities";
 import { trioShapes } from "../oriso/trio";
 import { useMediaQuery } from "../useMediaQuery";
 import { kachelSize, orderForKacheln } from "../oriso/kacheln";
@@ -115,6 +117,12 @@ interface Seat {
   /** For the Kreis's centre, which names whoever is speaking. */
   userId: string;
   displayName: string;
+  /**
+   * What the name's capsule carries beside the name: a raised hand, a muted
+   * microphone (`kreisNames` leaves room for it).
+   */
+  handRaised: boolean;
+  muted: boolean;
   /** "Anheften — bleibt groß", this person's own choice. */
   pinned: boolean;
 }
@@ -235,15 +243,32 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               tiles.map((tile) =>
                 tile.media$.pipe(
                   switchMap((media) =>
-                    combineLatest([media.displayName$, media.speaking$]).pipe(
+                    combineLatest([
+                      media.displayName$,
+                      media.speaking$,
+                      media.handRaised$,
+                      media.audioEnabled$,
+                      "locallyMuted$" in media
+                        ? media.locallyMuted$
+                        : of(false),
+                    ]).pipe(
                       map(
-                        ([displayName, speaking]): Omit<Seat, "pinned"> => ({
+                        ([
+                          displayName,
+                          speaking,
+                          handRaised,
+                          audioEnabled,
+                          locallyMuted,
+                        ]): Omit<Seat, "pinned"> => ({
                           model: tile,
                           mediaId: media.id,
                           seed: displayName || media.userId,
                           speaking,
                           userId: media.userId,
                           displayName,
+                          handRaised: handRaised !== null,
+                          // GridTile's `data-muted`: the icon the capsule shows.
+                          muted: locallyMuted || !audioEnabled,
                         }),
                       ),
                     ),
@@ -459,6 +484,11 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
 
     // The same breakpoint as the capsule's phone cap in `MediaView.module.css`.
     const phone = useMediaQuery("(max-width: 550px)");
+    // The names the capsules show, for `kreisNames`: a published identity
+    // arriving re-runs the name layout.
+    const { identities, enabled } = useOrisoStage();
+    const { t } = useTranslation();
+    const neutralName = t("oriso.participant_neutral");
     const shapes = useMemo(() => {
       const map = new Map<string, TileShape>();
       if (scrolls)
@@ -472,13 +502,29 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
       else if (view === "kreis") {
         // The circle's names, laid out together so neighbours on a crowded
         // ring do not cover each other (#2233, 18 people). See `kreisNames`.
-        const nameOf = new Map(seats.map((s) => [s.mediaId, s.displayName]));
+        // Measured as the capsule shows them: the published name rather than
+        // a pseudonym's Matrix id, and the hand and microphone beside it.
+        const seatOf = new Map(seats.map((s) => [s.mediaId, s]));
         const names = kreisNames(
           placed.map((p) => ({ x: p.x, y: p.y, size: p.width })),
-          placed.map((p) => nameOf.get(p.mediaId) ?? ""),
+          placed.map((p) => {
+            const s = seatOf.get(p.mediaId);
+            return s === undefined
+              ? ""
+              : shownNameOnStage(
+                  { identities, enabled },
+                  s.userId,
+                  s.displayName,
+                  neutralName,
+                );
+          }),
           stage.width,
           phone ? NAME_MAX_PHONE : NAME_MAX,
           (x, w) => nameSideFor(x, w, stage.width, phone),
+          placed.map((p) => {
+            const s = seatOf.get(p.mediaId);
+            return s && { hand: s.handRaised, muted: s.muted };
+          }),
         );
         placed.forEach((p, i) =>
           map.set(p.mediaId, {
@@ -503,7 +549,18 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               : p.shape,
           );
       return map;
-    }, [scrolls, sheet, placed, seats, view, stage.width, phone]);
+    }, [
+      scrolls,
+      sheet,
+      placed,
+      seats,
+      view,
+      stage.width,
+      phone,
+      identities,
+      enabled,
+      neutralName,
+    ]);
     usePublishOrisoShapes(shapes);
 
     if (scrolls)

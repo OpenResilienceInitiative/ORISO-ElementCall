@@ -479,3 +479,28 @@ export function useShownName(
     t("oriso.participant_neutral"),
   );
 }
+
+/**
+ * The name `userId`'s tile shows on this stage, without a hook per person.
+ *
+ * What `useOrisoIdentity` and `useShownName` give the tile, for code that
+ * needs everybody's at once: the Kreis lays all names out together
+ * (`kreisNames`), and a pseudonymous account's display name is its Matrix
+ * id, not the published name its capsule carries. `neutral` is the
+ * translated "Teilnehmende Person".
+ */
+export function shownNameOnStage(
+  stage: Pick<OrisoStage, "identities" | "enabled">,
+  userId: string,
+  displayName: string,
+  neutral: string,
+): string {
+  return shownNameFor(
+    displayName,
+    stage.enabled
+      ? (stage.identities.get(userId) ?? fallbackIdentity(userId, displayName))
+      : undefined,
+    userId,
+    neutral,
+  );
+}
