@@ -283,6 +283,7 @@ function Pane({
         channel: channels.get(who.identity)!,
         pointing: !local,
         displayNameOf: nameOf,
+        ownUserId: who.userId,
       },
     }),
     [who, local],

@@ -62,12 +62,18 @@ export function useSharePointer(
       matrixRoom.getMember(userId)?.rawDisplayName ?? userId,
     [matrixRoom],
   );
+  const ownUserId = matrixRoom.client.getUserId();
   const context = useMemo(
     () =>
       channel === null
         ? null
-        : { channel, pointing: pointing && othersShare, displayNameOf },
-    [channel, pointing, othersShare, displayNameOf],
+        : {
+            channel,
+            pointing: pointing && othersShare,
+            displayNameOf,
+            ownUserId,
+          },
+    [channel, pointing, othersShare, displayNameOf, ownUserId],
   );
 
   const offered = channel?.available === true && othersShare;
