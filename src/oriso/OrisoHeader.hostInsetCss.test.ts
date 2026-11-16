@@ -37,3 +37,14 @@ describe("the compact header and the host's window buttons", () => {
     );
   });
 });
+
+describe("the host's share button in the top left corner (#2233)", () => {
+  it("starts the title after the 34px the button covers, compact too", () => {
+    const compact = css.indexOf(".header[data-compact] {");
+    const share = css.indexOf(".header[data-host-share] {");
+    expect(share).toBeGreaterThan(compact);
+    expect(rule(".header[data-host-share]")).toMatch(
+      /padding-inline-start:\s*calc\(34px \+ 12px\)/,
+    );
+  });
+});

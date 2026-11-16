@@ -44,6 +44,14 @@ interface Props {
    * own over the iframe. Then the header keeps that corner free instead.
    */
   onWindow: ((command: OrisoWindowCommand) => void) | null;
+  /**
+   * The host draws its own share button over the iframe's top LEFT corner
+   * (ORISO-Frontend `.element-call-share`, a 32px circle 2px in), for a
+   * counsellor whose call can make a link — when it sets `orisoInvite`.
+   * The header keeps that corner free, or the button covers the title's
+   * first letter ("Einzelgespräch" read "inzelgespräch", #2233 live test).
+   */
+  hostShare?: boolean;
   fullscreen: boolean;
   onTouchEnd?: (e: TouchEvent) => void;
   /**
@@ -76,6 +84,7 @@ export const OrisoHeader: FC<Props> = ({
   speaker,
   actions,
   onWindow,
+  hostShare = false,
   fullscreen,
   onTouchEnd,
   compact = false,
@@ -92,6 +101,7 @@ export const OrisoHeader: FC<Props> = ({
       className={classNames(styles.header, className)}
       data-tone={tone}
       data-host-chrome={onWindow === null ? "host" : "call"}
+      data-host-share={hostShare || undefined}
       data-compact={compact || undefined}
       data-testid="oriso-header"
     >
