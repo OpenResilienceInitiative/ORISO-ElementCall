@@ -18,7 +18,8 @@ import type { OrisoCallType } from "./stageViews";
  * shared link) reads "Schuldnerberatung · Gruppengespräch".
  *
  * A room that has a real name keeps it — a direct link's name, for instance,
- * is what the counsellor called it. A group conversation is called by the
+ * is what the counsellor called it; a group room's name is followed by its
+ * kind like a chat's. A group conversation is called by the
  * chat's own name, which the host sends in the same field: the #2233 live
  * test (16 Nov) had a team call titled "Anruf" while the chat card read
  * "Audioanruf · QA Moabit · Brieftriage zu viert 08.11". Followed by what
@@ -50,11 +51,15 @@ export function stageTitle({
   group: boolean;
 }): StageTitle {
   const realName = roomName !== "" && roomName !== defaultRoomName;
-  if (realName) return { kind: "room", name: roomName };
-  if (callType === "group" || callType === "circle")
-    return topic === null
+  // A group room with its own name keeps it, and still says what it is
+  // ("Elterncafé · Gruppengespräch", Frank 16 Nov).
+  if (callType === "group" || callType === "circle") {
+    const name = realName ? roomName : topic;
+    return name === null
       ? { kind: "room", name: roomName }
-      : { kind: callType, topic };
+      : { kind: callType, topic: name };
+  }
+  if (realName) return { kind: "room", name: roomName };
   if (callType !== "single") return { kind: "room", name: roomName };
   if (group)
     return topic === null

@@ -60,7 +60,7 @@ describe("the call's title (#2233 R6)", () => {
       kind: "circle",
       topic: chat,
     });
-    // A real room name still wins.
+    // A group room with a real name is called by it, and still says what it is.
     expect(
       stageTitle({
         ...base,
@@ -68,7 +68,15 @@ describe("the call's title (#2233 R6)", () => {
         topic: chat,
         roomName: "Flyer Schule",
       }),
-    ).toEqual({ kind: "room", name: "Flyer Schule" });
+    ).toEqual({ kind: "group", topic: "Flyer Schule" });
+    expect(
+      stageTitle({
+        ...base,
+        callType: "circle",
+        topic: null,
+        roomName: "Elterncafé",
+      }),
+    ).toEqual({ kind: "circle", topic: "Elterncafé" });
   });
 
   it("leaves group conversations without a name and untyped calls as they were", () => {
