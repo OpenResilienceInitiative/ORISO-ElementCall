@@ -201,6 +201,7 @@
     "audio_stage_title": "Audio call",
     "call_duration": "Call duration {{duration}}",
     "call_menu_label": "Call menu",
+    "circle_topic_title": "{{topic}} · Circle",
     "controls_label": "Call controls",
     "encrypted_short": "encrypted",
     "group_topic_title": "{{topic}} · Group call",
