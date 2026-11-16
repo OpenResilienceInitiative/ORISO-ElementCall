@@ -70,13 +70,15 @@ describe("Link teilen (S8)", () => {
     expect(screen.getByText(/Could not copy automatically/)).toBeTruthy();
   });
 
-  it("shows the host's error and copies nothing", async () => {
+  it("shows only the translated error, never the host's raw reason, and copies nothing", async () => {
     const user = userEvent.setup();
     renderButton({ error: "This call has no link to share" });
     await user.click(screen.getByRole("button", { name: "Share link" }));
     const error = await screen.findByTestId("oriso-invite-error");
-    expect(error).toHaveTextContent("The link could not be created.");
-    expect(error).toHaveTextContent("This call has no link to share");
+    // #2233 live test: the German sentence was followed by the host's
+    // English "The link could not be created".
+    expect(error).toHaveTextContent(/^The link could not be created\.$/);
+    expect(error).not.toHaveTextContent("This call has no link to share");
     expect(writeText).not.toHaveBeenCalled();
     expect(screen.queryByTestId("oriso-invite-url")).toBeNull();
   });

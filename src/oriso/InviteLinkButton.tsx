@@ -15,6 +15,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { logger } from "matrix-js-sdk/lib/logger";
 import {
   CheckIcon,
   CloseIcon,
@@ -29,7 +30,7 @@ export type InviteState =
   | { kind: "closed" }
   | { kind: "loading" }
   | { kind: "link"; url: string; copied: boolean | null }
-  | { kind: "error"; message: string };
+  | { kind: "error" };
 
 interface Props {
   /** Asks the host for the link (`org.oriso.call.invite_link`). */
@@ -80,7 +81,14 @@ export function useInviteLink(request: () => Promise<InviteLinkReply>): {
         if (generation.current !== mine) return;
         setState({ kind: "link", url: reply.url, copied });
       } else {
-        setState({ kind: "error", message: reply.error });
+        /*
+         * The host's reason goes to the log, not on screen: it is an
+         * untranslated technical string, and under the translated sentence
+         * it read "Der Link konnte nicht erstellt werden." followed by "The
+         * link could not be created" (#2233 live test, 16 Nov).
+         */
+        logger.warn("[oriso] invite link not created:", reply.error);
+        setState({ kind: "error" });
       }
     });
   }, [request]);
@@ -114,7 +122,6 @@ export const InviteLinkBody: FC<{
       {state.kind === "error" && (
         <div role="alert" data-testid="oriso-invite-error">
           <p className={styles.error}>{t("oriso.invite_error")}</p>
-          <p className={styles.detail}>{state.message}</p>
         </div>
       )}
       {state.kind === "link" && (
