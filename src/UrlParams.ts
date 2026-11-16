@@ -106,10 +106,10 @@ export interface UrlProperties {
    */
   orisoCallType: "group" | "circle" | "single" | null;
   /**
-   * The conversation's topic, for the header of a 1:1 (#2233 R6):
-   * "Einzelgespräch · Schuldnerberatung". Plain text, trimmed and cut to one
-   * line (`readTopic`); null without one. Set by ORISO-Frontend for single
-   * conversations only.
+   * What the conversation is called, for the call's header: a 1:1's topic
+   * (#2233 R6, "Einzelgespräch · Schuldnerberatung") or a group chat's own
+   * name ("QA Moabit · Brieftriage zu viert 08.11"). Plain text, trimmed and
+   * cut to one line (`readTopic`); null without one. See `stageTitle`.
    */
   orisoTopic: string | null;
   /**
