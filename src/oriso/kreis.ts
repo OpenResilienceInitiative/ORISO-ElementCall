@@ -326,6 +326,9 @@ export function kreisNames(
   // others keep the full one, since `guess` is only an estimate of the text
   // width (wide glyphs, e.g. CJK, run past CHAR_PX).
   const squeezed = forms.map(() => false);
+  // What each outward name may take before the stage's edge, whatever its
+  // guessed width: the guess can be short of the rendered text.
+  const roomCap = forms.map(() => cap);
   // Never past the stage's edge either.
   for (let i = 0; i < forms.length; i++) {
     const f = forms[i];
@@ -335,6 +338,10 @@ export function kreisNames(
         : outward[i] === "end"
           ? f.x + f.size
           : 2 * Math.min(f.x + f.size / 2, stageWidth - f.x - f.size / 2);
+    roomCap[i] = Math.max(
+      KREIS_NAME_MIN,
+      Math.floor(room - CAPSULE_PAD - extra[i]),
+    );
     if (room < widths[i]) squeezed[i] = true;
     widths[i] = Math.max(floor(i), Math.min(widths[i], room));
   }
@@ -378,7 +385,7 @@ export function kreisNames(
     side: s,
     max: squeezed[i]
       ? Math.min(cap, Math.floor(widths[i] - CAPSULE_PAD - extra[i]))
-      : cap,
+      : Math.min(cap, roomCap[i]),
   }));
 }
 

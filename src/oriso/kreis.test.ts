@@ -136,6 +136,28 @@ describe("kreisNames (#2233: 18 people in the Storybook)", () => {
     expect(laid[4].max).toBe(184);
   });
 
+  it("never lets an outward name run past the stage's edge, even when its guess fits", () => {
+    // Codex on #160: on a 600px stage a wide name on seat 4 hung outward with
+    // the full cap and ran off the stage, since its guessed width fitted.
+    const stage = { width: 600, height: 760 };
+    const forms = kreisPlan(18, stage).seats;
+    const names = NAMES.map((n, i) => (i === 4 ? "WWWWWWWWWWWWWW" : n));
+    const laid = kreisNames(forms, names, stage.width, 184, (x, w) =>
+      nameSideFor(x, w, stage.width),
+    );
+    forms.forEach((f, i) => {
+      const room =
+        laid[i].side === "start"
+          ? stage.width - f.x
+          : laid[i].side === "end"
+            ? f.x + f.size
+            : 2 * Math.min(f.x + f.size / 2, stage.width - f.x - f.size / 2);
+      expect(laid[i].max + 24).toBeLessThanOrEqual(
+        Math.max(room, KREIS_NAME_MIN + 24),
+      );
+    });
+  });
+
   /*
    * The very top and bottom seat of a ring of 14 or more sit between two
    * neighbours whose capsules start at their own forms' edges: the gap is
