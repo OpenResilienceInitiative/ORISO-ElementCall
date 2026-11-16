@@ -322,6 +322,10 @@ export function kreisNames(
     if (Math.abs(mid - centre) < f.size / 2) return "centre";
     return mid > centre ? "start" : "end";
   });
+  // Only a capsule that actually had to give way gets a tighter cap; the
+  // others keep the full one, since `guess` is only an estimate of the text
+  // width (wide glyphs, e.g. CJK, run past CHAR_PX).
+  const squeezed = forms.map(() => false);
   // Never past the stage's edge either.
   for (let i = 0; i < forms.length; i++) {
     const f = forms[i];
@@ -331,6 +335,7 @@ export function kreisNames(
         : outward[i] === "end"
           ? f.x + f.size
           : 2 * Math.min(f.x + f.size / 2, stageWidth - f.x - f.size / 2);
+    if (room < widths[i]) squeezed[i] = true;
     widths[i] = Math.max(floor(i), Math.min(widths[i], room));
   }
   // Shrink whatever still meets, a little at a time, until nothing does.
@@ -357,15 +362,23 @@ export function kreisNames(
         const rr = rate(right, false);
         if (rl + rr === 0) continue;
         const cut = overlap / (rl + rr);
-        if (rl > 0) widths[left] = Math.max(floor(left), widths[left] - cut);
-        if (rr > 0) widths[right] = Math.max(floor(right), widths[right] - cut);
+        if (rl > 0) {
+          widths[left] = Math.max(floor(left), widths[left] - cut);
+          squeezed[left] = true;
+        }
+        if (rr > 0) {
+          widths[right] = Math.max(floor(right), widths[right] - cut);
+          squeezed[right] = true;
+        }
         moved = true;
       }
     if (!moved) break;
   }
   return outward.map((s, i) => ({
     side: s,
-    max: Math.min(cap, Math.floor(widths[i] - CAPSULE_PAD - extra[i])),
+    max: squeezed[i]
+      ? Math.min(cap, Math.floor(widths[i] - CAPSULE_PAD - extra[i]))
+      : cap,
   }));
 }
 

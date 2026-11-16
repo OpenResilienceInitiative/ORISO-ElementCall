@@ -126,6 +126,16 @@ describe("kreisNames (#2233: 18 people in the Storybook)", () => {
     expect(laid.every((n) => n.max === 184)).toBe(true);
   });
 
+  it("keeps the full cap for a capsule nobody presses on, even on a crowded ring", () => {
+    // Codex on #160: one capped pair used to cap every name at its guessed
+    // width, so wide glyphs (CJK, "W") were cut where there was room.
+    const forms = kreisPlan(18, STAGE).seats;
+    const names = NAMES.map((n, i) => (i === 4 ? "WWWWWWWWWW" : n));
+    const laid = kreisNames(forms, names, STAGE.width, 184, side);
+    expect(laid.some((n) => n.max < 184)).toBe(true);
+    expect(laid[4].max).toBe(184);
+  });
+
   /*
    * The very top and bottom seat of a ring of 14 or more sit between two
    * neighbours whose capsules start at their own forms' edges: the gap is
