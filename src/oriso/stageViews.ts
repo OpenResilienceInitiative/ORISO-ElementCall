@@ -29,14 +29,6 @@ import { type StageView } from "./ViewSwitcher";
  */
 export type OrisoCallType = "group" | "circle" | "single";
 
-/**
- * A conversation of many: a Gesprächskreis (`circle`) or any other group,
- * e.g. an internal team chat (`group`). At two people it is a 1:1 all the
- * same (#2233, D7); its type only decides where three or more start.
- */
-export const isGroupConversation = (callType: OrisoCallType | null): boolean =>
-  callType === "group" || callType === "circle";
-
 /*
  * Where a typed conversation of three or more starts (#2233 D9, Frank,
  * 12.11.): a Gesprächskreis in the Kreis, everything else in the Felder —
