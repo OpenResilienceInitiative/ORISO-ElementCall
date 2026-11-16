@@ -227,3 +227,144 @@ export function kreisPlan(
   const shiftY = Math.round(cy - (top + bottom) / 2);
   return { centre: centreAt(shiftY), seats: place(shiftY), indicator };
 }
+
+/** Where a Kreis form hangs its name, and how wide the NAME may grow. */
+export interface KreisName {
+  side: "start" | "centre" | "end";
+  /** The name's cap in px (`--oriso-name-max`); the capsule adds padding. */
+  max: number;
+}
+
+/** The capsule around the name: its padding, its height, a gap between two. */
+const CAPSULE_PAD = 24;
+const CAPSULE_HEIGHT = 26;
+const CAPSULE_GAP = 6;
+/** About what a 12px capsule letter takes, to guess a name's width. */
+const CHAR_PX = 7;
+/**
+ * The narrowest a name is cut to: the tail ("…303") and a letter or two
+ * before it still tell two foxes apart (`splitName`).
+ */
+export const KREIS_NAME_MIN = 44;
+
+/**
+ * Where everybody's name goes in the Kreis, so no two capsules overlap.
+ *
+ * Every capsule sits on its form's top edge and is as wide as its name, up
+ * to the cap (`cap`: 184px, a phone 112px). Up to about a dozen people that
+ * fits centred (or hung inward at the stage's edge, `side`), and nothing
+ * changes. With more, neighbours on the ring sit closer than two names are
+ * wide: the #2233 Storybook check at 18 had "klare Biene 641" under "feiner
+ * Dachs 255" and "ruhiger Fuchs 432" over two others. Then every name hangs
+ * OUTWARD — from the form's left edge on the ring's right half, from its
+ * right edge on the left half, centred only at the very top and bottom —
+ * and any two that still meet are cut down until they do not, never below
+ * `KREIS_NAME_MIN`. Cutting keeps the tail (`splitName`), so the number
+ * that tells two foxes apart stays.
+ *
+ * Pure: `forms` are the seats as boxes on the stage, `names` the names they
+ * carry (only their length is used, as a guess at the width).
+ */
+export function kreisNames(
+  forms: readonly { x: number; y: number; size: number }[],
+  names: readonly string[],
+  stageWidth: number,
+  cap: number,
+  side: (x: number, width: number) => KreisName["side"],
+): KreisName[] {
+  const guess = (i: number): number =>
+    Math.min(cap, [...(names[i] ?? "")].length * CHAR_PX) + CAPSULE_PAD;
+  const first = forms.map((f) => side(f.x, f.size));
+  const widths = forms.map((_, i) => guess(i));
+  if (!anyOverlap(forms, first, widths))
+    return first.map((s) => ({ side: s, max: cap }));
+
+  const centre =
+    forms.reduce((sum, f) => sum + f.x + f.size / 2, 0) /
+    Math.max(1, forms.length);
+  const outward = forms.map((f): KreisName["side"] => {
+    const mid = f.x + f.size / 2;
+    if (Math.abs(mid - centre) < f.size / 2) return "centre";
+    return mid > centre ? "start" : "end";
+  });
+  // Never past the stage's edge either.
+  for (let i = 0; i < forms.length; i++) {
+    const f = forms[i];
+    const room =
+      outward[i] === "start"
+        ? stageWidth - f.x
+        : outward[i] === "end"
+          ? f.x + f.size
+          : 2 * Math.min(f.x + f.size / 2, stageWidth - f.x - f.size / 2);
+    widths[i] = Math.max(
+      KREIS_NAME_MIN + CAPSULE_PAD,
+      Math.min(widths[i], room),
+    );
+  }
+  // Shrink whatever still meets, a little at a time, until nothing does.
+  const floor = KREIS_NAME_MIN + CAPSULE_PAD;
+  for (let round = 0; round < 40; round++) {
+    let moved = false;
+    for (let i = 0; i < forms.length; i++)
+      for (let j = i + 1; j < forms.length; j++) {
+        if (!sameRow(forms[i], forms[j])) continue;
+        const a = span(forms[i], outward[i], widths[i]);
+        const b = span(forms[j], outward[j], widths[j]);
+        const overlap = Math.min(a.r, b.r) - Math.max(a.l, b.l) + CAPSULE_GAP;
+        if (overlap <= 0) continue;
+        // Which edge faces the other, and how fast shrinking moves it.
+        const [left, right] = a.l + a.r <= b.l + b.r ? [i, j] : [j, i];
+        const rate = (k: number, facingRight: boolean): number =>
+          widths[k] <= floor
+            ? 0
+            : outward[k] === "centre"
+              ? 0.5
+              : (outward[k] === "start") === facingRight
+                ? 1
+                : 0;
+        const rl = rate(left, true);
+        const rr = rate(right, false);
+        if (rl + rr === 0) continue;
+        const cut = overlap / (rl + rr);
+        if (rl > 0) widths[left] = Math.max(floor, widths[left] - cut);
+        if (rr > 0) widths[right] = Math.max(floor, widths[right] - cut);
+        moved = true;
+      }
+    if (!moved) break;
+  }
+  return outward.map((s, i) => ({
+    side: s,
+    max: Math.min(cap, Math.floor(widths[i] - CAPSULE_PAD)),
+  }));
+}
+
+function sameRow(a: { y: number }, b: { y: number }): boolean {
+  return Math.abs(a.y - b.y) < CAPSULE_HEIGHT + CAPSULE_GAP;
+}
+
+function span(
+  f: { x: number; size: number },
+  side: KreisName["side"],
+  width: number,
+): { l: number; r: number } {
+  if (side === "start") return { l: f.x, r: f.x + width };
+  if (side === "end") return { l: f.x + f.size - width, r: f.x + f.size };
+  const mid = f.x + f.size / 2;
+  return { l: mid - width / 2, r: mid + width / 2 };
+}
+
+function anyOverlap(
+  forms: readonly { x: number; y: number; size: number }[],
+  sides: readonly KreisName["side"][],
+  widths: readonly number[],
+): boolean {
+  for (let i = 0; i < forms.length; i++)
+    for (let j = i + 1; j < forms.length; j++) {
+      if (!sameRow(forms[i], forms[j])) continue;
+      const a = span(forms[i], sides[i], widths[i]);
+      const b = span(forms[j], sides[j], widths[j]);
+      if (Math.min(a.r, b.r) - Math.max(a.l, b.l) + CAPSULE_GAP > 0)
+        return true;
+    }
+  return false;
+}

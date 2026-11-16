@@ -31,12 +31,18 @@ import {
 import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
 import { useOrisoPins, useOrisoView } from "../oriso/useOrisoView";
-import { kreisPlan } from "../oriso/kreis";
+import { kreisNames, kreisPlan } from "../oriso/kreis";
 import { trioShapes } from "../oriso/trio";
 import { useMediaQuery } from "../useMediaQuery";
 import { kachelSize, orderForKacheln } from "../oriso/kacheln";
 import { KreisCentre } from "../oriso/KreisCentre";
-import { FIELD_RADIUS, nameSideFor, type TileShape } from "../oriso/shape";
+import {
+  FIELD_RADIUS,
+  NAME_MAX,
+  NAME_MAX_PHONE,
+  nameSideFor,
+  type TileShape,
+} from "../oriso/shape";
 import {
   type SpotlightSide,
   stageBesideSpotlight,
@@ -463,14 +469,33 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
             body: false,
             contentShare: FIELD_FACE_SHARE,
           });
-      else
+      else if (view === "kreis") {
+        // The circle's names, laid out together so neighbours on a crowded
+        // ring do not cover each other (#2233, 18 people). See `kreisNames`.
+        const nameOf = new Map(seats.map((s) => [s.mediaId, s.displayName]));
+        const names = kreisNames(
+          placed.map((p) => ({ x: p.x, y: p.y, size: p.width })),
+          placed.map((p) => nameOf.get(p.mediaId) ?? ""),
+          stage.width,
+          phone ? NAME_MAX_PHONE : NAME_MAX,
+          (x, w) => nameSideFor(x, w, stage.width, phone),
+        );
+        placed.forEach((p, i) =>
+          map.set(p.mediaId, {
+            ...p.shape,
+            nameSide: names[i].side,
+            ...(names[i].max < (phone ? NAME_MAX_PHONE : NAME_MAX)
+              ? { nameMax: names[i].max }
+              : {}),
+          }),
+        );
+      } else
         for (const p of placed)
           map.set(
             p.mediaId,
-            // The grove's and the circle's forms are small, and their
-            // capsules may be wider than they are: centred, or hung inward
-            // near the stage's edge.
-            view === "hain" || view === "kreis"
+            // The grove's forms are small, and their capsules may be wider
+            // than they are: centred, or hung inward near the stage's edge.
+            view === "hain"
               ? {
                   ...p.shape,
                   nameSide: nameSideFor(p.x, p.width, stage.width, phone),
@@ -478,7 +503,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               : p.shape,
           );
       return map;
-    }, [scrolls, sheet, placed, view, stage.width, phone]);
+    }, [scrolls, sheet, placed, seats, view, stage.width, phone]);
     usePublishOrisoShapes(shapes);
 
     if (scrolls)
