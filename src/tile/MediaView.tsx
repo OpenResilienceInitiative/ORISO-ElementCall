@@ -107,14 +107,19 @@ const VIDEO_STAGE_SHAPE: TileShape = {
   speakingAs: "rim",
 };
 
-// #2233 (D1): on the video stage my own picture is a circle.
+// #2233 (D1): on the video stage my own picture is a circle — a circle in
+// any box, so a centred square rather than the whole (rail) slot.
 const OWN_CIRCLE_SHAPE: TileShape = {
   radius: "50%",
   tilt: 0,
   contentShare: 0.5,
   body: false,
   lifted: false,
+  square: true,
 };
+
+/** The chrome's inset inside a round form (`--cpd-space-3x`). */
+const ROUND_CHROME_INSET = 12;
 
 export const MediaView: FC<Props> = ({
   ref,
@@ -153,7 +158,7 @@ export const MediaView: FC<Props> = ({
   const { t } = useTranslation();
   const [handRaiseTimerVisible] = useSetting(showHandRaisedTimer);
 
-  const { audioOnly, rectangular } = useOrisoStage();
+  const { audioOnly, rectangular, round = false } = useOrisoStage();
   /*
    * S6: on an ORISO form the raised hand is a status in the name's capsule,
    * with how long it has been up ("1:40"), rather than upstream's badge in
@@ -168,7 +173,9 @@ export const MediaView: FC<Props> = ({
   const orisoRectangular = orisoIdentity !== undefined && rectangular;
   const videoEnabled =
     cameraEnabled && !(orisoIdentity !== undefined && audioOnly);
-  const orisoRound = orisoRectangular && orisoOwn;
+  // Mine always; everybody's in a 1:1 beside a shared screen (#2233). A
+  // share is never round.
+  const orisoRound = orisoRectangular && !orisoShare && (orisoOwn || round);
   const orisoShape = orisoRectangular
     ? orisoRound
       ? OWN_CIRCLE_SHAPE
@@ -241,8 +248,22 @@ export const MediaView: FC<Props> = ({
       : Math.min(targetWidth, targetHeight);
 
   const orisoCircle = ((): { inline: string; block: string } | undefined => {
-    if (orisoIdentity === undefined || orisoShape !== undefined)
+    if (
+      orisoIdentity === undefined ||
+      (orisoShape !== undefined && orisoShape.square !== true)
+    )
       return undefined;
+    /*
+     * A round shape (`square`): the chrome's rows follow the circle, but its
+     * width stays the tile's, so the centred name keeps the room it had
+     * before the circle stopped being an ellipse (180px in the rail, not
+     * the circle's 135px).
+     */
+    if (orisoShape !== undefined)
+      return {
+        inline: `${ROUND_CHROME_INSET}px`,
+        block: `${Math.round((targetHeight - orisoSide) / 2 + ROUND_CHROME_INSET)}px`,
+      };
     const pad = HALO_ROOM_MAX_SHARE * orisoSide;
     return {
       inline: `${Math.round((targetWidth - orisoSide) / 2 + pad)}px`,

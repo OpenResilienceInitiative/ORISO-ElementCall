@@ -16,6 +16,7 @@ import {
   NAME_TAIL_CHARS,
   SHARE_RADIUS,
   rectangularStage,
+  roundStage,
 } from "./shape";
 
 describe("cutting a name that does not fit", () => {
@@ -127,6 +128,17 @@ describe("the spotlight's forms (#2233)", () => {
   it("leaves the grove, the Einzelgespräch and the minimised call alone", () => {
     for (const type of ["grid", "one-on-one", "pip"])
       expect(rectangularStage(type, false)).toBe(false);
+  });
+
+  it("draws both people of a 1:1 beside a shared screen as circles (#2233)", () => {
+    for (const type of ["spotlight-landscape", "spotlight-portrait"])
+      expect(roundStage(type, true)).toBe(true);
+  });
+
+  it("keeps a group's spotlight rectangles and the 1:1's own stages", () => {
+    expect(roundStage("spotlight-landscape", false)).toBe(false);
+    for (const type of ["one-on-one", "grid", "pip"])
+      expect(roundStage(type, true)).toBe(false);
   });
 
   it("gives a shared screen the design's slight 24px corner", () => {

@@ -288,6 +288,74 @@ test("a shared screen in the ORISO spotlight is a rounded rectangle, never a bub
   );
 });
 
+test("a person beside a 1:1's shared screen is a circle, not an ellipse (#2233)", () => {
+  const alice = createRemoteMedia(
+    mockRtcMembership("@alice:example.org", "AAAA"),
+    { rawDisplayName: "ruhiger Fuchs 432" },
+    mockRemoteParticipant({}),
+  );
+  render(
+    <OrisoStageContext
+      value={{
+        identities: new Map(),
+        parentUrl: null,
+        enabled: true,
+        rectangular: true,
+        round: true,
+      }}
+    >
+      <SpotlightTile
+        vm={new SpotlightTileViewModel(constant([alice]), constant(false))}
+        // The spotlight rail's slot: 180x135.
+        targetWidth={180}
+        targetHeight={135}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+  const face = screen.getByTestId("oriso-face");
+  expect(face.style.borderRadius).toBe("50%");
+  // A centred square of the shorter side, so 50% is a circle.
+  expect(face.style.inlineSize).toBe("135px");
+  expect(face.style.blockSize).toBe("135px");
+  expect(face.closest('[data-oriso-round="true"]')).not.toBeNull();
+});
+
+test("a shared screen stays a rectangle in a 1:1's round stage (#2233)", () => {
+  render(
+    <OrisoStageContext
+      value={{
+        identities: new Map(),
+        parentUrl: null,
+        enabled: true,
+        rectangular: true,
+        round: true,
+      }}
+    >
+      <SpotlightTile
+        vm={
+          new SpotlightTileViewModel(
+            constant([sharedScreenOf("@cyrus:oriso.org")]),
+            constant(true),
+          )
+        }
+        targetWidth={800}
+        targetHeight={450}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+  const tile = screen.getByTestId("videoTile");
+  expect(tile).toHaveAttribute("data-oriso-share", "true");
+  expect(tile).not.toHaveAttribute("data-oriso-round");
+});
+
 test("upstream's shared screen is left exactly as it was", () => {
   render(
     <SpotlightTile

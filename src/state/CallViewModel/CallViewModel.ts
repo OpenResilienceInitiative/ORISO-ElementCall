@@ -139,6 +139,7 @@ import {
   stagePlan,
 } from "../../oriso/stageViews.ts";
 import { cameraOnInOneOnOne$ } from "../../oriso/oneOnOneCamera.ts";
+import { oneOnOnePeople } from "../../oriso/oneOnOnePeople.ts";
 
 const logger = rootLogger.getChild("[CallViewModel]");
 //TODO
@@ -1184,6 +1185,33 @@ export function createCallViewModel$(
       }),
     );
 
+  /*
+   * ORISO's 1:1, counted by people rather than by tiles (#2233, D7): two
+   * people stay a 1:1 while one of them shares a screen. `sharing` says
+   * whether a share is on the stage too. Null when this is not a 1:1.
+   */
+  const orisoOneOnOneStage$: Observable<{
+    pair: OneOnOneLayoutMedia;
+    sharing: boolean;
+  } | null> = mediaItems$.pipe(
+    map((mediaItems) => {
+      const pair = oneOnOnePeople(
+        mediaItems
+          .filter((m): m is UserMedia => m instanceof UserMedia)
+          .map((m) => m.vm),
+      );
+      if (pair === null) return null;
+      return {
+        pair: {
+          type: "one-on-one",
+          local: pair.local as LocalUserMediaViewModel,
+          remote: pair.remote as RemoteUserMediaViewModel,
+        },
+        sharing: mediaItems.some((m) => m instanceof ScreenShare),
+      };
+    }),
+  );
+
   const pipLayoutMedia$: Observable<LayoutMedia> = spotlight$.pipe(
     map((spotlight) => ({ type: "pip", spotlight })),
   );
@@ -1220,10 +1248,24 @@ export function createCallViewModel$(
       switchMap((gridMode) => {
         switch (gridMode) {
           case "grid":
-            // Two people get the 1:1, whatever the type (#2233, D7).
-            return oneOnOneLayoutMedia$.pipe(
-              switchMap((oneOnOne) =>
-                oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
+            /*
+             * Two people get the 1:1, whatever the type (#2233, D7) — and
+             * keep it while one of them shares a screen. The share then
+             * takes the stage as a rounded rectangle and the two people
+             * stand beside it as circles: upstream's spotlight, under the
+             * 1:1's rules (no view rail, no atmosphere; see InCallView). It
+             * used to fall through to the group grid, which drew the Felder
+             * for the sharer and the Fokus for the viewer.
+             */
+            return orisoOneOnOneStage$.pipe(
+              switchMap((stage) =>
+                stage === null
+                  ? gridLayoutMedia$
+                  : !stage.sharing
+                    ? of(stage.pair)
+                    : windowMode === "narrow"
+                      ? spotlightPortraitLayoutMedia$
+                      : spotlightLandscapeLayoutMedia$,
               ),
             );
           case "spotlight":
@@ -1259,11 +1301,20 @@ export function createCallViewModel$(
    * the conversation type (#2233, D7).
    */
   const orisoOneOnOne$ = scope.behavior(
-    oneOnOneLayoutMedia$.pipe(map((media) => media !== null)),
+    orisoOneOnOneStage$.pipe(
+      map((stage) => stage !== null),
+      distinctUntilChanged(),
+    ),
     false,
   );
   const orisoCameraOn$ = scope.behavior(
-    oneOnOneLayoutMedia$.pipe(switchMap(cameraOnInOneOnOne$)),
+    orisoOneOnOneStage$.pipe(
+      map((stage) => stage?.pair ?? null),
+      distinctUntilChanged(
+        (a, b) => a?.local === b?.local && a?.remote === b?.remote,
+      ),
+      switchMap(cameraOnInOneOnOne$),
+    ),
     false,
   );
 
@@ -1731,9 +1782,10 @@ export function createCallViewModel$(
      * and the fields again — and both of those land straight back on the
      * Einzelgespräch, which is the same lie the rail exists to stop telling.
      *
-     * Derived from `oneOnOneLayoutMedia$` so it cannot drift from the real
-     * condition: exactly two media items, one local and one remote. A screen
-     * share makes a third, which is why a count of people would not do.
+     * Counted by PEOPLE (`oneOnOnePeople`): exactly two, one local and one
+     * remote. A screen share is not a third person — the 1:1 keeps its rules
+     * while somebody shares (#2233, live test 16 Nov), and the stage in grid
+     * mode is the share beside the two of them (`orisoOneOnOneStage$`).
      */
     orisoOneOnOne$: orisoOneOnOne$,
     orisoCameraOn$: orisoCameraOn$,

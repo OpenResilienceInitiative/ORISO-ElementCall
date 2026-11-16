@@ -117,7 +117,7 @@ import {
   useOrisoIdentities,
 } from "../oriso/useOrisoIdentities";
 import { OrisoShapeStore, OrisoShapesContext } from "../oriso/useOrisoShape";
-import { rectangularStage } from "../oriso/shape";
+import { rectangularStage, roundStage } from "../oriso/shape";
 import {
   type OrisoPins,
   OrisoPinsContext,
@@ -557,10 +557,11 @@ export const InCallView: FC<InCallViewProps> = ({
     orisoCameraOneOnOne && layout.type === "one-on-one";
   /*
    * #2233 (D2): the view rail and the atmosphere come with a group
-   * arrangement — whenever the stage is not the Einzelgespräch. That follows
-   * the plan (`orisoOneOnOne$`, which counts media, not people): a person
-   * waiting alone, or a 1:1 with a shared screen, gets a group arrangement
-   * too, and must keep the rail to leave a stored spotlight.
+   * arrangement. That follows the plan (`orisoOneOnOne$`, which counts
+   * people): a person waiting alone gets a group arrangement and must keep
+   * the rail to leave a stored spotlight. A 1:1 with a shared screen is
+   * still two people and keeps the 1:1's rules — no rail, no atmosphere
+   * (live test 16 Nov).
    */
   const orisoGroupChrome = orisoEnabled && !alone;
   // The window buttons in the header, when the host leaves them to the call.
@@ -702,6 +703,8 @@ export const InCallView: FC<InCallViewProps> = ({
       audioOnly: orisoAudioOnly,
       // #2233: the spotlight draws people as rounded rectangles too.
       rectangular: rectangularStage(layout.type, orisoVideoOneOnOne),
+      // A 1:1 beside a shared screen: both people as circles (#2233).
+      round: roundStage(layout.type, alone),
       pointer: sharePointer.context,
     }),
     [
@@ -713,6 +716,7 @@ export const InCallView: FC<InCallViewProps> = ({
       orisoVideoOneOnOne,
       sharePointer.context,
       layout.type,
+      alone,
     ],
   );
   const orisoShapes = useInitial(() => new OrisoShapeStore());
@@ -798,8 +802,9 @@ export const InCallView: FC<InCallViewProps> = ({
   }, [orisoEnabled, storedView, setGridMode]);
   /*
    * #2233 (D2): two people have no view rail, so nothing could bring them
-   * back from a spotlight a group left behind. A shared screen is not two
-   * people and keeps its spotlight.
+   * back from a spotlight a group left behind. Two people with a shared
+   * screen are still two: grid mode gives them the share beside the two of
+   * them (`orisoOneOnOneStage$`), under the 1:1's rules.
    */
   useEffect(() => {
     if (orisoEnabled && alone && gridMode === "spotlight") setGridMode("grid");
