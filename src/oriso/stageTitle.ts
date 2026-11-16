@@ -17,9 +17,12 @@ import type { OrisoCallType } from "./stageViews";
  * shared link) reads "Schuldnerberatung · Gruppengespräch".
  *
  * A room that has a real name keeps it — a direct link's name, for instance,
- * is what the counsellor called it. Group conversations and calls from an
- * older host (no type) keep the room name too; the caller falls back to the
- * stage title when that is empty.
+ * is what the counsellor called it. A group conversation is called by the
+ * chat's own name, which the host sends in the same field: the #2233 live
+ * test (16 Nov) had a team call titled "Anruf" while the chat card read
+ * "Audioanruf · QA Moabit · Brieftriage zu viert 08.11". A group without
+ * that name, and calls from an older host (no type), keep the room name;
+ * the caller falls back to the stage title when that is empty.
  */
 export type StageTitle =
   | { kind: "room"; name: string }
@@ -43,8 +46,10 @@ export function stageTitle({
   group: boolean;
 }): StageTitle {
   const realName = roomName !== "" && roomName !== defaultRoomName;
-  if (callType !== "single" || realName)
-    return { kind: "room", name: roomName };
+  if (realName) return { kind: "room", name: roomName };
+  if (callType === "group" || callType === "circle")
+    return { kind: "room", name: topic ?? roomName };
+  if (callType !== "single") return { kind: "room", name: roomName };
   if (group)
     return topic === null
       ? { kind: "room", name: roomName }
@@ -56,7 +61,8 @@ export function stageTitle({
 export const TOPIC_MAX_CHARS = 80;
 
 /**
- * The topic as the call address carries it (`orisoTopic`): trimmed, white
+ * The topic as the call address carries it (`orisoTopic`: a 1:1's
+ * Beratungsthema, a group chat's name): trimmed, white
  * space collapsed, cut to one header line. Plain text only — it is rendered
  * as a React text node, never as markup.
  */

@@ -46,15 +46,37 @@ describe("the call's title (#2233 R6)", () => {
     });
   });
 
-  it("leaves group conversations and untyped calls as they were", () => {
-    expect(stageTitle({ ...base, callType: "group" })).toEqual({
+  it("names a group call by its chat, not 'Anruf' (#2233 live test)", () => {
+    const chat = "QA Moabit · Brieftriage zu viert 08.11";
+    expect(
+      stageTitle({ ...base, callType: "group", topic: chat, group: true }),
+    ).toEqual({ kind: "room", name: chat });
+    // Two people in a group conversation: still the chat's name.
+    expect(stageTitle({ ...base, callType: "circle", topic: chat })).toEqual({
+      kind: "room",
+      name: chat,
+    });
+    // A real room name still wins.
+    expect(
+      stageTitle({
+        ...base,
+        callType: "group",
+        topic: chat,
+        roomName: "Flyer Schule",
+      }),
+    ).toEqual({ kind: "room", name: "Flyer Schule" });
+  });
+
+  it("leaves group conversations without a name and untyped calls as they were", () => {
+    expect(stageTitle({ ...base, callType: "group", topic: null })).toEqual({
       kind: "room",
       name: "Anruf",
     });
-    expect(stageTitle({ ...base, callType: "circle" })).toEqual({
+    expect(stageTitle({ ...base, callType: "circle", topic: null })).toEqual({
       kind: "room",
       name: "Anruf",
     });
+    // An untyped call ignores a topic: an older host never sent one.
     expect(stageTitle({ ...base, callType: null, roomName: "" })).toEqual({
       kind: "room",
       name: "",
