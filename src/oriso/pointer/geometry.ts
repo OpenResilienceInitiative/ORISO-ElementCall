@@ -85,3 +85,58 @@ export function fromVideoPoint(
   const f = containedFrame(boxWidth, boxHeight, videoWidth, videoHeight);
   return { left: f.left + p.x * f.width, top: f.top + p.y * f.height };
 }
+
+/** A rectangle as `getBoundingClientRect` reports it (viewport pixels). */
+export interface ClientRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The factor between what the screen shows and the layer's own pixels.
+ *
+ * `getBoundingClientRect` reports the box AFTER every ancestor transform,
+ * while a `translate()` inside the layer is in the layer's own, untransformed
+ * pixels. They differ whenever a tile is scaled: the grid lets a tile grow in
+ * from `scale(0)`, and a box measured during that entrance stayed small —
+ * on Dev a sharer's 404×233 preview drew every pointer at ~0.146 of its
+ * place, the centre landing at (29, 17) (#2233 live test, 16 Nov).
+ * A layer of unknown layout size (not laid out yet) counts as unscaled.
+ */
+export function layoutScale(visual: number, layout: number): number {
+  if (!(visual > 0) || !(layout > 0)) return 1;
+  return visual / layout;
+}
+
+/**
+ * Where the video sits inside the layer, in the layer's OWN pixels, and a
+ * client point in the same pixels. Both rectangles come from
+ * `getBoundingClientRect`; `scale` is `layoutScale` of the layer.
+ */
+export function localBox(
+  layer: ClientRect,
+  video: ClientRect,
+  scale: number,
+): ClientRect {
+  return {
+    left: (video.left - layer.left) / scale,
+    top: (video.top - layer.top) / scale,
+    width: video.width / scale,
+    height: video.height / scale,
+  };
+}
+
+/** A client (viewport) point in the layer's own pixels. */
+export function localPoint(
+  layer: ClientRect,
+  clientX: number,
+  clientY: number,
+  scale: number,
+): { x: number; y: number } {
+  return {
+    x: (clientX - layer.left) / scale,
+    y: (clientY - layer.top) / scale,
+  };
+}

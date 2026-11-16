@@ -57,6 +57,7 @@ function setup({
           pointing,
           displayNameOf: (u: string): string =>
             u === "@anna:oriso.org" ? "Anna Berg" : "Ben Ott",
+          ownUserId: "@anna:oriso.org",
         },
       }}
     >
@@ -217,6 +218,74 @@ describe("SharePointerLayer", () => {
     expect(point).toHaveBeenLastCalledWith(SHARE, null);
     fireEvent.pointerLeave(tile);
     expect(point).toHaveBeenLastCalledWith(SHARE, null);
+  });
+
+  it("shows me my own dot where I point, and drops it when I leave", () => {
+    const { tile } = setup({ pointing: true });
+    move(tile, 200, 400);
+    const dot = screen.getByTestId("oriso-pointer");
+    expect(dot.dataset.mine).toBe("true");
+    expect(dot.style.transform).toBe("translate(200px, 400px)");
+    expect(dot.textContent).toBe("Anna Berg");
+    expect(dot.style.getPropertyValue("--oriso-pointer-bg")).toBe("#165E83");
+    fireEvent.pointerLeave(tile);
+    expect(screen.queryByTestId("oriso-pointer")).toBeNull();
+  });
+
+  it("shows no own dot while the switch is off", () => {
+    const { tile } = setup({ pointing: false });
+    move(tile, 200, 400);
+    expect(screen.queryByTestId("oriso-pointer")).toBeNull();
+  });
+
+  it("shows no own dot on my own share", () => {
+    const { tile } = setup({ pointing: true, local: true });
+    move(tile, 200, 400);
+    expect(screen.queryByTestId("oriso-pointer")).toBeNull();
+  });
+
+  it("places dots in the tile's own pixels when the tile is scaled", () => {
+    // The #2233 live test: the sharer's preview had grown in from scale(0)
+    // and every dot sat at ~0.146 of its place, toward the top-left. Here
+    // the 800×800 tile is drawn at half size: the client rects say 400×400,
+    // its own layout is still 800×800.
+    // The prototypes `document` really uses, as in `beforeEach`.
+    let sizeOwner = Object.getPrototypeOf(document.createElement("div"));
+    while (!Object.hasOwn(sizeOwner, "offsetWidth"))
+      sizeOwner = Object.getPrototypeOf(sizeOwner);
+    vi.spyOn(sizeOwner, "offsetWidth", "get").mockReturnValue(800);
+    let rectOwner = sizeOwner;
+    while (!Object.hasOwn(rectOwner, "getBoundingClientRect"))
+      rectOwner = Object.getPrototypeOf(rectOwner);
+    vi.spyOn(rectOwner, "getBoundingClientRect").mockReturnValue(
+      rect(400, 400),
+    );
+    const { pointers$, point, tile } = setup({ pointing: true });
+    act(() =>
+      pointers$.next(
+        new Map([
+          [
+            SHARE,
+            [
+              {
+                identity: "@ben:oriso.org:B",
+                userId: "@ben:oriso.org",
+                x: 0.5,
+                y: 0.5,
+                at: 1,
+              },
+            ],
+          ],
+        ]),
+      ),
+    );
+    // The centre of the picture, in the layer's own 800×800 pixels.
+    expect(screen.getByTestId("oriso-pointer").style.transform).toBe(
+      "translate(400px, 400px)",
+    );
+    // And a pointer at the visual centre is the centre of the picture.
+    move(tile, 200, 200);
+    expect(point).toHaveBeenLastCalledWith(SHARE, { x: 0.5, y: 0.5 });
   });
 
   it("sends nothing while the switch is off", () => {

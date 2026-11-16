@@ -7,7 +7,14 @@ Please see LICENSE in the repository root for full details.
 
 import { describe, expect, it } from "vitest";
 
-import { containedFrame, fromVideoPoint, toVideoPoint } from "./geometry";
+import {
+  containedFrame,
+  fromVideoPoint,
+  layoutScale,
+  localBox,
+  localPoint,
+  toVideoPoint,
+} from "./geometry";
 
 describe("containedFrame", () => {
   it("fills the box when the aspect ratios match", () => {
@@ -102,5 +109,64 @@ describe("fromVideoPoint", () => {
     const big = fromVideoPoint({ x: 0.75, y: 0.5 }, 1600, 900, 1920, 1080);
     expect(small).toEqual({ left: 300, top: 200 });
     expect(big).toEqual({ left: 1200, top: 450 });
+  });
+});
+
+describe("layoutScale / localBox / localPoint", () => {
+  it("is 1 for an unscaled layer and for one not laid out yet", () => {
+    expect(layoutScale(404, 404)).toBe(1);
+    expect(layoutScale(404, 0)).toBe(1);
+    expect(layoutScale(0, 404)).toBe(1);
+  });
+
+  it("puts the centre of a scaled tile at the centre, not at scale × centre", () => {
+    // The Dev live test (16 Nov): a 404×233 preview measured while the tile
+    // was at scale 0.146 of its entrance. Before the fix the box stayed at
+    // the measured 59×34 and the centre was drawn at (29, 17).
+    const s = 0.146;
+    const layer = { left: 1000, top: 500, width: 404 * s, height: 233 * s };
+    const scale = layoutScale(layer.width, 404);
+    expect(scale).toBeCloseTo(s);
+    const box = localBox(layer, layer, scale);
+    expect(box.width).toBeCloseTo(404);
+    expect(box.height).toBeCloseTo(233);
+    const { left, top } = fromVideoPoint(
+      { x: 0.5, y: 0.5 },
+      box.width,
+      box.height,
+      0,
+      0,
+    );
+    expect(left).toBeCloseTo(202);
+    expect(top).toBeCloseTo(116.5);
+  });
+
+  it("maps a client point on a scaled layer back to the same video point", () => {
+    const scale = 0.5;
+    const layer = { left: 100, top: 50, width: 400, height: 400 };
+    // The video fills the layer; 16:9 in a square box is letterboxed.
+    const box = localBox(layer, layer, scale);
+    // The visual centre of the layer is the centre of the picture.
+    const at = localPoint(layer, 300, 250, scale);
+    expect(at).toEqual({ x: 400, y: 400 });
+    expect(
+      toVideoPoint(
+        at.x - box.left,
+        at.y - box.top,
+        box.width,
+        box.height,
+        1920,
+        1080,
+      ),
+    ).toEqual({ x: 0.5, y: 0.5 });
+  });
+
+  it("keeps a video's offset inside the layer in the layer's own pixels", () => {
+    const box = localBox(
+      { left: 0, top: 0, width: 200, height: 200 },
+      { left: 20, top: 10, width: 100, height: 50 },
+      0.5,
+    );
+    expect(box).toEqual({ left: 40, top: 20, width: 200, height: 100 });
   });
 });
