@@ -75,7 +75,8 @@ export function sameShapes(
       other.contentShare !== shape.contentShare ||
       other.body !== shape.body ||
       other.lifted !== shape.lifted ||
-      other.nameSide !== shape.nameSide
+      other.nameSide !== shape.nameSide ||
+      other.nameMax !== shape.nameMax
     )
       return false;
   }

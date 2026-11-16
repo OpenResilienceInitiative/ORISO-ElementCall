@@ -285,10 +285,15 @@ export const MediaView: FC<Props> = ({
         [styles.oriso]: orisoIdentity !== undefined,
       })}
       style={
-        orisoFocusShift === undefined && orisoCircle === undefined
+        orisoFocusShift === undefined &&
+        orisoCircle === undefined &&
+        orisoShape?.nameMax === undefined
           ? style
           : {
               ...style,
+              ...(orisoShape?.nameMax === undefined
+                ? {}
+                : { "--oriso-name-max": `${orisoShape.nameMax}px` }),
               ...(orisoFocusShift === undefined
                 ? {}
                 : { "--oriso-focus-shift": `${orisoFocusShift}px` }),

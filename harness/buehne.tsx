@@ -245,9 +245,80 @@ const CAST: { name: string; identity: OrisoIdentity }[] = [
       ink: "#1a1a1a",
     },
   },
+  // Up to 18 people (the Storybook's slider), everybody somebody else: at 18
+  // the list used to wrap round and the circle had two "ruhiger Fuchs 432".
+  {
+    name: "munterer Frosch 88",
+    identity: {
+      kind: "animal",
+      file: "frog.svg",
+      bg: "#9CC59A",
+      ink: "#1E3A12",
+    },
+  },
+  {
+    name: "stiller Hirsch 219",
+    identity: {
+      kind: "animal",
+      file: "deer.svg",
+      bg: "#C7B8DC",
+      ink: "#2E1F4A",
+    },
+  },
+  {
+    name: "kleiner Käfer 730",
+    identity: {
+      kind: "animal",
+      file: "ladybird.svg",
+      bg: "#BFE0E6",
+      ink: "#5C1A12",
+    },
+  },
+  {
+    name: "flinkes Eichhorn 46",
+    identity: {
+      kind: "animal",
+      file: "squirrel.svg",
+      bg: "#E8B48A",
+      ink: "#3D1F00",
+    },
+  },
+  {
+    name: "ruhiger Pinguin 377",
+    identity: {
+      kind: "animal",
+      file: "penguin.svg",
+      bg: "#D5DCE2",
+      ink: "#1a1a1a",
+    },
+  },
+  {
+    name: "sanfter Panda 590",
+    identity: {
+      kind: "animal",
+      file: "panda.svg",
+      bg: "#E4E1D8",
+      ink: "#1a1a1a",
+    },
+  },
 ];
 
-const people = Array.from({ length: count }, (_, i) => CAST[i % CAST.length]);
+/**
+ * Everybody on the stage, each with a name of their own. Past the cast the
+ * names repeat with a new number, so no two people ever read alike.
+ */
+const people = Array.from({ length: count }, (_, i) => {
+  const person = CAST[i % CAST.length];
+  const round = Math.floor(i / CAST.length);
+  return round === 0
+    ? person
+    : {
+        ...person,
+        name: /\d$/.test(person.name)
+          ? `${person.name}${round}`
+          : `${person.name} ${round + 1}`,
+      };
+});
 const idOf = (i: number): string => `p${i}`;
 // "Teilnehmende" (#2233): the same people as Matrix users, named as the
 // stage names them. The ids are username-shaped, so the published name wins.
@@ -264,7 +335,8 @@ const identities = new Map(
 const indexOf = (id: string): number => Number(id.slice(1));
 
 // What `OrisoGroveLayout` subscribes to on each tile: the media's id, its
-// user, the name and whether that person speaks.
+// user, the name, whether that person speaks, and the hand and microphone
+// beside the name.
 const model: GridLayout = {
   type: "grid",
   grid: people.map((person, i) => ({
@@ -274,6 +346,8 @@ const model: GridLayout = {
       userId: `@${idOf(i)}:oriso.test`,
       displayName$: new BehaviorSubject(person.name),
       speaking$: new BehaviorSubject(i === speakingIndex),
+      handRaised$: new BehaviorSubject(hands.has(i) ? new Date() : null),
+      audioEnabled$: new BehaviorSubject(!muted.has(i)),
     }),
   })) as unknown as GridLayout["grid"],
   setVisibleTiles: () => {},

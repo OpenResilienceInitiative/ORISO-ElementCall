@@ -52,6 +52,8 @@ const tile = (id: string): unknown => ({
     userId: `@${id}:oriso.test`,
     displayName$: new BehaviorSubject(`ruhiger Fuchs ${id}`),
     speaking$: new BehaviorSubject(false),
+    handRaised$: new BehaviorSubject(null),
+    audioEnabled$: new BehaviorSubject(true),
   }),
 });
 

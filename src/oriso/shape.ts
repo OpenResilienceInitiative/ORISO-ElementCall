@@ -76,6 +76,12 @@ export interface TileShape {
    * grows inward rather than off the stage. Absent: the start.
    */
   nameSide?: "start" | "centre" | "end";
+  /**
+   * The name's cap in px on this form (`--oriso-name-max`), where the layout
+   * has measured its neighbours: the Kreis at high counts (`kreisNames`).
+   * Absent: the stylesheet's cap.
+   */
+  nameMax?: number;
 }
 
 /**
@@ -99,6 +105,9 @@ export const NAME_TAIL_CHARS = 4;
  * between a form and the stage's edge.
  */
 export const NAME_CAPSULE_HALF = 130;
+/** The name's cap in a capsule (`--oriso-name-max` in `MediaView.module.css`). */
+export const NAME_MAX = 184;
+export const NAME_MAX_PHONE = 112;
 export const NAME_CAPSULE_HALF_PHONE = 94;
 
 /** Where a form of this box hangs its name on a stage this wide. */

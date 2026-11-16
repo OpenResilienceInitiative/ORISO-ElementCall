@@ -227,3 +227,195 @@ export function kreisPlan(
   const shiftY = Math.round(cy - (top + bottom) / 2);
   return { centre: centreAt(shiftY), seats: place(shiftY), indicator };
 }
+
+/** Where a Kreis form hangs its name, and how wide the NAME may grow. */
+export interface KreisName {
+  side: "start" | "centre" | "end";
+  /** The name's cap in px (`--oriso-name-max`); the capsule adds padding. */
+  max: number;
+}
+
+/** The capsule around the name: its padding, its height, a gap between two. */
+const CAPSULE_PAD = 24;
+const CAPSULE_HEIGHT = 26;
+const CAPSULE_GAP = 6;
+/** About what a 12px capsule letter takes, to guess a name's width. */
+const CHAR_PX = 7;
+/**
+ * The narrowest a name is cut to: the tail ("…303") and a letter or two
+ * before it still tell two foxes apart (`splitName`).
+ */
+export const KREIS_NAME_MIN = 44;
+
+/**
+ * What the capsule shows beside the name (`MediaView`'s `nameTag`): the
+ * raised hand with how long it has been up, and the microphone only while it
+ * is off.
+ */
+export interface KreisStatus {
+  hand: boolean;
+  muted: boolean;
+}
+
+/**
+ * The raised hand: 14px icon, 3px gap, the time at its widest common length
+ * ("12:03", so the layout does not move every minute), 6px padding and the
+ * 1px separator, then the capsule's 6px gap to the name.
+ */
+const HAND_PX = 14 + 3 + 5 * CHAR_PX + 6 + 1 + 6;
+/** The muted microphone: the 15px icon and the capsule's 6px gap. */
+const MUTED_PX = 15 + 6;
+
+/** How much wider than its name a capsule is with this status in it. */
+export function kreisStatusWidth(status: KreisStatus | undefined): number {
+  return (status?.hand ? HAND_PX : 0) + (status?.muted ? MUTED_PX : 0);
+}
+
+/**
+ * Where everybody's name goes in the Kreis, so no two capsules overlap.
+ *
+ * Every capsule sits on its form's top edge and is as wide as its name, up
+ * to the cap (`cap`: 184px, a phone 112px). Up to about a dozen people that
+ * fits centred (or hung inward at the stage's edge, `side`), and nothing
+ * changes. With more, neighbours on the ring sit closer than two names are
+ * wide: the #2233 Storybook check at 18 had "klare Biene 641" under "feiner
+ * Dachs 255" and "ruhiger Fuchs 432" over two others. Then every name hangs
+ * OUTWARD — from the form's left edge on the ring's right half, from its
+ * right edge on the left half, centred only at the very top and bottom —
+ * and any two that still meet are cut down until they do not, never below
+ * `KREIS_NAME_MIN`. Cutting keeps the tail (`splitName`), so the number
+ * that tells two foxes apart stays.
+ *
+ * Pure: `forms` are the seats as boxes on the stage, `names` the names they
+ * carry as their capsules show them (only their length is used, as a guess
+ * at the width), `status` what else each capsule carries — a raised hand, a
+ * muted microphone (`kreisStatusWidth`). The status is never cut, so it
+ * comes out of the name's share. One case does not fit: a raised hand on the
+ * very top or bottom seat of a ring of 14 or more, whose neighbours leave
+ * less room than a hand and the shortest name need; that name stays at the
+ * minimum and its capsule touches theirs.
+ */
+export function kreisNames(
+  forms: readonly { x: number; y: number; size: number }[],
+  names: readonly string[],
+  stageWidth: number,
+  cap: number,
+  side: (x: number, width: number) => KreisName["side"],
+  status: readonly (KreisStatus | undefined)[] = [],
+): KreisName[] {
+  const extra = forms.map((_, i) => kreisStatusWidth(status[i]));
+  const guess = (i: number): number =>
+    Math.min(cap, [...(names[i] ?? "")].length * CHAR_PX) +
+    CAPSULE_PAD +
+    extra[i];
+  const floor = (i: number): number => KREIS_NAME_MIN + CAPSULE_PAD + extra[i];
+  const first = forms.map((f) => side(f.x, f.size));
+  const widths = forms.map((_, i) => guess(i));
+  if (!anyOverlap(forms, first, widths))
+    return first.map((s) => ({ side: s, max: cap }));
+
+  const centre =
+    forms.reduce((sum, f) => sum + f.x + f.size / 2, 0) /
+    Math.max(1, forms.length);
+  const outward = forms.map((f): KreisName["side"] => {
+    const mid = f.x + f.size / 2;
+    if (Math.abs(mid - centre) < f.size / 2) return "centre";
+    return mid > centre ? "start" : "end";
+  });
+  // Only a capsule that actually had to give way gets a tighter cap; the
+  // others keep the full one, since `guess` is only an estimate of the text
+  // width (wide glyphs, e.g. CJK, run past CHAR_PX).
+  const squeezed = forms.map(() => false);
+  // What each outward name may take before the stage's edge, whatever its
+  // guessed width: the guess can be short of the rendered text.
+  const roomCap = forms.map(() => cap);
+  // Never past the stage's edge either.
+  for (let i = 0; i < forms.length; i++) {
+    const f = forms[i];
+    const room =
+      outward[i] === "start"
+        ? stageWidth - f.x
+        : outward[i] === "end"
+          ? f.x + f.size
+          : 2 * Math.min(f.x + f.size / 2, stageWidth - f.x - f.size / 2);
+    roomCap[i] = Math.max(
+      KREIS_NAME_MIN,
+      Math.floor(room - CAPSULE_PAD - extra[i]),
+    );
+    if (room < widths[i]) squeezed[i] = true;
+    widths[i] = Math.max(floor(i), Math.min(widths[i], room));
+  }
+  // Shrink whatever still meets, a little at a time, until nothing does.
+  for (let round = 0; round < 40; round++) {
+    let moved = false;
+    for (let i = 0; i < forms.length; i++)
+      for (let j = i + 1; j < forms.length; j++) {
+        if (!sameRow(forms[i], forms[j])) continue;
+        const a = span(forms[i], outward[i], widths[i]);
+        const b = span(forms[j], outward[j], widths[j]);
+        const overlap = Math.min(a.r, b.r) - Math.max(a.l, b.l) + CAPSULE_GAP;
+        if (overlap <= 0) continue;
+        // Which edge faces the other, and how fast shrinking moves it.
+        const [left, right] = a.l + a.r <= b.l + b.r ? [i, j] : [j, i];
+        const rate = (k: number, facingRight: boolean): number =>
+          widths[k] <= floor(k)
+            ? 0
+            : outward[k] === "centre"
+              ? 0.5
+              : (outward[k] === "start") === facingRight
+                ? 1
+                : 0;
+        const rl = rate(left, true);
+        const rr = rate(right, false);
+        if (rl + rr === 0) continue;
+        const cut = overlap / (rl + rr);
+        if (rl > 0) {
+          widths[left] = Math.max(floor(left), widths[left] - cut);
+          squeezed[left] = true;
+        }
+        if (rr > 0) {
+          widths[right] = Math.max(floor(right), widths[right] - cut);
+          squeezed[right] = true;
+        }
+        moved = true;
+      }
+    if (!moved) break;
+  }
+  return outward.map((s, i) => ({
+    side: s,
+    max: squeezed[i]
+      ? Math.min(cap, Math.floor(widths[i] - CAPSULE_PAD - extra[i]))
+      : Math.min(cap, roomCap[i]),
+  }));
+}
+
+function sameRow(a: { y: number }, b: { y: number }): boolean {
+  return Math.abs(a.y - b.y) < CAPSULE_HEIGHT + CAPSULE_GAP;
+}
+
+function span(
+  f: { x: number; size: number },
+  side: KreisName["side"],
+  width: number,
+): { l: number; r: number } {
+  if (side === "start") return { l: f.x, r: f.x + width };
+  if (side === "end") return { l: f.x + f.size - width, r: f.x + f.size };
+  const mid = f.x + f.size / 2;
+  return { l: mid - width / 2, r: mid + width / 2 };
+}
+
+function anyOverlap(
+  forms: readonly { x: number; y: number; size: number }[],
+  sides: readonly KreisName["side"][],
+  widths: readonly number[],
+): boolean {
+  for (let i = 0; i < forms.length; i++)
+    for (let j = i + 1; j < forms.length; j++) {
+      if (!sameRow(forms[i], forms[j])) continue;
+      const a = span(forms[i], sides[i], widths[i]);
+      const b = span(forms[j], sides[j], widths[j]);
+      if (Math.min(a.r, b.r) - Math.max(a.l, b.l) + CAPSULE_GAP > 0)
+        return true;
+    }
+  return false;
+}
