@@ -66,6 +66,11 @@ export enum OrisoWidgetActions {
   //   or reuses the call's link: {} → { url: string } | { error: string }.
   //   The error is a field of a normal reply, not a widget error.
   InviteLink = "org.oriso.call.invite_link",
+  // toWidget: whether this call may offer its link at all, when the host
+  //   learns it during the call: { available: boolean }, response {}.
+  //   `orisoInvite` is the start; false hides "Link teilen" and
+  //   "Einladelink senden" live, true brings them back (#1662).
+  InviteAvailable = "org.oriso.call.invite_available",
   // toWidget: who in this call is a counsellor, from the host's own records
   //   rather than the self-published identity: { userIds: string[] },
   //   response {}. Sent once the call is ready and again on every change.
@@ -123,6 +128,7 @@ export const widget = ((): WidgetHelpers | null => {
         OrisoWidgetActions.KnockState,
         OrisoWidgetActions.WindowState,
         OrisoWidgetActions.Counsellors,
+        OrisoWidgetActions.InviteAvailable,
       ].forEach((action) => {
         api.on(`action:${action}`, (ev: CustomEvent<IWidgetApiRequest>) => {
           ev.preventDefault();
