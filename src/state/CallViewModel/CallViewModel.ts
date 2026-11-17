@@ -1263,9 +1263,16 @@ export function createCallViewModel$(
                   ? gridLayoutMedia$
                   : !stage.sharing
                     ? of(stage.pair)
-                    : windowMode === "narrow"
-                      ? spotlightPortraitLayoutMedia$
-                      : spotlightLandscapeLayoutMedia$,
+                    : // The share's expand button still works here.
+                      spotlightExpanded$.pipe(
+                        switchMap((expanded) =>
+                          expanded
+                            ? spotlightExpandedLayoutMedia$
+                            : windowMode === "narrow"
+                              ? spotlightPortraitLayoutMedia$
+                              : spotlightLandscapeLayoutMedia$,
+                        ),
+                      ),
               ),
             );
           case "spotlight":

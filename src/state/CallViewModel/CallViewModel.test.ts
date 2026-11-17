@@ -730,6 +730,32 @@ describe.each([
     });
   });
 
+  it("lets the viewer expand a 1:1's shared screen (#2233)", () => {
+    withTestScheduler(({ behavior, schedule, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          vm.setGridMode("grid");
+          schedule("-a-b", {
+            a: () => vm.toggleSpotlightExpanded$.value!(),
+            b: () => vm.toggleSpotlightExpanded$.value!(),
+          });
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("ab-a", {
+            a: "spotlight-landscape",
+            b: "spotlight-expanded",
+          });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
   it("gives a phone's 1:1 with a shared screen the portrait stage (#2233)", () => {
     withTestScheduler(({ behavior, expectObservable }) => {
       withCallViewModel(
