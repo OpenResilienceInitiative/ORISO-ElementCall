@@ -148,3 +148,37 @@ describe("who is speaking in the desktop header (R27)", () => {
     expect(screen.queryByTestId("band")).toBeNull();
   });
 });
+
+describe("the host's share button over the title (#2233 live test)", () => {
+  it("keeps the top left corner free while the host draws its share button", () => {
+    render(
+      <OrisoHeader
+        tone="light"
+        title="Einzelgespräch · Schulden"
+        encrypted
+        onWindow={vi.fn()}
+        hostShare
+        fullscreen={false}
+      />,
+    );
+    expect(screen.getByTestId("oriso-header")).toHaveAttribute(
+      "data-host-share",
+      "true",
+    );
+  });
+
+  it("leaves the corner alone without it", () => {
+    render(
+      <OrisoHeader
+        tone="light"
+        title="Einzelgespräch"
+        encrypted
+        onWindow={vi.fn()}
+        fullscreen={false}
+      />,
+    );
+    expect(screen.getByTestId("oriso-header")).not.toHaveAttribute(
+      "data-host-share",
+    );
+  });
+});

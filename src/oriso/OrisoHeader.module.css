@@ -201,6 +201,14 @@ Please see LICENSE in the repository root for full details.
   padding-inline-end: calc(16px + 96px);
 }
 
+/* The host's share button over the top left corner (ORISO-Frontend
+   `.element-call-share`: 32px, 2px in, so it ends 34px in). The title starts
+   after it with the header's own gap, on a phone's compact header too —
+   which is why this comes after the compact padding (#2233 live test). */
+.header[data-host-share] {
+  padding-inline-start: calc(34px + 12px);
+}
+
 .header[data-compact][data-tone="light"] {
   background: transparent;
 }

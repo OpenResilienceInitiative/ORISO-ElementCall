@@ -24,6 +24,9 @@ Please see LICENSE in the repository root for full details.
  *   ?camera=off                   a video call with both cameras off: the split
  *                                 circle, as InCallView decides (#2233, D5)
  *   ?header=1                     the ORISO header (title, chip, duration)
+ *   ?hostShare=1                  the host's share button over the top left
+ *                                 corner, as ORISO-Frontend draws it for a
+ *                                 counsellor (`orisoInvite`, #2233)
  *   ?chrome=call|host             call: the header's own window buttons;
  *                                 host: the host's four corner buttons drawn
  *                                 over the iframe, as ORISO-Frontend does
@@ -118,6 +121,7 @@ const video = callKind === "video";
 const videoStage = video && params.get("camera") !== "off";
 const showHeader = params.get("header") === "1";
 const chrome = params.get("chrome");
+const hostShare = params.get("hostShare") === "1";
 const names = params.get("names");
 const noArtwork = params.get("artwork") === "none";
 const mobile = params.get("mobile") === "1";
@@ -291,6 +295,26 @@ const speaker =
     : null;
 
 /** The four buttons ORISO-Frontend draws over the iframe without `orisoHostChrome`. */
+/** ORISO-Frontend's share button (`.element-call-share`): 32px, 2px in. */
+function HostShareButton(): React.ReactNode {
+  return (
+    <span
+      aria-hidden="true"
+      data-testid="host-share-button"
+      style={{
+        position: "absolute",
+        top: 2,
+        left: 2,
+        width: 32,
+        height: 32,
+        borderRadius: "50%",
+        background: "rgb(0 0 0 / 60%)",
+        zIndex: 100,
+      }}
+    />
+  );
+}
+
 function HostCornerButtons(): React.ReactNode {
   return (
     <>
@@ -373,6 +397,7 @@ function Header(): React.ReactNode {
         ) : undefined
       }
       onWindow={chrome === "call" ? (): void => {} : null}
+      hostShare={hostShare}
       fullscreen={false}
       // R27: condensed in the middle of a desktop header, the 1:1 included.
       speaker={
@@ -457,6 +482,7 @@ function Call(): React.ReactNode {
           }
         >
           {chrome === "host" && <HostCornerButtons />}
+          {hostShare && <HostShareButton />}
           {/* #2233 (D2): no atmosphere for two people. */}
           {(showHeader || mobile) && <Header />}
           <Grid

@@ -1019,6 +1019,8 @@ export const InCallView: FC<InCallViewProps> = ({
           )
         }
         onWindow={orisoWindow.send}
+        // `orisoInvite`: the host draws its share button top left (#2233).
+        hostShare={orisoInviteRequest !== null}
         fullscreen={orisoWindow.fullscreen}
         onTouchEnd={onHeaderTouchEnd}
         speaker={
