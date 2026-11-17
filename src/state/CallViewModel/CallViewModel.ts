@@ -1257,6 +1257,13 @@ export function createCallViewModel$(
              * used to fall through to the group grid, which drew the Felder
              * for the sharer and the Fokus for the viewer.
              */
+            // Outside ORISO's design a share is a third tile, as upstream.
+            if (options.orisoDesign !== true)
+              return oneOnOneLayoutMedia$.pipe(
+                switchMap((oneOnOne) =>
+                  oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
+                ),
+              );
             return orisoOneOnOneStage$.pipe(
               switchMap((stage) =>
                 stage === null

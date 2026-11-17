@@ -730,6 +730,24 @@ describe.each([
     });
   });
 
+  it("leaves a non-ORISO 1:1 with a shared screen on upstream's grid", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          vm.setGridMode("grid");
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("a", { a: "grid" });
+        },
+      );
+    });
+  });
+
   it("lets the viewer expand a 1:1's shared screen (#2233)", () => {
     withTestScheduler(({ behavior, schedule, expectObservable }) => {
       withCallViewModel(
