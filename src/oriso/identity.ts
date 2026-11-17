@@ -503,6 +503,7 @@ export function shownNameFor(
   identity: OrisoIdentity | undefined,
   userId?: string,
   neutral: string = NEUTRAL_NAME,
+  everybody?: ReadonlyMap<string, OrisoIdentity>,
 ): string {
   if (identity === undefined) return displayName;
   /*
@@ -527,7 +528,34 @@ export function shownNameFor(
    * ours to overrule.
    */
   if (!isUsernameShaped(displayName, userId)) return displayName;
-  return identity.name ?? neutral;
+  if (identity.name === undefined) return neutral;
+  return everybody === undefined || userId === undefined
+    ? identity.name
+    : numberedAmong(identity.name, userId, everybody);
+}
+
+/**
+ * A published name with a number when somebody else on the stage published
+ * the same one.
+ *
+ * A counsellor without a public display name is published as "Beratung", so
+ * a team call showed several tiles all called "Beratung" (dev.oriso.org,
+ * 16-17 Nov 2026). Frank, 17 Nov: number them — "Beratung 1", "Beratung 2" —
+ * rather than show a name the person never made public. The order is the
+ * user ids sorted, so every client numbers everybody the same way. A name
+ * nobody shares stays as it is.
+ */
+export function numberedAmong(
+  name: string,
+  userId: string,
+  everybody: ReadonlyMap<string, OrisoIdentity>,
+): string {
+  const sharing = [...everybody]
+    .filter(([, other]) => other.name === name)
+    .map(([id]) => id)
+    .sort();
+  const position = sharing.indexOf(userId);
+  return sharing.length < 2 || position < 0 ? name : `${name} ${position + 1}`;
 }
 
 /**

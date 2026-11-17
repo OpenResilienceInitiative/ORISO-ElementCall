@@ -477,11 +477,13 @@ export function useShownName(
   userId: string,
 ): string {
   const { t } = useTranslation();
+  const { identities } = useOrisoStage();
   return shownNameFor(
     displayName,
     identity,
     userId,
     t("oriso.participant_neutral"),
+    identities,
   );
 }
 
@@ -507,5 +509,6 @@ export function shownNameOnStage(
       : undefined,
     userId,
     neutral,
+    stage.identities,
   );
 }
