@@ -129,7 +129,7 @@ import {
   resolveStageView,
   viewStorageKey,
 } from "../oriso/stageViews";
-import { stageTitle } from "../oriso/stageTitle";
+import { stageTitle, stageTitleText } from "../oriso/stageTitle";
 import { useLocalStorage } from "../useLocalStorage";
 import { Atmosphere } from "../oriso/Atmosphere";
 import { GridTileViewModel, type TileViewModel } from "../state/TileViewModel";
@@ -966,7 +966,8 @@ export const InCallView: FC<InCallViewProps> = ({
      */
     /*
      * "Einzelgespräch · Schuldnerberatung" for a 1:1 the host gave a topic
-     * (#2233 R6); a room with a real name keeps it. See `stageTitle`.
+     * (#2233 R6), "QA Moabit · Gruppengespräch" for a group chat; a room
+     * with a real name keeps it. See `stageTitle`.
      */
     const titleParts = stageTitle({
       roomName: matrixInfo.roomName,
@@ -975,19 +976,7 @@ export const InCallView: FC<InCallViewProps> = ({
       topic: orisoTopic,
       group: participantCount > 2,
     });
-    const orisoTitle =
-      titleParts.kind === "one-on-one"
-        ? titleParts.topic === null
-          ? t("oriso.view_one_on_one")
-          : t("oriso.one_on_one_title", { topic: titleParts.topic })
-        : titleParts.kind === "group"
-          ? t("oriso.group_topic_title", { topic: titleParts.topic })
-          : titleParts.name ||
-            t(
-              orisoVideoCall
-                ? "oriso.video_stage_title"
-                : "oriso.audio_stage_title",
-            );
+    const orisoTitle = stageTitleText(titleParts, t, orisoVideoCall);
     const orisoHeader = (
       <OrisoHeader
         ref={orisoMobile ? undefined : headerRef}

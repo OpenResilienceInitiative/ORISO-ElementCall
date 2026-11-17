@@ -173,6 +173,7 @@
     "audio_stage_title": "Telefongespräch",
     "call_duration": "Gesprächsdauer {{duration}}",
     "call_menu_label": "Menü",
+    "circle_topic_title": "{{topic}} · Kreis",
     "controls_label": "Anrufsteuerung",
     "encrypted_short": "verschlüsselt",
     "group_topic_title": "{{topic}} · Gruppengespräch",
