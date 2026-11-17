@@ -21,6 +21,7 @@ import {
   isUsernameShaped,
   NEUTRAL_INITIALS,
   NEUTRAL_NAME,
+  numberedAmong,
   type OrisoIdentity,
   readIdentity,
   shownNameFor,
@@ -260,5 +261,54 @@ describe("a login name standing in as the display name (S1)", () => {
 
   it("still takes initials from a real display name", () => {
     expect(initialsFor(counsellor, "Krusty Clown")).toBe("KC");
+  });
+});
+
+describe("several people published under the same name", () => {
+  // dev.oriso.org, 16-17 Nov 2026: every counsellor without a public name
+  // was "Beratung", so a team call had several identical tiles.
+  const beratung = record({ name: "Beratung" });
+  const fisch = record({ name: "Fisch" });
+  const stage = new Map<string, OrisoIdentity>([
+    ["@zoe:oriso.org", beratung],
+    ["@anna:oriso.org", beratung],
+    ["@lisa:oriso.org", fisch],
+  ]);
+
+  it("numbers them in the order of their user ids", () => {
+    expect(
+      shownNameFor("anna", beratung, "@anna:oriso.org", NEUTRAL_NAME, stage),
+    ).toBe("Beratung 1");
+    expect(
+      shownNameFor("zoe", beratung, "@zoe:oriso.org", NEUTRAL_NAME, stage),
+    ).toBe("Beratung 2");
+  });
+
+  it("leaves a name nobody else has alone", () => {
+    expect(
+      shownNameFor("lisa", fisch, "@lisa:oriso.org", NEUTRAL_NAME, stage),
+    ).toBe("Fisch");
+  });
+
+  it("numbers nobody when only one person has the name", () => {
+    expect(
+      numberedAmong(
+        "Beratung",
+        "@anna:oriso.org",
+        new Map([["@anna:oriso.org", beratung]]),
+      ),
+    ).toBe("Beratung");
+  });
+
+  it("does not number a real display name", () => {
+    expect(
+      shownNameFor(
+        "Krusty Clown",
+        beratung,
+        "@zoe:oriso.org",
+        NEUTRAL_NAME,
+        stage,
+      ),
+    ).toBe("Krusty Clown");
   });
 });
