@@ -171,7 +171,8 @@ export const OrisoFace: FC<Props> = ({
        * root, which is a containing block for it: `container-type: size`
        * implies `contain: layout`.
        */
-      ...(shape === undefined
+      // A round shape (`square`) is centred the same way (#2233).
+      ...(shape === undefined || shape.square === true
         ? {
             position: "absolute" as const,
             inset: 0,

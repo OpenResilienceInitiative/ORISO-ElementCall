@@ -695,6 +695,126 @@ describe.each([
     });
   });
 
+  /*
+   * Live test, 16 Nov (#2233): a screen share in a 1:1 is not a third
+   * person. It used to make a third media tile, so the sharer got the Felder
+   * and the viewer the Fokus, both with the view rail and the atmosphere.
+   */
+  it("keeps two people with a shared screen under the 1:1's rules (#2233)", () => {
+    withTestScheduler(({ behavior, schedule, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          // What InCallView does for two people: back to grid mode.
+          schedule("-g", { g: () => vm.setGridMode("grid") });
+          expectObservable(summarizeLayout$(vm.layout$)).toBe("a", {
+            a: {
+              type: "spotlight-landscape",
+              spotlight: [`${aliceId}:0:screen-share`],
+              grid: [`${localId}:0`, `${aliceId}:0`],
+            },
+          });
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: true });
+          expectObservable(
+            vm.orisoPlan$.pipe(
+              map((plan) => `${plan.fallback}:${plan.offer.length}`),
+            ),
+          ).toBe("a", { a: "einzelgespraech:2" });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("leaves a non-ORISO 1:1 with a shared screen on upstream's grid", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          vm.setGridMode("grid");
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("a", { a: "grid" });
+        },
+      );
+    });
+  });
+
+  it("lets the viewer expand a 1:1's shared screen (#2233)", () => {
+    withTestScheduler(({ behavior, schedule, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          vm.setGridMode("grid");
+          schedule("-a-b", {
+            a: () => vm.toggleSpotlightExpanded$.value!(),
+            b: () => vm.toggleSpotlightExpanded$.value!(),
+          });
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("ab-a", {
+            a: "spotlight-landscape",
+            b: "spotlight-expanded",
+          });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("gives a phone's 1:1 with a shared screen the portrait stage (#2233)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 360, height: 780 } }),
+        },
+        (vm) => {
+          vm.setGridMode("grid");
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("a", { a: "spotlight-portrait" });
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: true });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("gives three people with a shared screen the group's rules (#2233)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: false });
+          expectObservable(
+            vm.orisoPlan$.pipe(
+              map((plan) => `${plan.fallback}:${plan.offer.length}`),
+            ),
+          ).toBe("a", { a: "felder:5" });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
   it("has no camera on in a 1:1 where nobody published one (#2233 D5)", () => {
     withTestScheduler(({ behavior, expectObservable }) => {
       withCallViewModel(

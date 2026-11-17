@@ -19,6 +19,10 @@ Please see LICENSE in the repository root for full details.
  *   ?call=audio|video    video: everybody but the third person has a camera
  *   ?share=1             the first person shares their screen
  *   ?speaking=<i>        who holds the floor (default 0)
+ *   ?own=<i>             that person is me: my own picture is a circle
+ *   ?oneOnOne=1          a 1:1 beside a shared screen (#2233): both people
+ *                        as circles, no atmosphere, as InCallView decides
+ *                        it once two people stay a 1:1 while one shares
  *
  *   ?pip=1               the minimised call: the one form, maximised, with
  *                        the speaker band above it (R27), as InCallView
@@ -66,7 +70,7 @@ import {
 } from "../src/oriso/useOrisoShape";
 import { Atmosphere } from "../src/oriso/Atmosphere";
 import { type OrisoIdentity } from "../src/oriso/identity";
-import { rectangularStage } from "../src/oriso/shape";
+import { rectangularStage, roundStage } from "../src/oriso/shape";
 import { OrisoStageContext } from "../src/oriso/useOrisoIdentities";
 import { ReactionsSenderProvider } from "../src/reactions/useReactionsSender";
 import { type CallViewModel } from "../src/state/CallViewModel/CallViewModel";
@@ -94,6 +98,8 @@ const share = params.get("share") === "1";
 const speakingIndex = Number(params.get("speaking") ?? 0);
 const portrait = window.innerWidth <= 600;
 const pip = params.get("pip") === "1";
+const ownIndex = params.has("own") ? Number(params.get("own")) : -1;
+const oneOnOne = params.get("oneOnOne") === "1";
 
 const CAST: { name: string; identity: OrisoIdentity }[] = [
   ["ruhiger Fuchs 432", "fox.svg", "#62937A", "#FBF4D3"],
@@ -241,7 +247,7 @@ function person(i: number): RemoteUserMediaViewModel {
   return fake(RemoteUserMediaViewModel.prototype, {
     id,
     userId: `@${id}:oriso.test`,
-    local: false,
+    local: i === ownIndex,
     video$: constant(
       camera
         ? trackRef(
@@ -410,6 +416,7 @@ function Call(): React.ReactNode {
       // As InCallView decides it, from the layout's type; the
       // minimised call is "pip", which is not rectangular.
       rectangular: rectangularStage(pip ? "pip" : model.type, false),
+      round: roundStage(pip ? "pip" : model.type, oneOnOne),
     }),
     [],
   );
@@ -417,10 +424,19 @@ function Call(): React.ReactNode {
     <OrisoStageContext value={stage}>
       <OrisoShapesContext value={shapes}>
         <ReactionsSenderProvider rtcSession={rtcSession} vm={callVm}>
-          <div ref={measure} className={styles.inRoom} data-oriso="true">
-            <div className={styles.orisoBackdrop} aria-hidden="true">
-              <Atmosphere palette="duene" />
-            </div>
+          <div
+            ref={measure}
+            className={styles.inRoom}
+            data-oriso="true"
+            // The call page's own dark ground, where a 1:1 has no atmosphere.
+            style={oneOnOne ? { background: "#141414" } : undefined}
+          >
+            {/* A 1:1 has no atmosphere (#2233, D2). */}
+            {!oneOnOne && (
+              <div className={styles.orisoBackdrop} aria-hidden="true">
+                <Atmosphere palette="duene" />
+              </div>
+            )}
             {pip ? (
               <>
                 <WaveBand

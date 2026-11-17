@@ -380,6 +380,11 @@ export interface OrisoStage {
   /** The 5A video stage uses rectangular participant tiles. */
   rectangular?: boolean;
   /**
+   * Everybody on a rectangular stage is a circle, not only me: a 1:1 while
+   * one of the two shares a screen (#2233). The share stays a rectangle.
+   */
+  round?: boolean;
+  /**
    * Who the HOST says is a counsellor (`org.oriso.call.counsellors`), or
    * null until it has said. The only source a "Beratung" label is shown
    * from; see `shownRole`.

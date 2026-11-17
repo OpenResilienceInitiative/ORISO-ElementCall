@@ -82,6 +82,14 @@ export interface TileShape {
    * Absent: the stylesheet's cap.
    */
   nameMax?: number;
+  /**
+   * A circle, not an ellipse: the form is a centred square of the box's
+   * shorter side rather than the whole box. My own circle on the video stage
+   * stands in a square, but beside a shared screen it stands in the
+   * spotlight's 180x135 rail slot, where `border-radius: 50%` of the whole
+   * box drew a squashed ellipse (#2233, live test 16 Nov).
+   */
+  square?: boolean;
 }
 
 /**
@@ -191,4 +199,16 @@ export function rectangularStage(
   videoOneOnOne: boolean,
 ): boolean {
   return videoOneOnOne || SPOTLIGHT_LAYOUTS.includes(layoutType);
+}
+
+/**
+ * Whether everybody on that rectangular stage is a circle (#2233).
+ *
+ * A 1:1 in which one of the two shares a screen keeps the 1:1's look: the
+ * share is the big rounded rectangle, and the two people stand beside it as
+ * circles, as my own picture does on the video stage. A group's spotlight
+ * keeps its rounded rectangles.
+ */
+export function roundStage(layoutType: string, oneOnOne: boolean): boolean {
+  return oneOnOne && SPOTLIGHT_LAYOUTS.includes(layoutType);
 }
