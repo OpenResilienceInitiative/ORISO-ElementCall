@@ -107,6 +107,7 @@ import { useStageScrolled } from "../oriso/useStageScrolled";
 import { OrisoNotes } from "../oriso/OrisoNotes";
 import { OrisoHeader } from "../oriso/OrisoHeader";
 import { useOrisoWindow } from "../oriso/useOrisoWindow";
+import { useOrisoInviteAvailable } from "../oriso/useOrisoInviteAvailable";
 import { useOrisoCounsellors } from "../oriso/useOrisoCounsellors";
 import { InviteLinkButton } from "../oriso/InviteLinkButton";
 import { inviteLinkRequester } from "../oriso/inviteLink";
@@ -566,10 +567,12 @@ export const InCallView: FC<InCallViewProps> = ({
   const orisoGroupChrome = orisoEnabled && !alone;
   // The window buttons in the header, when the host leaves them to the call.
   const orisoWindow = useOrisoWindow(orisoEnabled && orisoHostChrome);
-  // "Link teilen" (S8): only when the host said it can make a link.
+  // "Link teilen" (S8): only when the host said it can make a link —
+  // `orisoInvite` at the start, `org.oriso.call.invite_available` later.
+  const orisoInviteAvailable = useOrisoInviteAvailable(orisoInvite);
   const orisoInviteRequest = useMemo(
-    () => (orisoEnabled && orisoInvite ? inviteLinkRequester() : null),
-    [orisoEnabled, orisoInvite],
+    () => (orisoEnabled && orisoInviteAvailable ? inviteLinkRequester() : null),
+    [orisoEnabled, orisoInviteAvailable],
   );
 
   const [headerRef, headerBounds] = useMeasure();
