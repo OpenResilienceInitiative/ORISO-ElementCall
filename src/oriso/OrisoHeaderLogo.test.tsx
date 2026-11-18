@@ -37,6 +37,17 @@ describe("OrisoHeaderLogo", () => {
     expect(screen.getByTestId("oriso_header_logo")).not.toBeVisible();
   });
 
+  it("sits on its plate, which waits for the image as well", () => {
+    // The plate rounds; the image inside is never clipped (word marks).
+    render(<OrisoHeaderLogo src={LOGO} />);
+    const logo = screen.getByTestId("oriso_header_logo");
+    const plate = logo.parentElement!;
+    expect(plate).toHaveAttribute("data-testid", "oriso_header_logo_plate");
+    expect(plate).not.toBeVisible();
+    fireEvent.load(logo);
+    expect(plate).toBeVisible();
+  });
+
   it("is absent without a logo", () => {
     const { container } = render(<OrisoHeaderLogo src={null} />);
     expect(container).toBeEmptyDOMElement();
