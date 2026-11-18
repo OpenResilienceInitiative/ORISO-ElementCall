@@ -37,6 +37,7 @@ const ON_THE_WIRE = {
     bg: "#165E83",
     ink: "#ffffff",
     name: "ruhiger Fuchs 432",
+    role: "asker",
   },
   motif: {
     kind: "motif",
@@ -44,6 +45,7 @@ const ON_THE_WIRE = {
     bg: "#a5000a",
     ink: "#ffffff",
     name: "Beratung Nord",
+    role: "counsellor",
   },
   initials: {
     kind: "initials",
@@ -51,6 +53,7 @@ const ON_THE_WIRE = {
     ink: "#ffffff",
     initials: "SP",
     name: "Susanne Pfeiffer",
+    role: "counsellor",
   },
 } as const;
 
@@ -81,6 +84,26 @@ describe("the record the host publishes", () => {
       expect(read?.name).toBeUndefined();
     },
   );
+
+  /*
+   * `role` is newer than `name`. A host that does not send it still gets
+   * its record accepted; the ⋮ then shows no role line instead of a guess.
+   */
+  it.each(Object.entries(ON_THE_WIRE))(
+    "accepts the %s record from a host too old to send a role",
+    (_kind, wire) => {
+      const { role: _ignored, ...older } = wire;
+      const read = readIdentity(older);
+      expect(read).not.toBeNull();
+      expect(read?.role).toBeUndefined();
+    },
+  );
+
+  it("drops a role it does not know rather than showing it", () => {
+    const read = readIdentity({ ...ON_THE_WIRE.animal, role: "admin" });
+    expect(read).not.toBeNull();
+    expect(read?.role).toBeUndefined();
+  });
 
   it("rejects the record the engine's own spelling would produce", () => {
     // `iconColor` is what ORISO's anonymous-name engine calls the ink, and

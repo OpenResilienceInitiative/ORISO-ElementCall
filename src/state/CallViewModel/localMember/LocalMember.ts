@@ -58,6 +58,10 @@ import {
   type FailedToStartError,
 } from "../remoteMembers/Connection.ts";
 import { type HomeserverConnected } from "./HomeserverConnected.ts";
+import {
+  type ScreenShareFailure,
+  screenShareFailure,
+} from "../../../oriso/screenShareFailure.ts";
 import { and$ } from "../../../utils/observable.ts";
 
 export enum TransportState {
@@ -170,6 +174,9 @@ export const createLocalMembership$ = ({
    * Callback to toggle screen sharing. If null, screen sharing is not possible.
    */
   toggleScreenSharing: (() => void) | null;
+  /** Why the last attempt to share the screen did not start, if it did not. */
+  screenShareFailure$: Behavior<ScreenShareFailure | null>;
+  dismissScreenShareFailure: () => void;
   tracks$: Behavior<LocalTrack[]>;
   participant$: Behavior<LocalParticipant | null>;
   connection$: Behavior<Connection | null>;
@@ -616,6 +623,9 @@ export const createLocalMembership$ = ({
     ),
   );
 
+  const screenShareFailure$ = new BehaviorSubject<ScreenShareFailure | null>(
+    null,
+  );
   let toggleScreenSharing: (() => void) | null = null;
   if (
     "getDisplayMedia" in (navigator.mediaDevices ?? {}) &&
@@ -642,9 +652,16 @@ export const createLocalMembership$ = ({
       // We also allow screen sharing to be toggled even if the connection
       // is still initializing or publishing tracks, because there's no
       // technical reason to disallow this. LiveKit will publish if it can.
+      screenShareFailure$.next(null);
       participant$.value
         ?.setScreenShareEnabled(targetScreenshareState, screenshareSettings)
-        .catch(logger.error);
+        .catch((e: unknown) => {
+          logger.error("Failed to toggle screen sharing", e);
+          // ORISO (#2233, R8): a share that did not start used to say
+          // nothing. Tell the person why, unless they closed the picker.
+          if (targetScreenshareState)
+            screenShareFailure$.next(screenShareFailure(e));
+        });
     };
   }
 
@@ -664,6 +681,8 @@ export const createLocalMembership$ = ({
     ),
     sharingScreen$,
     toggleScreenSharing,
+    screenShareFailure$,
+    dismissScreenShareFailure: (): void => screenShareFailure$.next(null),
     connection$: localConnection$,
   };
 };

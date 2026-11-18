@@ -31,6 +31,7 @@ import { type TrackReferenceOrPlaceholder } from "@livekit/components-core";
 import FullScreenMaximiseIcon from "../icons/FullScreenMaximise.svg?react";
 import FullScreenMinimiseIcon from "../icons/FullScreenMinimise.svg?react";
 import { MediaView } from "./MediaView";
+import { SharePointerLayer } from "../oriso/pointer/SharePointerLayer";
 import styles from "./SpotlightTile.module.css";
 import {
   type EncryptionStatus,
@@ -42,8 +43,11 @@ import {
 } from "../state/MediaViewModel";
 import { useInitial } from "../useInitial";
 import { useMergedRefs } from "../useMergedRefs";
-import { useOrisoIdentity, useOrisoStage } from "../oriso/useOrisoIdentities";
-import { shownNameFor } from "../oriso/identity";
+import {
+  useOrisoIdentity,
+  useOrisoStage,
+  useShownName,
+} from "../oriso/useOrisoIdentities";
 import { type OrisoIdentity } from "../oriso/identity";
 import { useReactiveState } from "../useReactiveState";
 import { useLatest } from "../useLatest";
@@ -124,7 +128,8 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
    * rectangle while the rail beside it showed everybody as a form. One
    * identity reaches further than any layout substitution could — the
    * spotlight has no `TileShape`, and should not: the whole point of it is
-   * one form filling the stage, which is the default circle.
+   * one person filling the stage, which in the spotlight is a rectangle with
+   * slightly rounded corners (#2233, `rectangularStage`).
    *
    * A screen SHARE is left alone, in `SpotlightItem` below. A shared screen
    * is a rectangle and the design does not pretend otherwise.
@@ -132,6 +137,8 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
   const { parentUrl } = useOrisoStage();
   const orisoIdentity = useOrisoIdentity(vm.userId, props.displayName);
   const speaking = useBehavior(vm.speaking$);
+  // See `shownNameFor` — the spotlight shows the same person as the rail.
+  const shownName = useShownName(props.displayName, orisoIdentity, vm.userId);
 
   const baseProps: SpotlightUserMediaItemBaseProps &
     RefAttributes<HTMLDivElement> = {
@@ -141,8 +148,7 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
     orisoParentUrl: parentUrl,
     ...props,
     // After the spread, deliberately: it replaces the name that came in.
-    // See `shownNameFor` — the spotlight shows the same person as the rail.
-    displayName: shownNameFor(props.displayName, orisoIdentity),
+    displayName: shownName,
   };
 
   return vm instanceof LocalUserMediaViewModel ? (
@@ -199,6 +205,9 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
    * person and the design does not pretend otherwise.
    */
   const spotlightIdentity = useOrisoIdentity(vm.userId, displayName);
+  // #2233 (R25): in the ORISO design the share keeps its own slight corner.
+  const { enabled: orisoEnabled } = useOrisoStage();
+  const spotlightName = useShownName(displayName, spotlightIdentity, vm.userId);
   const mxcAvatarUrl = useBehavior(vm.mxcAvatarUrl$);
   const video = useBehavior(vm.video$);
   const videoEnabled = useBehavior(vm.videoEnabled$);
@@ -231,7 +240,7 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
     userId: vm.userId,
     unencryptedWarning,
     focusUrl,
-    displayName: shownNameFor(displayName, spotlightIdentity),
+    displayName: spotlightName,
     mxcAvatarUrl,
     focusable,
     encryptionStatus,
@@ -240,7 +249,20 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
   };
 
   return vm instanceof ScreenShareViewModel ? (
-    <MediaView videoFit="contain" mirror={false} {...baseProps} />
+    <MediaView
+      videoFit="contain"
+      mirror={false}
+      orisoShare={orisoEnabled}
+      {...baseProps}
+      overlay={
+        video ? (
+          <SharePointerLayer
+            share={video.participant.identity}
+            local={vm.local}
+          />
+        ) : undefined
+      }
+    />
   ) : (
     <SpotlightUserMediaItem vm={vm} {...baseProps} />
   );

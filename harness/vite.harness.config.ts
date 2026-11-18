@@ -29,7 +29,51 @@ const artwork = process.env.ORISO_ARTWORK_DIR;
 
 export default defineConfig({
   root: ".",
+  /*
+   * `yarn build:harness`: the proof pages as static files, so ORISO-Frontend's
+   * Storybook can embed the real call views (ORISO-Frontend#2233). Relative
+   * asset paths, because Storybook serves them from a sub-folder. The animals
+   * load from the embedding page's own `/static/anon-animals` (`parentUrl` is
+   * the page origin), which Storybook serves from the Frontend's `public/`.
+   */
+  base: "./",
+  // The app's IndexedDB worker comes along with the shared modules; a
+  // multi-page build needs it as an ES module (the dev server never bundles).
+  worker: { format: "es" },
+  build: {
+    outDir: "dist-harness",
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        buehne: "harness/buehne.html",
+        einzelCall: "harness/einzelCall.html",
+        orisoStage: "harness/orisoStage.html",
+        settings: "harness/settings.html",
+      },
+    },
+  },
   plugins: [
+    {
+      // A stand-in Träger logo on the tenant logo route, so `orisoLogo` can
+      // point at the page's own (trusted) origin as in the real call.
+      name: "oriso-sample-logo",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (
+            !/^\/service\/tenant\/public\/branding\/\d+\/logo/.test(
+              req.url ?? "",
+            )
+          ) {
+            next();
+            return;
+          }
+          res.setHeader("Content-Type", "image/svg+xml");
+          res.end(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32"><rect width="32" height="32" rx="6" fill="#0a7a3c"/><text x="40" y="22" font-family="sans-serif" font-size="15" font-weight="700" fill="#0a7a3c">Träger</text></svg>',
+          );
+        });
+      },
+    },
     react(),
     // As the app: icons are imported as components (the settings dialog's
     // checkbox and close icons need it).

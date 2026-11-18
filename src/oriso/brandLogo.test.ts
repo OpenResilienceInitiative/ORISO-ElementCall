@@ -12,6 +12,7 @@ import {
   allowedBrandLogo,
   brandLogoOrigins,
   parseBrandLogo,
+  parseOperatorLogo,
 } from "./brandLogo";
 
 const OWN = "https://dev.oriso.org";
@@ -227,5 +228,36 @@ describe("the logo in the call address", () => {
           .orisoLogo,
       ).toBeNull();
     }
+  });
+});
+
+describe("parseOperatorLogo: the platform operator's logo from the config", () => {
+  const CALL = "https://call.oriso.org";
+
+  it("takes a path on the call's own origin", () => {
+    expect(parseOperatorLogo("/oriso/logo.svg", CALL)).toBe(
+      "https://call.oriso.org/oriso/logo.svg",
+    );
+  });
+
+  it("takes an absolute https address", () => {
+    expect(parseOperatorLogo("https://cdn.oriso.org/logo.png", CALL)).toBe(
+      "https://cdn.oriso.org/logo.png",
+    );
+  });
+
+  it("refuses anything else", () => {
+    for (const bad of [
+      undefined,
+      "",
+      42,
+      "javascript:alert(1)",
+      "data:image/svg+xml,<svg/>",
+      "//evil.example/logo.svg",
+      "http://cdn.oriso.org/logo.png",
+      "https://user:pw@cdn.oriso.org/logo.png",
+      "logo.svg",
+    ])
+      expect(parseOperatorLogo(bad, CALL)).toBeNull();
   });
 });

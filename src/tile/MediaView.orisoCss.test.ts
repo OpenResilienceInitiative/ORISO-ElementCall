@@ -16,6 +16,8 @@ Please see LICENSE in the repository root for full details.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { SHARE_RADIUS } from "../oriso/shape";
+
 // Read from the repository root: vitest runs there, and `import.meta.url` is
 // not a file URL once Vite has transformed this module.
 // Comments are stripped first: these rules document the selectors they
@@ -109,8 +111,15 @@ describe("the names stand under the circle", () => {
     const end = bodiesWhere((selector) =>
       selector.includes('[data-oriso-side="end"] > .fg'),
     );
-    expect(start.join()).toMatch(/inset-inline-start:\s*0/);
-    expect(end.join()).toMatch(/inset-inline-end:\s*0/);
+    // Each half's names stand from the circle's middle outward, so on a
+    // small circle they may reach past its edge but never into the other
+    // half's.
+    expect(start.join()).toMatch(/inset-inline-end:\s*50%/);
+    expect(end.join()).toMatch(/inset-inline-start:\s*50%/);
+    for (const side of [start, end])
+      expect(side.join()).toMatch(
+        /inline-size:\s*max\(50%, min\(200px, 50vw - 16px\)\)/,
+      );
     expect(end.join()).toMatch(/flex-direction:\s*row-reverse/);
   });
 
@@ -157,5 +166,43 @@ describe("the names stand under the circle", () => {
     for (const selector of selectors) {
       expect(selector).not.toMatch(/\]\s*>\s*button/);
     }
+  });
+});
+
+/*
+ * S4, design 5a: on video the name always stands in a dark capsule — bare
+ * or pale text on a moving picture cannot be read.
+ */
+describe("a name on video", () => {
+  it("always sits in a dark, mostly opaque capsule", () => {
+    const [quiet] = bodiesWhere(
+      (selector) =>
+        selector.includes('[data-oriso-rectangular="true"]') &&
+        !selector.includes("speaking") &&
+        /\.nameTag\s*$/.test(selector.trim()),
+    ).filter((body) => /background:/.test(body));
+    const rgba = /background:\s*rgb\((\d+) (\d+) (\d+) \/ (\d+)%\)/.exec(
+      quiet ?? "",
+    );
+    expect(rgba).not.toBeNull();
+    const [, r, g, b, alpha] = rgba!.map(Number);
+    expect(Math.max(r, g, b)).toBeLessThan(64);
+    expect(alpha).toBeGreaterThanOrEqual(70);
+  });
+});
+
+describe("a shared screen in the ORISO design (#2233, R25)", () => {
+  it("is a rectangle with the design's slight corner, wherever it is drawn", () => {
+    /*
+     * On the tile itself rather than on the spotlight around it: the
+     * spotlight's `.contents` drops its corner to 0 when maximised, and the
+     * grove's fixed slot has none of its own.
+     */
+    const bodies = bodiesWhere((selector) =>
+      selector.includes('[data-oriso-share="true"]'),
+    );
+    expect(bodies.join()).toContain(
+      `--media-view-border-radius: ${SHARE_RADIUS}`,
+    );
   });
 });

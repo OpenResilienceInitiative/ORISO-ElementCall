@@ -77,13 +77,29 @@ const DROP = { offset: 22, blur: 38, spread: -10 };
  * Three layers when speaking: a tight ring in the person's colour, a wide
  * glow in the same colour, and a deeper drop that puts the shape in front of
  * the others rather than merely brighter than them.
+ *
+ * `room` is how much space the form has outside itself before something
+ * clips it. Where that is less than the stack's whole reach
+ * (`HALO_REACH_PX`), the glow and the drop are drawn tighter, in proportion,
+ * so that they have faded out before the edge — a smaller halo rather than
+ * a cut one. The ring keeps its width as far as the room allows: it is the
+ * part that says "this one".
  */
-export function haloFor(background: string, speaking: boolean): string {
+export function haloFor(
+  background: string,
+  speaking: boolean,
+  room: number = Number.POSITIVE_INFINITY,
+): string {
   if (!speaking) return QUIET_SHADOW;
+  const fade = HALO_REACH_PX - HALO_LIFT_PX;
+  const free = Math.max(0, room - HALO_LIFT_PX);
+  const k = Number.isFinite(free) ? Math.min(1, free / fade) : 1;
+  const px = (n: number): string => `${Math.round(n * k * 10) / 10}px`;
+  const ring = Math.min(RING_SPREAD, free);
   return [
-    `0 0 0 ${RING_SPREAD}px ${tint(background, RING_ALPHA)}`,
-    `0 0 ${GLOW_BLUR}px ${GLOW_SPREAD}px ${tint(background, GLOW_ALPHA)}`,
-    `0 ${DROP.offset}px ${DROP.blur}px ${DROP.spread}px rgba(0, 0, 0, 0.24)`,
+    `0 0 0 ${Math.round(ring * 10) / 10}px ${tint(background, RING_ALPHA)}`,
+    `0 0 ${px(GLOW_BLUR)} ${px(GLOW_SPREAD)} ${tint(background, GLOW_ALPHA)}`,
+    `0 ${px(DROP.offset)} ${px(DROP.blur)} ${px(DROP.spread)} rgba(0, 0, 0, 0.24)`,
   ].join(", ");
 }
 
@@ -121,6 +137,25 @@ export const HALO_ROOM_PX = Math.ceil(
      * centred in its tile.
      */
     HALO_LIFT_PX,
+);
+
+/**
+ * How far the whole speaking stack paints past the form before it has faded
+ * out, risen included.
+ *
+ * `HALO_ROOM_PX` counts half of each blur, where a blurred edge is at half
+ * strength; the arrangements keep that much room and it is enough for them
+ * to read as lit. Where something CLIPS, half is not enough: the blur radius
+ * is two standard deviations, so at `spread + blur / 2` the glow is still at
+ * 16% of its 0.5 alpha, and the spotlight's edges cut it there into a faint
+ * rectangle. Only at `spread + blur` (and the drop's offset) is it gone.
+ */
+export const HALO_REACH_PX = Math.ceil(
+  Math.max(
+    RING_SPREAD,
+    GLOW_SPREAD + GLOW_BLUR,
+    DROP.offset + DROP.blur + DROP.spread,
+  ) + HALO_LIFT_PX,
 );
 
 /**

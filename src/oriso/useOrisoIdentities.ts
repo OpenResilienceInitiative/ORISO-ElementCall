@@ -19,14 +19,18 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   ORISO_IDENTITY_EVENT_TYPE,
   type OrisoIdentity,
   fallbackIdentity,
+  shownRole,
   initialsFor,
   readIdentity,
+  shownNameFor,
 } from "./identity";
+import { type PointerContextValue } from "./pointer/SharePointerLayer";
 
 export type Identities = ReadonlyMap<string, OrisoIdentity>;
 
@@ -170,7 +174,9 @@ function same(a: Identities, b: Identities): boolean {
       other.file !== identity.file ||
       other.bg !== identity.bg ||
       other.ink !== identity.ink ||
-      other.initials !== identity.initials
+      other.initials !== identity.initials ||
+      other.name !== identity.name ||
+      other.role !== identity.role
     )
       return false;
   }
@@ -373,6 +379,22 @@ export interface OrisoStage {
   audioOnly?: boolean;
   /** The 5A video stage uses rectangular participant tiles. */
   rectangular?: boolean;
+  /**
+   * Everybody on a rectangular stage is a circle, not only me: a 1:1 while
+   * one of the two shares a screen (#2233). The share stays a rectangle.
+   */
+  round?: boolean;
+  /**
+   * Who the HOST says is a counsellor (`org.oriso.call.counsellors`), or
+   * null until it has said. The only source a "Beratung" label is shown
+   * from; see `shownRole`.
+   */
+  counsellors?: ReadonlySet<string> | null;
+  /**
+   * The laser pointer on a shared screen (#2233). Carried here rather than in
+   * a context of its own so the call view needs no further wrapper.
+   */
+  pointer?: PointerContextValue | null;
 }
 
 const EMPTY: OrisoStage = {
@@ -405,9 +427,9 @@ export function useOrisoIdentity(
   userId: string,
   displayName: string,
 ): OrisoIdentity | undefined {
-  const { identities, enabled } = useOrisoStage();
+  const { identities, enabled, counsellors = null } = useOrisoStage();
   const published = identities.get(userId);
-  return useMemo(() => {
+  const identity = useMemo(() => {
     if (!enabled) return undefined;
     if (published === undefined) return fallbackIdentity(userId, displayName);
     /*
@@ -425,4 +447,68 @@ export function useOrisoIdentity(
         }
       : published;
   }, [enabled, published, userId, displayName]);
+  /*
+   * The role SHOWN, kept apart from the role CLAIMED in the record.
+   *
+   * The record is written by the sender's own client, so its `role` is a
+   * claim. The map above keeps the claim as published; the label is decided
+   * here, on every render, from the host's list — so a counsellor the host
+   * lists later gets the label back, and nobody keeps one the host never
+   * gave them.
+   */
+  const role = identity && shownRole(identity.role, userId, counsellors);
+  return useMemo(
+    () =>
+      identity === undefined || identity.role === role
+        ? identity
+        : { ...identity, role },
+    [identity, role],
+  );
+}
+
+/**
+ * `shownNameFor` with the neutral label in the call's language: the name a
+ * tile shows, which falls back to "Teilnehmende Person" and never to
+ * anything read off the login name.
+ */
+export function useShownName(
+  displayName: string,
+  identity: OrisoIdentity | undefined,
+  userId: string,
+): string {
+  const { t } = useTranslation();
+  const { identities } = useOrisoStage();
+  return shownNameFor(
+    displayName,
+    identity,
+    userId,
+    t("oriso.participant_neutral"),
+    identities,
+  );
+}
+
+/**
+ * The name `userId`'s tile shows on this stage, without a hook per person.
+ *
+ * What `useOrisoIdentity` and `useShownName` give the tile, for code that
+ * needs everybody's at once: the Kreis lays all names out together
+ * (`kreisNames`), and a pseudonymous account's display name is its Matrix
+ * id, not the published name its capsule carries. `neutral` is the
+ * translated "Teilnehmende Person".
+ */
+export function shownNameOnStage(
+  stage: Pick<OrisoStage, "identities" | "enabled">,
+  userId: string,
+  displayName: string,
+  neutral: string,
+): string {
+  return shownNameFor(
+    displayName,
+    stage.enabled
+      ? (stage.identities.get(userId) ?? fallbackIdentity(userId, displayName))
+      : undefined,
+    userId,
+    neutral,
+    stage.identities,
+  );
 }

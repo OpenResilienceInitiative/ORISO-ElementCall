@@ -8,7 +8,11 @@ Please see LICENSE in the repository root for full details.
 import { type FC, useMemo, useState } from "react";
 
 import { Config } from "../config/Config";
-import { allowedBrandLogo, brandLogoOrigins } from "./brandLogo";
+import {
+  allowedBrandLogo,
+  brandLogoOrigins,
+  parseOperatorLogo,
+} from "./brandLogo";
 import styles from "./OrisoHeaderLogo.module.css";
 
 interface Props {
@@ -31,8 +35,20 @@ const trustedOrigins = (): string[] => {
   return brandLogoOrigins(window.location.origin, configured);
 };
 
+/** The platform operator's logo from the config, or null (see brandLogo.ts). */
+const operatorLogo = (): string | null => {
+  let configured: unknown;
+  try {
+    configured = Config.get().oriso?.operator_logo;
+  } catch {
+    // Config not initialised: no operator logo yet.
+  }
+  return parseOperatorLogo(configured, window.location.origin);
+};
+
 /**
- * The Träger's logo, left of the title in the ORISO call header.
+ * The Träger's logo, left of the title in the ORISO call header — or the
+ * platform operator's where the Träger has none (#2233 R29).
  *
  * Fail-closed: the address comes from a link anybody can craft, so it is drawn
  * only if it is the tenant logo route on a trusted origin (see brandLogo.ts).
@@ -46,7 +62,10 @@ const trustedOrigins = (): string[] => {
  * Decorative (`alt=""`): the title beside it already says where the call is.
  * `no-referrer` keeps the call's origin from the logo's host.
  */
-const OrisoHeaderLogoImage: FC<{ src: string }> = ({ src }) => {
+const OrisoHeaderLogoImage: FC<{ src: string; onFail?: () => void }> = ({
+  src,
+  onFail,
+}) => {
   const [state, setState] = useState<"loading" | "loaded" | "failed">(
     "loading",
   );
@@ -63,15 +82,26 @@ const OrisoHeaderLogoImage: FC<{ src: string }> = ({ src }) => {
       referrerPolicy="no-referrer"
       hidden={state === "loading"}
       onLoad={() => setState("loaded")}
-      onError={() => setState("failed")}
+      onError={() => {
+        setState("failed");
+        onFail?.();
+      }}
     />
   );
 };
 
 export const OrisoHeaderLogo: FC<Props> = ({ src }) => {
   const trusted = useMemo(() => allowedBrandLogo(src, trustedOrigins()), [src]);
+  const operator = useMemo(() => operatorLogo(), []);
+  // The Träger's logo that failed to load, so the operator's takes its place.
+  const [failed, setFailed] = useState<string | null>(null);
+  const shown = trusted !== null && trusted !== failed ? trusted : operator;
   // Keyed by address: a new logo gets a fresh chance after a failed one.
-  return trusted === null ? null : (
-    <OrisoHeaderLogoImage key={trusted} src={trusted} />
+  return shown === null ? null : (
+    <OrisoHeaderLogoImage
+      key={shown}
+      src={shown}
+      onFail={shown === trusted ? (): void => setFailed(trusted) : undefined}
+    />
   );
 };

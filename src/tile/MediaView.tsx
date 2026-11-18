@@ -12,12 +12,16 @@ import { useTranslation } from "react-i18next";
 import classNames from "classnames";
 import { VideoTrack } from "@livekit/components-react";
 import { Text, Tooltip } from "@vector-im/compound-web";
-import { ErrorSolidIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
+import {
+  ErrorSolidIcon,
+  RaisedHandSolidIcon,
+} from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import styles from "./MediaView.module.css";
 import { Avatar } from "../Avatar";
 import { type EncryptionStatus } from "../state/MediaViewModel";
 import { RaisedHandIndicator } from "../reactions/RaisedHandIndicator";
+import { useHandDuration } from "../oriso/handDuration";
 import { showHandRaisedTimer, useSetting } from "../settings/settings";
 import { type ReactionOption } from "../reactions";
 import { ReactionIndicator } from "../reactions/ReactionIndicator";
@@ -70,15 +74,52 @@ interface Props extends ComponentProps<typeof animated.div> {
   orisoSpeaking?: boolean;
   /** The host's origin, so the artwork can be inherited rather than drawn. */
   orisoParentUrl?: string | null;
+  /** My own tile: a circle on the video stage (#2233, D1). */
+  orisoOwn?: boolean;
+  /**
+   * This tile is a SHARED SCREEN in the ORISO design (#2233, R25).
+   *
+   * A screen is not a person, so it never gets a form: it stays upstream's
+   * tile, with no identity, and only its corner is the design's — a
+   * rectangle, slightly rounded (`SHARE_RADIUS`), on the tile itself so it
+   * holds wherever the share is drawn.
+   */
+  orisoShare?: boolean;
+  /**
+   * Drawn over the picture and under the name tag: the laser pointers on a
+   * shared screen. Must not take pointer events.
+   */
+  overlay?: ReactNode;
 }
 
+/*
+ * A rectangle on the video stage or in the spotlight. It carries no lift, so
+ * it has no halo either; whoever speaks gets the Einzelgespräch's inset rim
+ * instead (#2233 review), or in a spotlight of five nothing visible would
+ * change when somebody starts to talk.
+ */
 const VIDEO_STAGE_SHAPE: TileShape = {
   radius: "var(--cpd-space-5x)",
   tilt: 0,
   contentShare: 0.4,
   body: false,
   lifted: false,
+  speakingAs: "rim",
 };
+
+// #2233 (D1): on the video stage my own picture is a circle — a circle in
+// any box, so a centred square rather than the whole (rail) slot.
+const OWN_CIRCLE_SHAPE: TileShape = {
+  radius: "50%",
+  tilt: 0,
+  contentShare: 0.5,
+  body: false,
+  lifted: false,
+  square: true,
+};
+
+/** The chrome's inset inside a round form (`--cpd-space-3x`). */
+const ROUND_CHROME_INSET = 12;
 
 export const MediaView: FC<Props> = ({
   ref,
@@ -109,16 +150,37 @@ export const MediaView: FC<Props> = ({
   orisoShape: layoutShape,
   orisoSpeaking = false,
   orisoParentUrl = null,
+  orisoOwn = false,
+  orisoShare = false,
+  overlay,
   ...props
 }) => {
   const { t } = useTranslation();
   const [handRaiseTimerVisible] = useSetting(showHandRaisedTimer);
 
-  const { audioOnly, rectangular } = useOrisoStage();
+  const { audioOnly, rectangular, round = false } = useOrisoStage();
+  /*
+   * S6: on an ORISO form the raised hand is a status in the name's capsule,
+   * with how long it has been up ("1:40"), rather than upstream's badge in
+   * the corner. The Einzelgespräch's names are text under the circle and keep
+   * the badge.
+   */
+  const handInCapsule =
+    orisoIdentity !== undefined && layoutShape?.focusX === undefined;
+  const handDuration = useHandDuration(
+    handInCapsule ? raisedHandTime : undefined,
+  );
   const orisoRectangular = orisoIdentity !== undefined && rectangular;
   const videoEnabled =
     cameraEnabled && !(orisoIdentity !== undefined && audioOnly);
-  const orisoShape = orisoRectangular ? VIDEO_STAGE_SHAPE : layoutShape;
+  // Mine always; everybody's in a 1:1 beside a shared screen (#2233). A
+  // share is never round.
+  const orisoRound = orisoRectangular && !orisoShare && (orisoOwn || round);
+  const orisoShape = orisoRectangular
+    ? orisoRound
+      ? OWN_CIRCLE_SHAPE
+      : VIDEO_STAGE_SHAPE
+    : layoutShape;
   const avatarSize = Math.round(Math.min(targetWidth, targetHeight) / 2);
 
   const hasVideo = video?.publication !== undefined;
@@ -186,8 +248,22 @@ export const MediaView: FC<Props> = ({
       : Math.min(targetWidth, targetHeight);
 
   const orisoCircle = ((): { inline: string; block: string } | undefined => {
-    if (orisoIdentity === undefined || orisoShape !== undefined)
+    if (
+      orisoIdentity === undefined ||
+      (orisoShape !== undefined && orisoShape.square !== true)
+    )
       return undefined;
+    /*
+     * A round shape (`square`): the chrome's rows follow the circle, but its
+     * width stays the tile's, so the centred name keeps the room it had
+     * before the circle stopped being an ellipse (180px in the rail, not
+     * the circle's 135px).
+     */
+    if (orisoShape !== undefined)
+      return {
+        inline: `${ROUND_CHROME_INSET}px`,
+        block: `${Math.round((targetHeight - orisoSide) / 2 + ROUND_CHROME_INSET)}px`,
+      };
     const pad = HALO_ROOM_MAX_SHARE * orisoSide;
     return {
       inline: `${Math.round((targetWidth - orisoSide) / 2 + pad)}px`,
@@ -230,10 +306,15 @@ export const MediaView: FC<Props> = ({
         [styles.oriso]: orisoIdentity !== undefined,
       })}
       style={
-        orisoFocusShift === undefined && orisoCircle === undefined
+        orisoFocusShift === undefined &&
+        orisoCircle === undefined &&
+        orisoShape?.nameMax === undefined
           ? style
           : {
               ...style,
+              ...(orisoShape?.nameMax === undefined
+                ? {}
+                : { "--oriso-name-max": `${orisoShape.nameMax}px` }),
               ...(orisoFocusShift === undefined
                 ? {}
                 : { "--oriso-focus-shift": `${orisoFocusShift}px` }),
@@ -250,10 +331,20 @@ export const MediaView: FC<Props> = ({
       data-video-fit={videoFit}
       data-oriso={orisoIdentity === undefined ? undefined : "true"}
       data-oriso-rectangular={orisoRectangular ? "true" : undefined}
+      data-oriso-round={orisoRound ? "true" : undefined}
       data-oriso-speaking={orisoSpeaking ? "true" : undefined}
       data-oriso-half={orisoFocusShift === undefined ? undefined : "true"}
       data-oriso-side={orisoHalfSide}
       data-oriso-circle={orisoCircle === undefined ? undefined : "true"}
+      data-oriso-name-side={orisoShape?.nameSide}
+      data-oriso-share={orisoShare ? "true" : undefined}
+      // A running camera under the name: then the name is always a capsule,
+      // whatever "Namen & Symbole" says (S5).
+      data-oriso-camera={
+        orisoIdentity !== undefined && hasVideo && videoEnabled
+          ? "true"
+          : undefined
+      }
       {...props}
     >
       {orisoIdentity === undefined ? (
@@ -291,6 +382,13 @@ export const MediaView: FC<Props> = ({
           }
           shape={orisoShape}
           speaking={orisoSpeaking}
+          // The shapeless form sits in a tile that clips (the spotlight):
+          // its halo is drawn to the room around it rather than cut by it.
+          haloRoom={
+            orisoShape === undefined
+              ? (Math.min(targetWidth, targetHeight) - orisoSide) / 2
+              : undefined
+          }
           parentUrl={orisoParentUrl}
           // The camera takes the artwork's place and leaves the form alone.
           // With it off, the form carries the animal — there is no black
@@ -309,10 +407,11 @@ export const MediaView: FC<Props> = ({
           videoFit={videoFit}
         />
       )}
+      {overlay}
       <div className={styles.fg}>
         <div className={styles.reactions}>
           <RaisedHandIndicator
-            raisedHandTime={raisedHandTime}
+            raisedHandTime={handInCapsule ? undefined : raisedHandTime}
             miniature={avatarSize < 96}
             showTimer={handRaiseTimerVisible}
             onClick={raisedHandOnClick}
@@ -353,6 +452,19 @@ export const MediaView: FC<Props> = ({
             </div>
           )*/}
         <div className={styles.nameTag}>
+          {orisoHalfSide === undefined && handDuration !== null && (
+            <span
+              className={styles.orisoHand}
+              data-testid="oriso-hand"
+              role="img"
+              aria-label={t("oriso.hand_raised_for", {
+                duration: handDuration,
+              })}
+            >
+              <RaisedHandSolidIcon aria-hidden width={14} height={14} />
+              <span aria-hidden="true">{handDuration}</span>
+            </span>
+          )}
           {orisoHalfSide === undefined && nameTagLeadingIcon}
           {orisoHalfSide === undefined ? (
             nameText

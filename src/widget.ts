@@ -55,6 +55,27 @@ export enum OrisoWidgetActions {
   // fromWidget: the person flipped "Anklopfen" in the call menu. The link
   //   belongs to the host, so the call only asks: { knock: boolean }.
   SetKnock = "org.oriso.call.set_knock",
+  // fromWidget: a window button in the call's header (`orisoHostChrome`).
+  //   The window belongs to the host, so the call only asks:
+  //   { command: "minimise" | "toggle_fullscreen" }, response {}.
+  Window = "org.oriso.call.window",
+  // toWidget: whether the host shows the call full screen, so the header's
+  //   button can say which way it goes: { fullscreen: boolean }.
+  WindowState = "org.oriso.call.window_state",
+  // fromWidget: "Link teilen" in the header (`orisoInvite`). The host makes
+  //   or reuses the call's link: {} → { url: string } | { error: string }.
+  //   The error is a field of a normal reply, not a widget error.
+  InviteLink = "org.oriso.call.invite_link",
+  // toWidget: whether this call may offer its link at all, when the host
+  //   learns it during the call: { available: boolean }, response {}.
+  //   `orisoInvite` is the start; false hides "Link teilen" and
+  //   "Einladelink senden" live, true brings them back (#1662).
+  InviteAvailable = "org.oriso.call.invite_available",
+  // toWidget: who in this call is a counsellor, from the host's own records
+  //   rather than the self-published identity: { userIds: string[] },
+  //   response {}. Sent once the call is ready and again on every change.
+  //   The only source of a "Beratung" label; see `shownRole`.
+  Counsellors = "org.oriso.call.counsellors",
 }
 
 export interface JoinCallData {
@@ -105,6 +126,9 @@ export const widget = ((): WidgetHelpers | null => {
         ElementWidgetActions.SpotlightLayout,
         ElementWidgetActions.DeviceMute,
         OrisoWidgetActions.KnockState,
+        OrisoWidgetActions.WindowState,
+        OrisoWidgetActions.Counsellors,
+        OrisoWidgetActions.InviteAvailable,
       ].forEach((action) => {
         api.on(`action:${action}`, (ev: CustomEvent<IWidgetApiRequest>) => {
           ev.preventDefault();

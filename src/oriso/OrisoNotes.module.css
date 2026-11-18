@@ -5,18 +5,36 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-/* "Meine Gesprächsnotiz" (#112). Every number is the prototype's: the docked
-   card of 2a, the in-view card of 2b, the compact phone card. */
+/* The Schmierzettel (#112), from the approved design (G-Aktionen / H-Menü):
+   the card, its note cards, the field with the type buttons and the filter
+   menu. Colours are the design's `--m3-*` roles. Where the call's own token
+   has the same value it is used (`--cpd-*`, generated from the ORISO scheme);
+   the rest keep the design's value as the fallback. No colour is new. */
 
 .card {
+  /* Design role → the call's token with the same value, else the value. */
+  --m3-primary: var(--cpd-color-bg-action-primary-rest, #a5000a);
+  --m3-primary-hover: var(--cpd-color-bg-action-primary-hovered, #820006);
+  --m3-primary-container: var(--cpd-color-bg-accent-selected, #cc1e1c);
+  --m3-on-primary: var(--cpd-color-text-on-solid-primary, #fff);
+  --m3-on-surface: var(--cpd-color-text-primary, #1a1c1e);
+  --m3-on-surface-variant: var(--cpd-color-text-secondary, #444748);
+  --m3-outline-variant: var(--cpd-color-border-interactive-secondary, #c4c7c8);
+  --m3-surface-container-low: var(
+    --cpd-color-bg-action-secondary-rest,
+    #f6f3f3
+  );
+  --m3-surface-container-high: var(--cpd-color-bg-subtle-primary, #eae7e8);
+
   display: flex;
   flex-direction: column;
-  /* No overflow: hidden. The ⋮ menu opens upward past an empty card; the
+  /* No overflow: hidden. The filter menu opens upward past an empty card; the
      list scrolls on its own. */
   box-sizing: border-box;
+  padding: 24px 24px 18px;
   border-radius: 24px;
-  background: rgb(250 249 249);
-  color: rgb(28 27 31);
+  background: var(--oriso-app-shell, #f5f5f5);
+  color: var(--m3-on-surface);
   font-family: Inter, sans-serif;
   z-index: var(--oriso-z-notes, 15);
 }
@@ -45,12 +63,13 @@ Please see LICENSE in the repository root for full details.
     (var(--oriso-footer-h, 144px) + var(--oriso-toolbar-h, 64px)) / 2 + 36px
   );
   max-block-size: min(
-    296px,
+    440px,
     calc(
       100% - var(--oriso-notes-top, 0px) - 16px -
         (var(--oriso-footer-h, 144px) + var(--oriso-toolbar-h, 64px)) / 2 - 36px
     )
   );
+  padding: 18px 18px 14px;
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 10%),
     0 12px 30px rgb(0 0 0 / 20%);
@@ -75,496 +94,543 @@ Please see LICENSE in the repository root for full details.
   }
 }
 
-.head {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex-shrink: 0;
-  padding: 16px 18px 10px;
-}
-
-.titleRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.title {
-  flex: 1;
-  min-inline-size: 0;
-  font:
-    500 15px/22px Inter,
-    sans-serif;
-  color: rgb(28 27 31);
-}
-
-.copy {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  block-size: 30px;
-  padding: 0 11px;
-  border: none;
-  border-radius: 15px;
-  background: rgb(240 237 238);
-  color: rgb(73 69 79);
-  font:
-    500 11.5px/16px Inter,
-    sans-serif;
-  letter-spacing: 0.3px;
-  cursor: pointer;
-}
-
-.copy svg {
-  inline-size: 16px;
-  block-size: 16px;
-}
-
-.close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: 30px;
-  block-size: 30px;
-  padding: 0;
-  border: none;
-  border-radius: 15px;
-  background: none;
-  color: rgb(102 100 105);
-  cursor: pointer;
-}
-
-.close svg {
-  inline-size: 17px;
-  block-size: 17px;
-}
-
-@media (hover) {
-  .copy:hover {
-    background: rgb(230 227 228);
-  }
-
-  .close:hover {
-    background: rgb(240 237 238);
-  }
-}
-
-.private {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font:
-    400 11.5px/16px Inter,
-    sans-serif;
-  color: rgb(120 118 125);
-}
-
-.private svg {
-  inline-size: 12px;
-  block-size: 12px;
-  flex-shrink: 0;
-  opacity: 0.6;
-}
-
-.rule {
-  flex-shrink: 0;
-  block-size: 1px;
-  margin: 0 18px;
-  background: rgb(0 0 0 / 8%);
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-block-size: 0;
-  overflow: auto;
-  margin: 0;
-  padding: 8px 18px;
-  list-style: none;
-}
-
-.note {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 9px 0;
-  border-block-end: 1px solid rgb(0 0 0 / 5%);
-}
-
-.box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  inline-size: 17px;
-  block-size: 17px;
-  margin-block-start: 1px;
-  padding: 0;
-  border: none;
-  border-radius: 5px;
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px rgb(0 0 0 / 26%);
-  color: transparent;
-  cursor: pointer;
-}
-
-.box svg {
-  inline-size: 13px;
-  block-size: 13px;
-}
-
-.note[data-done="true"] .box {
-  background: var(--oriso-primary, #a5000a);
-  box-shadow: none;
-  color: #fff;
-}
-
-.kind {
-  flex-shrink: 0;
-  /* The design's column; a longer word ("ANMERKUNG" on a phone) pushes the
-     text instead of running into it. */
-  min-inline-size: 68px;
-  font:
-    500 10.5px/19px Inter,
-    sans-serif;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: rgb(140 138 142);
-}
-
-.text {
-  flex: 1;
-  min-inline-size: 0;
-  font:
-    400 13.5px/19px Inter,
-    sans-serif;
-  color: rgb(45 44 40);
-  text-wrap: pretty;
-  overflow-wrap: anywhere;
-  text-decoration-thickness: 1px;
-  transition: color 0.2s ease;
-}
-
-.time {
-  flex-shrink: 0;
-  font:
-    400 10.5px/19px Inter,
-    sans-serif;
-  color: rgb(160 158 162);
-}
-
-.note[data-done="true"] .kind {
-  color: rgb(182 180 184);
-}
-
-.note[data-done="true"] .text {
-  color: rgb(154 152 156);
-  text-decoration-line: line-through;
-}
-
-.foot {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex-shrink: 0;
-  padding: 10px 18px 18px;
-}
-
-.field {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  block-size: 42px;
-  padding: 0 4px 0 12px;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow:
-    inset 0 2px 0 0 rgb(0 0 0 / 5%),
-    inset 0 0 0 1px rgb(0 0 0 / 16%);
-}
-
-.field:focus-within {
-  box-shadow:
-    inset 0 2px 0 0 rgb(0 0 0 / 5%),
-    inset 0 0 0 2px var(--oriso-primary, #a5000a);
-}
-
-.input {
-  flex: 1;
-  min-inline-size: 0;
-  border: none;
-  outline: none;
-  background: none;
-  font:
-    400 13.5px/19px Inter,
-    sans-serif;
-  color: rgb(28 27 31);
-}
-
-.input::placeholder {
-  color: rgb(120 118 125);
-}
-
-.kindAnchor {
-  position: relative;
-}
-
-.kindButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: 34px;
-  block-size: 34px;
-  padding: 0;
-  border: none;
-  border-radius: 17px;
-  background: none;
-  color: rgb(102 100 105);
-  cursor: pointer;
-}
-
-.kindButton svg {
-  inline-size: 20px;
-  block-size: 20px;
-}
-
-.kindMenu {
-  position: absolute;
-  inset-inline-end: 0;
-  inset-block-end: 40px;
-  z-index: 3;
-  inline-size: 176px;
-  padding: 6px 0;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 16%);
-}
-
-.kindItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  inline-size: 100%;
-  block-size: 38px;
-  padding: 0 14px;
-  border: none;
-  background: transparent;
-  font:
-    400 13.5px/19px Inter,
-    sans-serif;
-  color: rgb(28 27 31);
-  text-align: start;
-  cursor: pointer;
-}
-
-.kindItem[aria-checked="true"] {
-  background: rgb(240 237 238);
-}
-
-@media (hover) {
-  .kindItem:hover {
-    background: rgb(240 237 238);
-  }
-}
-
-.temporary {
-  font:
-    400 11px/16px Inter,
-    sans-serif;
-  color: rgb(140 138 142);
-}
-
-/* 2b sizes for the in-view card. */
-.sheet .head {
-  gap: 5px;
-  padding: 14px 16px 8px;
-}
-
-.sheet .title {
-  font:
-    500 14px/20px Inter,
-    sans-serif;
-}
-
-.sheet .copy {
-  gap: 5px;
-  block-size: 28px;
-  padding: 0 10px;
-  border-radius: 14px;
-  font-size: 11px;
-}
-
-.sheet .copy svg {
-  inline-size: 15px;
-  block-size: 15px;
-}
-
-.sheet .close {
-  inline-size: 28px;
-  block-size: 28px;
-  border-radius: 14px;
-}
-
-@media (hover) {
-  .sheet .close:hover {
-    background: rgb(0 0 0 / 6%);
-  }
-}
-
-.sheet .private {
-  font:
-    400 11px/15px Inter,
-    sans-serif;
-}
-
-.sheet .private svg {
-  inline-size: 11px;
-  block-size: 11px;
-}
-
-.sheet .rule {
-  margin: 0 16px;
-}
-
-.sheet .list {
-  gap: 0;
-  padding: 4px 16px;
-}
-
-.sheet .text {
-  font-size: 13px;
-}
-
-.sheet .foot {
-  padding: 9px 16px 14px;
-}
-
-.sheet .field {
-  block-size: 40px;
-}
-
-.sheet .input {
-  font-size: 13px;
-}
-
-.sheet .temporary {
-  font:
-    400 10.5px/15px Inter,
-    sans-serif;
-}
-
-/* The phone card (compact). */
+/* The phone card. */
 .sheet.compact {
   inset-inline: 12px;
   inset-block-end: calc(
     (var(--oriso-footer-h, 120px) + var(--oriso-toolbar-h, 56px)) / 2 + 28px
   );
   max-block-size: min(
-    264px,
+    400px,
     calc(
       100% - var(--oriso-notes-top, 0px) - 12px -
         (var(--oriso-footer-h, 120px) + var(--oriso-toolbar-h, 56px)) / 2 - 28px
     )
   );
+  padding: 14px 12px 12px;
 }
 
-.compact .head {
-  gap: 3px;
-  padding: 10px 12px 6px;
+/* Title and copy on one centre line. */
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.compact .titleRow {
-  gap: 6px;
-}
-
-.compact .title {
+.title {
+  flex: 1;
+  min-inline-size: 0;
   overflow: hidden;
   font:
-    500 13px/28px Inter,
+    500 16px/24px Inter,
     sans-serif;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.compact .copy {
-  justify-content: center;
-  flex-shrink: 0;
-  inline-size: 28px;
-  padding: 0;
-}
-
-.compact .close {
-  flex-shrink: 0;
-}
-
-.compact .private {
-  gap: 5px;
-  font:
-    400 10.5px/14px Inter,
-    sans-serif;
-  white-space: nowrap;
-}
-
-.compact .private svg {
-  inline-size: 10px;
-  block-size: 10px;
-}
-
-.compact .rule {
-  margin: 0 12px;
-}
-
-.compact .list {
-  padding: 2px 12px;
-}
-
-.compact .note {
+.copy {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-  padding: 8px 0;
-}
-
-.compact .box {
-  inline-size: 16px;
-  block-size: 16px;
-}
-
-.compact .box svg {
-  inline-size: 12px;
-  block-size: 12px;
-}
-
-.compact .kind {
-  min-inline-size: 58px;
-  font:
-    500 9.5px/18px Inter,
-    sans-serif;
-}
-
-.compact .text {
-  font:
-    400 12px/18px Inter,
-    sans-serif;
-}
-
-.compact .foot {
-  gap: 6px;
-  padding: 7px 12px 11px;
-}
-
-.compact .field {
+  flex: none;
   block-size: 36px;
-}
-
-.compact .input {
-  font-size: 12px;
-}
-
-.compact .temporary {
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--m3-surface-container-high);
+  color: var(--m3-on-surface);
   font:
-    400 10px/14px Inter,
+    500 13px/20px Inter,
     sans-serif;
+  cursor: pointer;
+}
+
+.copy svg {
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+.copy[data-copied="false"] {
+  justify-content: center;
+  inline-size: 36px;
+  padding: 0;
+  gap: 0;
+}
+
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: 36px;
+  block-size: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--m3-on-surface-variant);
+  cursor: pointer;
+}
+
+.close svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+@media (hover) {
+  .copy:hover {
+    background: var(--m3-surface-container-highest, #e4e2e2);
+  }
+
+  .close:hover {
+    background: var(--m3-surface-container-high);
+  }
+}
+
+.info {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-block-start: 10px;
+  padding-block-end: 14px;
+  border-block-end: 1px solid var(--m3-outline-variant);
+  font:
+    400 12px/16px Inter,
+    sans-serif;
+  color: var(--text-low-emphasis, rgb(0 0 0 / 60%));
+}
+
+.info svg {
+  inline-size: 14px;
+  block-size: 14px;
+  flex: none;
+  margin-block-start: 1px;
+}
+
+/* An import result or "no clipboard" takes the line for a moment. */
+.notice {
+  color: var(--m3-primary);
+  font-weight: 500;
+}
+
+/* The notes stack from the bottom, next to the field; `margin-top: auto` on
+   the first one instead of `justify-content: flex-end`, which would make the
+   top of a long list unreachable by scrolling. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 16px 0;
+}
+
+.list > :first-child {
+  margin-block-start: auto;
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.empty {
+  text-align: center;
+  font:
+    400 14px/20px Inter,
+    sans-serif;
+  color: var(--text-low-emphasis, rgb(0 0 0 / 60%));
+}
+
+.note {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 10px 14px 12px;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 16px;
+  background: var(--m3-surface-container-lowest, #fff);
+}
+
+.noteHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-inline-size: 0;
+  block-size: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 12px;
+  font:
+    500 12px/16px Inter,
+    sans-serif;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+
+.tag svg {
+  inline-size: 14px;
+  block-size: 14px;
+  flex: none;
+}
+
+.tag_notiz {
+  background: var(--m3-surface-container-high);
+  color: var(--m3-on-surface-variant);
+}
+
+.tag_frage {
+  background: var(--m3-primary-fixed, #ffdad5);
+  color: var(--chip-topic-color, #410001);
+}
+
+.tag_aufgabe {
+  background: var(--m3-secondary, #4c555f);
+  color: var(--m3-on-secondary, #fff);
+}
+
+@media (hover) {
+  .tag:hover {
+    box-shadow: 0 0 0 2px var(--m3-outline-variant);
+  }
+}
+
+.note[data-done="true"] .tag {
+  opacity: 0.6;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-inline-end: -8px;
+}
+
+.act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-low-emphasis, rgb(0 0 0 / 60%));
+  cursor: pointer;
+}
+
+.act svg {
+  inline-size: 18px;
+  block-size: 18px;
+  transition:
+    inline-size 0.15s ease,
+    block-size 0.15s ease;
+}
+
+/* The three grow when you reach for them. */
+.act:hover:not(:disabled),
+.act:focus-visible:not(:disabled) {
+  background: var(--m3-surface-container-high);
+  color: var(--m3-on-surface);
+}
+
+.act:hover:not(:disabled) svg,
+.act:focus-visible:not(:disabled) svg {
+  inline-size: 24px;
+  block-size: 24px;
+}
+
+.actDelete:hover:not(:disabled) {
+  color: var(--m3-primary);
+}
+
+.act:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .act svg {
+    transition: none;
+  }
+}
+
+.text {
+  margin: 0;
+  font:
+    400 15px/22px Inter,
+    sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.note[data-done="true"] .text {
+  text-decoration: line-through;
+  color: var(--text-low-emphasis, rgb(0 0 0 / 60%));
+}
+
+/* Four lines; "Mehr anzeigen" unfolds the rest. */
+.clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+}
+
+.more {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--m3-primary);
+  font:
+    500 13px/20px Inter,
+    sans-serif;
+  cursor: pointer;
+}
+
+.more:hover {
+  text-decoration: underline;
+}
+
+/* A ring on everything a keyboard can land on; the menu's items have their
+   own (the shared card's), the input's is the field's. */
+.copy:focus-visible,
+.close:focus-visible,
+.tag:focus-visible,
+.more:focus-visible,
+.ghost:focus-visible,
+.pill:focus-visible,
+.send:focus-visible {
+  outline: 2px solid var(--m3-on-surface);
+  outline-offset: 2px;
+}
+
+.act:focus-visible {
+  outline: 2px solid var(--m3-on-surface);
+  outline-offset: 1px;
+}
+
+/* The field: input, filter button, type buttons. The menu is placed against
+   it, as wide as it is. */
+.field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 4px 8px 8px 14px;
+  border: 2px solid var(--m3-primary-container);
+  border-radius: 16px;
+  background: var(--m3-surface-container-lowest, #fff);
+}
+
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  block-size: 48px;
+}
+
+.input {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font:
+    400 16px/24px Inter,
+    sans-serif;
+  color: var(--m3-on-surface);
+}
+
+/* The ring is the field's, so it goes round the whole of it. */
+.field:has(.input:focus-visible) {
+  outline: 2px solid var(--m3-on-surface);
+  outline-offset: 2px;
+}
+
+.input::placeholder {
+  color: var(--text-low-emphasis, rgb(0 0 0 / 60%));
+}
+
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: 40px;
+  block-size: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--m3-on-surface);
+  cursor: pointer;
+}
+
+.ghost svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+@media (hover) {
+  .ghost:hover {
+    background: var(--m3-surface-container-high);
+  }
+}
+
+/* A filter is on: a red dot on the button, so it is not forgotten. */
+.dot {
+  position: absolute;
+  inset-block-start: 15px;
+  inset-inline-end: 15px;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--m3-primary);
+  pointer-events: none;
+}
+
+/* Over the field, 8px above it, as wide as it is. */
+.menu {
+  position: absolute;
+  inset-inline: -2px;
+  inset-block-end: calc(100% + 8px);
+  z-index: 5;
+  /* OrisoNotes lowers this to the room above the field when it opens. */
+  max-block-size: min(520px, calc(100vh - 32px));
+  overflow-y: auto;
+}
+
+.sendRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 44px;
+}
+
+.types {
+  display: flex;
+  flex: 1;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: 40px;
+  block-size: 40px;
+  padding: 0;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 50%;
+  background: var(--m3-surface-container-lowest, #fff);
+  color: var(--m3-on-surface);
+  cursor: pointer;
+}
+
+.pill svg {
+  inline-size: 22px;
+  block-size: 22px;
+  flex: none;
+}
+
+@media (hover) {
+  .pill:hover:not(:disabled) {
+    background: var(--m3-surface-container-low);
+  }
+}
+
+.pill:disabled {
+  cursor: not-allowed;
+  color: var(--text-low-emphasis, rgb(0 0 0 / 60%));
+}
+
+/* The type used last: icon and word, in the brand colour. A long word (Russian)
+   gets an ellipsis, not a wider field. */
+.pill.pillLast,
+.pill.pillLast:disabled {
+  inline-size: auto;
+  min-inline-size: 0;
+  flex: 0 1 auto;
+  gap: 6px;
+  padding: 0 16px 0 12px;
+  overflow: hidden;
+  border-color: var(--m3-primary);
+  border-radius: 999px;
+  background: var(--m3-primary);
+  color: var(--m3-on-primary);
+  font:
+    500 14px/20px Inter,
+    sans-serif;
+  letter-spacing: 0.25px;
+}
+
+.pillLast svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+@media (hover) {
+  .pill.pillLast:hover:not(:disabled) {
+    background: var(--m3-primary-hover);
+  }
+}
+
+.pillLabel {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: 44px;
+  block-size: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--m3-primary);
+  color: var(--m3-on-primary);
+  cursor: pointer;
+}
+
+.send svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+@media (hover) {
+  .send:hover {
+    background: var(--m3-primary-hover);
+  }
 }

@@ -31,7 +31,41 @@ import styles from "./ViewSwitcher.module.css";
  * a fourth arrangement but the name of the one the stage is already in when
  * there are exactly two people. See `offer` below.
  */
-export type StageView = "hain" | "felder" | "einzelgespraech" | "spotlight";
+export type StageView =
+  | "kreis"
+  | "hain"
+  | "felder"
+  | "kacheln"
+  | "einzelgespraech"
+  | "spotlight";
+
+/** The Kreis: forms on a circle around a centre (drawn here, no Compound icon). */
+const KreisIcon: FC = () => (
+  <svg width={20} height={20} viewBox="0 0 20 20" aria-hidden="true">
+    <circle cx="10" cy="10" r="2.6" fill="currentColor" />
+    {[0, 1, 2, 3, 4, 5].map((i) => {
+      const a = -Math.PI / 2 + (i * Math.PI) / 3;
+      return (
+        <circle
+          key={i}
+          cx={10 + 7 * Math.cos(a)}
+          cy={10 + 7 * Math.sin(a)}
+          r="1.9"
+          fill="currentColor"
+        />
+      );
+    })}
+  </svg>
+);
+
+/** The Felder: one big field and two smaller ones beside it. */
+const FelderIcon: FC = () => (
+  <svg width={20} height={20} viewBox="0 0 20 20" aria-hidden="true">
+    <rect x="2" y="3" width="9" height="14" rx="2" fill="currentColor" />
+    <rect x="13" y="3" width="5" height="6" rx="1.5" fill="currentColor" />
+    <rect x="13" y="11" width="5" height="6" rx="1.5" fill="currentColor" />
+  </svg>
+);
 
 interface Entry {
   key: StageView;
@@ -101,6 +135,11 @@ export const ViewSwitcher: FC<Props> = ({
    */
   const views: Entry[] = useMemo(() => {
     const entries: Record<StageView, Entry> = {
+      kreis: {
+        key: "kreis",
+        label: t("oriso.view_circle"),
+        icon: <KreisIcon />,
+      },
       hain: {
         key: "hain",
         label: t("oriso.view_grove"),
@@ -109,6 +148,11 @@ export const ViewSwitcher: FC<Props> = ({
       felder: {
         key: "felder",
         label: t("oriso.view_fields"),
+        icon: <FelderIcon />,
+      },
+      kacheln: {
+        key: "kacheln",
+        label: t("oriso.view_tiles"),
         icon: <GridIcon aria-hidden width={20} height={20} />,
       },
       einzelgespraech: {

@@ -9,7 +9,7 @@ import { type CSSProperties, type FC, type ReactNode, useMemo } from "react";
 import classNames from "classnames";
 
 import styles from "./OrisoFace.module.css";
-import { type OrisoIdentity } from "./identity";
+import { initialsOf, type OrisoIdentity } from "./identity";
 import { useArtwork } from "./artwork";
 import { HALO_LIFT_PX, SPEAKING_EASING, haloFor } from "./halo";
 import { liftFor } from "./lift";
@@ -53,6 +53,18 @@ const BORDER_SHARE_AT_REFERENCE = 0.04;
 const artworkFraction = (padding: number): number =>
   1 - 2 * padding - BORDER_SHARE_AT_REFERENCE;
 
+/**
+ * The letters a form shows while it has no artwork — never nothing.
+ *
+ * An animal whose drawing did not arrive used to render `initials ?? ""`: a
+ * coloured circle with nothing in it, which reads as a broken tile. The
+ * record's own letters first, then the letters of the name it carries, and
+ * a question mark as the last resort so the form is never blank.
+ */
+export function lettersFor(identity: OrisoIdentity): string {
+  return identity.initials || initialsOf(identity.name ?? "") || "?";
+}
+
 interface Props {
   identity: OrisoIdentity;
   /** The form's smaller side in px. Drives the lift and the halo. */
@@ -69,6 +81,12 @@ interface Props {
   contentSize?: number;
   shape?: TileShape;
   speaking?: boolean;
+  /**
+   * How much space the form has outside itself before its box clips it —
+   * given for the shapeless form in a spotlight, whose tile clips. The
+   * speaking halo is drawn to fit it (`haloFor`). Unset: the whole halo.
+   */
+  haloRoom?: number;
   /** The host's origin, for inheriting the artwork. */
   parentUrl?: string | null;
   /** The camera, when there is one. Replaces the artwork, keeps the form. */
@@ -97,6 +115,7 @@ export const OrisoFace: FC<Props> = ({
   contentSize,
   shape,
   speaking = false,
+  haloRoom,
   parentUrl = null,
   video,
   videoFit = "cover",
@@ -152,7 +171,8 @@ export const OrisoFace: FC<Props> = ({
        * root, which is a containing block for it: `container-type: size`
        * implies `contain: layout`.
        */
-      ...(shape === undefined
+      // A round shape (`square`) is centred the same way (#2233).
+      ...(shape === undefined || shape.square === true
         ? {
             position: "absolute" as const,
             inset: 0,
@@ -204,10 +224,19 @@ export const OrisoFace: FC<Props> = ({
       boxShadow: !lifted
         ? undefined
         : speaking
-          ? haloFor(identity.bg, true)
+          ? haloFor(identity.bg, true, haloRoom)
           : liftFor(size),
     }),
-    [shape, tilt, identity.bg, speaking, size, lifted, prefersReducedMotion],
+    [
+      shape,
+      tilt,
+      identity.bg,
+      speaking,
+      size,
+      lifted,
+      prefersReducedMotion,
+      haloRoom,
+    ],
   );
 
   // The contents stay upright while the form leans, and sit over their own
@@ -246,7 +275,7 @@ export const OrisoFace: FC<Props> = ({
             data-testid="oriso-initials"
             aria-hidden="true"
           >
-            {identity.initials ?? ""}
+            {lettersFor(identity)}
           </span>
         ) : (
           /*

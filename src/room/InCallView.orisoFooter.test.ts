@@ -60,12 +60,11 @@ describe("the ORISO footer", () => {
     // so the toolbar must not offer an entry that would open nothing.
     const view = read("src/room/InCallView.tsx");
     expect(view).toMatch(/\{!isPopupMode && \(\s*<>\s*<RageshakeRequestModal/);
+    // One `callMenu` object feeds the bar's ⋮ and the phone header's (S9).
     expect(view).toMatch(
-      /onOpenSoundSettings=\{isPopupMode \? null : openSoundSettings\}/,
+      /onOpenSoundSettings: isPopupMode \? null : openSoundSettings/,
     );
-    expect(view).toMatch(
-      /onOpenSettings=\{isPopupMode \? null : openSettings\}/,
-    );
+    expect(view).toMatch(/onOpenSettings: isPopupMode \? null : openSettings/);
   });
 
   it("no longer places the view rail in the footer", () => {
@@ -150,6 +149,20 @@ describe("the stacking order", () => {
     // only with its siblings inside the toolbar's stacking context.
     const menu = bodiesWhere(toolbar, (s) => s === ".menu").join();
     expect(menu).not.toMatch(/z-index/);
+  });
+
+  it("keeps the footer's box off the docked note card (#2174)", () => {
+    // The footer sits above the card (toolbar 20 > notes 15) so the bar's ⋮
+    // menu opens over it. Its box must therefore end where the card begins:
+    // padding would still be the footer's box and swallow every click on the
+    // card's lower part — the note field in Fokus, Kacheln and Hain. A
+    // margin gives the room away instead.
+    const docked = bodiesWhere(
+      room,
+      (s) => s === '.inRoom[data-notes-docked="true"] > .footer',
+    ).join();
+    expect(docked).toMatch(/margin-inline-end:\s*var\(--oriso-notes-inset\)/);
+    expect(docked).not.toMatch(/padding-inline-end/);
   });
 
   it("stands the seam with the names, above both halves", () => {

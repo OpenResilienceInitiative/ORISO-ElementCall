@@ -89,6 +89,7 @@ import { type ProcessorState } from "../../livekit/TrackProcessorContext";
 import { ElementWidgetActions, widget } from "../../widget";
 import { UserMedia } from "../UserMedia.ts";
 import { ScreenShare } from "../ScreenShare.ts";
+import { type ScreenShareFailure } from "../../oriso/screenShareFailure.ts";
 import {
   type GridLayoutMedia,
   type Layout,
@@ -132,6 +133,13 @@ import {
 import { Publisher } from "./localMember/Publisher.ts";
 import { type Connection } from "./remoteMembers/Connection.ts";
 import { createLayoutModeSwitch } from "./LayoutSwitch.ts";
+import {
+  type OrisoCallType,
+  type StagePlan,
+  stagePlan,
+} from "../../oriso/stageViews.ts";
+import { cameraOnInOneOnOne$ } from "../../oriso/oneOnOneCamera.ts";
+import { oneOnOnePeople } from "../../oriso/oneOnOnePeople.ts";
 
 const logger = rootLogger.getChild("[CallViewModel]");
 //TODO
@@ -169,6 +177,20 @@ export interface CallViewModelOptions {
    * — and `InCallView`, which constructs this, already has the parameters.
    */
   orisoDesign?: boolean;
+  /**
+   * The ORISO conversation type (`orisoCallType` on the URL). A group
+   * conversation never collapses into the Einzelgespräch: at two people it
+   * keeps the group's arrangements, so it can start in the Kreis. Only read
+   * when `orisoDesign` is on.
+   */
+  orisoCallType?: OrisoCallType | null;
+  /**
+   * Whether the call is a voice or a video call (`callIntent`). A video
+   * group is offered the video-suited arrangements only — Hain, Felder,
+   * Kacheln, Spotlight with the camera inside the forms — and never the
+   * Kreis, whose middle is a sound indicator (S7).
+   */
+  orisoCallIntent?: "audio" | "video" | null;
   /** The version & compatibility mode of MatrixRTC that we should use. */
   matrixRTCMode$: Behavior<MatrixRTCMode>;
 }
@@ -196,6 +218,11 @@ interface LayoutScanState {
 }
 
 type MediaItem = UserMedia | ScreenShare;
+export interface PointerRooms {
+  publish: LivekitRoom | null;
+  listen: LivekitRoom[];
+}
+
 type AudioLivekitItem = {
   livekitRoom: LivekitRoom;
   participants: string[];
@@ -211,6 +238,12 @@ type AudioLivekitItem = {
  *
  * (Mocking this interface should allow building a full view in all states.)
  */
+/** A speaker as the ORISO wave band names them. */
+export interface OrisoSpeaker {
+  userId: string;
+  displayName: string;
+}
+
 export interface CallViewModel {
   // lifecycle
   autoLeave$: Observable<AutoLeaveReason>;
@@ -235,6 +268,9 @@ export interface CallViewModel {
    * Whether we are sharing our screen.
    */
   sharingScreen$: Behavior<boolean>;
+  /** Why the last attempt to share the screen did not start, if it did not. */
+  screenShareFailure$: Behavior<ScreenShareFailure | null>;
+  dismissScreenShareFailure: () => void;
 
   // UI interactions
   /**
@@ -275,8 +311,20 @@ export interface CallViewModel {
    *    multiple devices.
    */
   participantCount$: Behavior<number>;
+  /**
+   * Who is in the call, by Matrix user, in the order they joined; one entry
+   * per person even with several devices. Lists them in the participants
+   * panel (ORISO-Frontend#2233).
+   */
+  participantUserIds$: Behavior<readonly string[]>;
   /** Participants sorted by livekit room so they can be used in the audio rendering */
   audioParticipants$: Behavior<AudioLivekitItem[]>;
+  /**
+   * The LiveKit rooms the ORISO laser pointer uses: the one my own media goes
+   * out on (null until connected), and every room of the call, since others
+   * may publish to a different SFU.
+   */
+  pointerRooms$: Behavior<PointerRooms>;
   /** List of participants raising their hand */
   handsRaised$: Behavior<Record<string, RaisedHandInfo>>;
   /** List of reactions. Keys are: membership.membershipId (currently predefined as: `${membershipEvent.userId}:${membershipEvent.deviceId}`)*/
@@ -337,6 +385,22 @@ export interface CallViewModel {
    * whatever mode is on. See the comment where it is built.
    */
   orisoOneOnOne$: Behavior<boolean>;
+  /**
+   * Whether either camera is on in a 1:1 (#2233, D1/D5): the split circle
+   * while both are off, the video stage once one is on.
+   */
+  orisoCameraOn$: Behavior<boolean>;
+  /**
+   * The ORISO views this call offers and the one it starts in, from the
+   * head count, the conversation type and the call intent. See
+   * `stagePlan`.
+   */
+  orisoPlan$: Behavior<StagePlan>;
+  /**
+   * Who is speaking right now, for the mobile wave band (S9): a remote
+   * speaker before myself, null while nobody speaks.
+   */
+  orisoSpeaker$: Behavior<OrisoSpeaker | null>;
   /**
    * The current generation of the tile store, exposed for debugging purposes.
    */
@@ -832,6 +896,15 @@ export function createCallViewModel$(
     matrixLivekitMembers$.pipe(map((ms) => ms.value.length)),
   );
 
+  const participantUserIds$ = scope.behavior(
+    matrixLivekitMembers$.pipe(
+      map((ms) => [...new Set(ms.value.map((m) => m.userId))]),
+      distinctUntilChanged(
+        (a, b) => a.length === b.length && a.every((id, i) => id === b[i]),
+      ),
+    ),
+  );
+
   const leaveSoundEffect$ = combineLatest([callPickupState$, userMedia$]).pipe(
     // Until the call is successful, do not play a leave sound.
     // If callPickupState$ is null, then we always play the sound as it will not conflict with a decline sound.
@@ -902,6 +975,37 @@ export function createCallViewModel$(
         null,
       ),
       map((speaker) => speaker?.vm ?? null),
+    ),
+  );
+
+  const orisoSpeaker$ = scope.behavior<OrisoSpeaker | null>(
+    userMedia$.pipe(
+      switchMap((mediaItems) =>
+        mediaItems.length === 0
+          ? of(null)
+          : combineLatest(
+              mediaItems.map((m) =>
+                combineLatest([m.vm.speaking$, m.vm.displayName$]).pipe(
+                  map(([speaking, displayName]) => ({
+                    speaking,
+                    local: m.vm.local,
+                    speaker: { userId: m.vm.userId, displayName },
+                  })),
+                ),
+              ),
+            ).pipe(
+              map((all) => {
+                const speaking = all.filter((m) => m.speaking);
+                return (
+                  (speaking.find((m) => !m.local) ?? speaking[0])?.speaker ??
+                  null
+                );
+              }),
+            ),
+      ),
+      distinctUntilChanged(
+        (a, b) => a?.userId === b?.userId && a?.displayName === b?.displayName,
+      ),
     ),
   );
 
@@ -1081,6 +1185,33 @@ export function createCallViewModel$(
       }),
     );
 
+  /*
+   * ORISO's 1:1, counted by people rather than by tiles (#2233, D7): two
+   * people stay a 1:1 while one of them shares a screen. `sharing` says
+   * whether a share is on the stage too. Null when this is not a 1:1.
+   */
+  const orisoOneOnOneStage$: Observable<{
+    pair: OneOnOneLayoutMedia;
+    sharing: boolean;
+  } | null> = mediaItems$.pipe(
+    map((mediaItems) => {
+      const pair = oneOnOnePeople(
+        mediaItems
+          .filter((m): m is UserMedia => m instanceof UserMedia)
+          .map((m) => m.vm),
+      );
+      if (pair === null) return null;
+      return {
+        pair: {
+          type: "one-on-one",
+          local: pair.local as LocalUserMediaViewModel,
+          remote: pair.remote as RemoteUserMediaViewModel,
+        },
+        sharing: mediaItems.some((m) => m instanceof ScreenShare),
+      };
+    }),
+  );
+
   const pipLayoutMedia$: Observable<LayoutMedia> = spotlight$.pipe(
     map((spotlight) => ({ type: "pip", spotlight })),
   );
@@ -1117,9 +1248,38 @@ export function createCallViewModel$(
       switchMap((gridMode) => {
         switch (gridMode) {
           case "grid":
-            return oneOnOneLayoutMedia$.pipe(
-              switchMap((oneOnOne) =>
-                oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
+            /*
+             * Two people get the 1:1, whatever the type (#2233, D7) — and
+             * keep it while one of them shares a screen. The share then
+             * takes the stage as a rounded rectangle and the two people
+             * stand beside it as circles: upstream's spotlight, under the
+             * 1:1's rules (no view rail, no atmosphere; see InCallView). It
+             * used to fall through to the group grid, which drew the Felder
+             * for the sharer and the Fokus for the viewer.
+             */
+            // Outside ORISO's design a share is a third tile, as upstream.
+            if (options.orisoDesign !== true)
+              return oneOnOneLayoutMedia$.pipe(
+                switchMap((oneOnOne) =>
+                  oneOnOne === null ? gridLayoutMedia$ : of(oneOnOne),
+                ),
+              );
+            return orisoOneOnOneStage$.pipe(
+              switchMap((stage) =>
+                stage === null
+                  ? gridLayoutMedia$
+                  : !stage.sharing
+                    ? of(stage.pair)
+                    : // The share's expand button still works here.
+                      spotlightExpanded$.pipe(
+                        switchMap((expanded) =>
+                          expanded
+                            ? spotlightExpandedLayoutMedia$
+                            : windowMode === "narrow"
+                              ? spotlightPortraitLayoutMedia$
+                              : spotlightLandscapeLayoutMedia$,
+                        ),
+                      ),
               ),
             );
           case "spotlight":
@@ -1148,6 +1308,29 @@ export function createCallViewModel$(
         }
       }),
     );
+
+  /*
+   * Whether the design's two-person arrangement is the one GRID mode would
+   * choose — whatever mode is actually on. Two people are a 1:1 whatever
+   * the conversation type (#2233, D7).
+   */
+  const orisoOneOnOne$ = scope.behavior(
+    orisoOneOnOneStage$.pipe(
+      map((stage) => stage !== null),
+      distinctUntilChanged(),
+    ),
+    false,
+  );
+  const orisoCameraOn$ = scope.behavior(
+    orisoOneOnOneStage$.pipe(
+      map((stage) => stage?.pair ?? null),
+      distinctUntilChanged(
+        (a, b) => a?.local === b?.local && a?.remote === b?.remote,
+      ),
+      switchMap(cameraOnInOneOnOne$),
+    ),
+    false,
+  );
 
   const layoutMedia$ = scope.behavior<LayoutMedia>(
     windowMode$.pipe(
@@ -1539,6 +1722,8 @@ export function createCallViewModel$(
     join: localMembership.requestJoinAndPublish,
     toggleScreenSharing: toggleScreenSharing,
     sharingScreen$: sharingScreen$,
+    screenShareFailure$: localMembership.screenShareFailure$,
+    dismissScreenShareFailure: localMembership.dismissScreenShareFailure,
 
     tapScreen: (): void => screenTap$.next(),
     tapControls: (): void => controlsTap$.next(),
@@ -1566,7 +1751,22 @@ export function createCallViewModel$(
     },
 
     participantCount$: participantCount$,
+    participantUserIds$,
     audioParticipants$: audioParticipants$,
+    pointerRooms$: scope.behavior<PointerRooms>(
+      combineLatest(
+        [localMembership.connection$, connectionManager.connectionManagerData$],
+        (local, { value: data }) => {
+          const publish = local?.livekitRoom ?? null;
+          const listen = new Set(
+            data.getConnections().map((c) => c.livekitRoom),
+          );
+          if (publish !== null) listen.add(publish);
+          return { publish, listen: [...listen] };
+        },
+      ),
+      { publish: null, listen: [] },
+    ),
 
     handsRaised$: handsRaised$,
     reactions$: reactions$,
@@ -1596,14 +1796,25 @@ export function createCallViewModel$(
      * and the fields again — and both of those land straight back on the
      * Einzelgespräch, which is the same lie the rail exists to stop telling.
      *
-     * Derived from `oneOnOneLayoutMedia$` so it cannot drift from the real
-     * condition: exactly two media items, one local and one remote. A screen
-     * share makes a third, which is why a count of people would not do.
+     * Counted by PEOPLE (`oneOnOnePeople`): exactly two, one local and one
+     * remote. A screen share is not a third person — the 1:1 keeps its rules
+     * while somebody shares (#2233, live test 16 Nov), and the stage in grid
+     * mode is the share beside the two of them (`orisoOneOnOneStage$`).
      */
-    orisoOneOnOne$: scope.behavior(
-      oneOnOneLayoutMedia$.pipe(map((media) => media !== null)),
-      false,
+    orisoOneOnOne$: orisoOneOnOne$,
+    orisoCameraOn$: orisoCameraOn$,
+    orisoPlan$: scope.behavior(
+      orisoOneOnOne$.pipe(
+        map((alone) =>
+          stagePlan({
+            alone,
+            callType: options.orisoCallType ?? null,
+            intent: options.orisoCallIntent ?? null,
+          }),
+        ),
+      ),
     ),
+    orisoSpeaker$,
     tileStoreGeneration$: tileStoreGeneration$,
     showSpotlightIndicators$: showSpotlightIndicators$,
     showSpeakingIndicators$: showSpeakingIndicators$,

@@ -66,6 +66,30 @@ export interface TileShape {
    * than an edge. The layout draws the circle's lift once, behind them.
    */
   lifted?: boolean;
+  /**
+   * Where the name capsule hangs on the form.
+   *
+   * The capsule may be wider than its form — a 24-character pseudonym is
+   * wider than a listener's blob — so it is centred on the form and spills
+   * over both sides evenly, as the design's capsules do. A form too close to
+   * the stage's edge for that hangs it from its start or end instead, so it
+   * grows inward rather than off the stage. Absent: the start.
+   */
+  nameSide?: "start" | "centre" | "end";
+  /**
+   * The name's cap in px on this form (`--oriso-name-max`), where the layout
+   * has measured its neighbours: the Kreis at high counts (`kreisNames`).
+   * Absent: the stylesheet's cap.
+   */
+  nameMax?: number;
+  /**
+   * A circle, not an ellipse: the form is a centred square of the box's
+   * shorter side rather than the whole box. My own circle on the video stage
+   * stands in a square, but beside a shared screen it stands in the
+   * spotlight's 180x135 rail slot, where `border-radius: 50%` of the whole
+   * box drew a squashed ellipse (#2233, live test 16 Nov).
+   */
+  square?: boolean;
 }
 
 /**
@@ -81,6 +105,32 @@ export interface TileShape {
  * three-digit number and the space before it.
  */
 export const NAME_TAIL_CHARS = 4;
+
+/**
+ * Half the widest capsule a form expects to carry, in pixels: a name at its
+ * cap (`--oriso-name-max`, 184px; 112px on a phone) with its padding and the
+ * raised hand beside it. Used to decide whether a centred capsule still fits
+ * between a form and the stage's edge.
+ */
+export const NAME_CAPSULE_HALF = 130;
+/** The name's cap in a capsule (`--oriso-name-max` in `MediaView.module.css`). */
+export const NAME_MAX = 184;
+export const NAME_MAX_PHONE = 112;
+export const NAME_CAPSULE_HALF_PHONE = 94;
+
+/** Where a form of this box hangs its name on a stage this wide. */
+export function nameSideFor(
+  x: number,
+  width: number,
+  stageWidth: number,
+  phone = false,
+): "start" | "centre" | "end" {
+  const half = phone ? NAME_CAPSULE_HALF_PHONE : NAME_CAPSULE_HALF;
+  const mid = x + width / 2;
+  if (mid - half < 0) return "start";
+  if (mid + half > stageWidth) return "end";
+  return "centre";
+}
 
 /** A display name split into the part that may be cut and the part that may not. */
 export function splitName(name: string): { head: string; tail: string } {
@@ -118,4 +168,47 @@ export const FIELD_RADIUS = "22px";
 export function coverScale(tiltDeg: number): number {
   const t = (Math.abs(tiltDeg) * Math.PI) / 180;
   return Math.cos(t) + Math.sin(t);
+}
+
+/**
+ * The shared screen's corner (#2233, R25): a rectangle, only slightly
+ * rounded — a screen is not a person. The design's spotlight draws the share
+ * at `border-radius: 24px`, which is Compound's 6x space.
+ */
+export const SHARE_RADIUS = "var(--cpd-space-6x)";
+
+const SPOTLIGHT_LAYOUTS: readonly string[] = [
+  "spotlight-landscape",
+  "spotlight-portrait",
+  "spotlight-expanded",
+];
+
+/**
+ * Whether people are drawn as rectangles with slightly rounded corners
+ * rather than as forms (#2233).
+ *
+ * The one-to-one video stage always was (5a). The spotlight is too: like
+ * Element's own spotlight, the big picture of whoever speaks and the small
+ * ones beside it are rounded rectangles, with the animal or the initials
+ * inside when the camera is off (Frank, 13 Nov: "einfach ein normales
+ * Viereck … leicht gerundete Kanten"). Everywhere else — the grove, the
+ * Einzelgespräch, the minimised call — people keep their forms.
+ */
+export function rectangularStage(
+  layoutType: string,
+  videoOneOnOne: boolean,
+): boolean {
+  return videoOneOnOne || SPOTLIGHT_LAYOUTS.includes(layoutType);
+}
+
+/**
+ * Whether everybody on that rectangular stage is a circle (#2233).
+ *
+ * A 1:1 in which one of the two shares a screen keeps the 1:1's look: the
+ * share is the big rounded rectangle, and the two people stand beside it as
+ * circles, as my own picture does on the video stage. A group's spotlight
+ * keeps its rounded rectangles.
+ */
+export function roundStage(layoutType: string, oneOnOne: boolean): boolean {
+  return oneOnOne && SPOTLIGHT_LAYOUTS.includes(layoutType);
 }

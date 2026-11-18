@@ -45,6 +45,12 @@ export enum ErrorCode {
    * be mistaken for a client bug.
    */
   LIVEKIT_JWT_SERVICE_UNAVAILABLE = "LIVEKIT_JWT_SERVICE_UNAVAILABLE",
+  /**
+   * ORISO (Frank, 17 Nov 2026): only counsellors start calls. The gateway
+   * refused an advice seeker's or guest's call because no counsellor is in
+   * it (`reason: call_start_requires_counsellor`), also after one retry.
+   */
+  CALL_START_REQUIRES_COUNSELLOR = "CALL_START_REQUIRES_COUNSELLOR",
   UNKNOWN_ERROR = "UNKNOWN_ERROR",
 }
 
@@ -247,6 +253,23 @@ export class LiveKitAuthDeniedError extends ElementCallError {
       cause,
     );
     this.status = status;
+  }
+}
+
+/**
+ * ORISO (Frank, 17 Nov 2026): only counsellors start calls; advice seekers
+ * and guests join a call a counsellor is in. Raised when the JWT gateway
+ * still refuses the join for that reason after one retry.
+ */
+export class CallStartRequiresCounsellorError extends ElementCallError {
+  public constructor(cause?: Error) {
+    super(
+      t("error.call_start_requires_counsellor"),
+      ErrorCode.CALL_START_REQUIRES_COUNSELLOR,
+      ErrorCategory.UNKNOWN,
+      t("error.call_start_requires_counsellor_description"),
+      cause,
+    );
   }
 }
 
