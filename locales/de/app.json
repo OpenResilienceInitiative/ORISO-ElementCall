@@ -86,6 +86,8 @@
     "call_is_not_supported": "Anrufe werden nicht unterstützt",
     "call_not_found": "Anruf nicht gefunden",
     "call_not_found_description": "<0>Dieser Link scheint zu keinem bestehenden Anruf zu gehören. Es sollte geprüft werden, ob der Link korrekt ist, oder <2>ein neuer erstellt werden</2>.</0>",
+    "call_start_requires_counsellor": "Der Anruf hat noch nicht begonnen",
+    "call_start_requires_counsellor_description": "Nur Ihre Beraterin oder Ihr Berater kann den Anruf starten. Sie können beitreten, sobald sie oder er im Anruf ist. Bitte warten Sie, bis Sie angerufen werden, oder versuchen Sie es gleich noch einmal.",
     "connection_lost": "Verbindung verloren",
     "connection_lost_description": "Ihre Verbindung zum Anruf wurde unterbrochen.",
     "e2ee_unsupported": "Inkompatibler Browser",
