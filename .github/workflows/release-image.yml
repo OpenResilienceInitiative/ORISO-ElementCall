@@ -74,6 +74,7 @@ jobs:
           publish: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
           dockerfile: Dockerfile.prod
+          platforms: linux/amd64
           tags: ${{ env.IMAGE }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

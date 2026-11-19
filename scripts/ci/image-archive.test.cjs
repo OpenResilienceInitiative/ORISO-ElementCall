@@ -201,7 +201,16 @@ test("every publisher uses the archive gate and PRs scan both Dockerfiles withou
     join(root, ".github/actions/scanned-image/action.yml"),
     "utf8",
   );
-  assert.match(gate, /platforms: linux\/amd64,linux\/arm64/);
+  assert.match(
+    gate,
+    /platforms:\n(?:[^\n]+\n)*?    default: linux\/amd64,linux\/arm64/,
+  );
+  assert.match(gate, /platforms: \$\{\{ inputs\.platforms \}\}/);
+  assert.match(gate, /IMAGE_PLATFORMS: \$\{\{ inputs\.platforms \}\}/);
+  assert.match(
+    gate,
+    /scan-image-archive.sh "\$IMAGE_ARCHIVE" "\$IMAGE_PLATFORMS"/,
+  );
   assert.match(gate, /push: false/);
   assert.match(gate, /outputs: type=oci,dest=/);
   assert.match(gate, /provenance: mode=max/);
@@ -214,4 +223,22 @@ test("every publisher uses the archive gate and PRs scan both Dockerfiles withou
     gate,
     /EXPECTED_ARCHIVE_SHA256: \$\{\{ steps\.scan\.outputs\.archive_sha256 \}\}/,
   );
+});
+
+test("the versioned release and its pull-request check both keep the amd64 platform", () => {
+  const workflows = resolve(__dirname, "../../.github/workflows");
+  const releasePlatform =
+    /^([ ]+)dockerfile: Dockerfile\.prod\n\1platforms: linux\/amd64$/m;
+  for (const path of ["release-image.yml", "ci-pull-request.yml"]) {
+    const workflow = readFileSync(join(workflows, path), "utf8");
+    assert.match(workflow, releasePlatform, path);
+    assert.equal([...workflow.matchAll(/^ +platforms:/gm)].length, 1, path);
+  }
+  for (const path of ["ci-main.yml", "build-and-publish-docker.yaml"]) {
+    assert.doesNotMatch(
+      readFileSync(join(workflows, path), "utf8"),
+      /^ +platforms:/m,
+      path,
+    );
+  }
 });

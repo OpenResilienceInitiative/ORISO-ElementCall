@@ -1,11 +1,15 @@
 name: Build, scan and optionally publish Element Call
-description: Require a clean scan of both platforms before publishing the same OCI archive.
+description: Scan every requested platform before publishing the same OCI archive.
 
 inputs:
   dockerfile:
     description: Dockerfile in the checked-out repository
     required: false
     default: Dockerfile
+  platforms:
+    description: Comma-separated target platforms
+    required: false
+    default: linux/amd64,linux/arm64
   tags:
     description: Newline-separated registry tags for publication
     required: false
@@ -43,7 +47,7 @@ runs:
       with:
         context: .
         file: ${{ inputs.dockerfile }}
-        platforms: linux/amd64,linux/arm64
+        platforms: ${{ inputs.platforms }}
         push: false
         outputs: type=oci,dest=${{ runner.temp }}/element-call-${{ inputs.dockerfile }}.tar
         provenance: mode=max
@@ -69,8 +73,9 @@ runs:
       shell: bash
       env:
         IMAGE_ARCHIVE: ${{ runner.temp }}/element-call-${{ inputs.dockerfile }}.tar
+        IMAGE_PLATFORMS: ${{ inputs.platforms }}
         EXPECTED_DIGEST: ${{ steps.build.outputs.digest }}
-      run: bash scripts/ci/scan-image-archive.sh "$IMAGE_ARCHIVE" linux/amd64,linux/arm64 "$EXPECTED_DIGEST"
+      run: bash scripts/ci/scan-image-archive.sh "$IMAGE_ARCHIVE" "$IMAGE_PLATFORMS" "$EXPECTED_DIGEST"
 
     - name: Login to GHCR
       if: ${{ inputs.publish == 'true' }}
