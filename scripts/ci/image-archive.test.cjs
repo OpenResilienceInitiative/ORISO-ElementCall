@@ -242,3 +242,53 @@ test("the versioned release and its pull-request check both keep the amd64 platf
     );
   }
 });
+
+test("the trusted versioned release verifies the published digest before creating release records", () => {
+  const workflows = resolve(__dirname, "../../.github/workflows");
+  const release = readFileSync(join(workflows, "release-image.yml"), "utf8");
+  const branch = readFileSync(join(workflows, "ci-main.yml"), "utf8");
+  const steps = release.split(/^      - name: /m).slice(1);
+  const index = (name) =>
+    steps.findIndex((step) => step.startsWith(name + "\n"));
+  const publish = index("Build, scan and publish the release image");
+  const sign = index("Sign and publish the image provenance attestation");
+  const verify = index("Verify the SLSA provenance predicate");
+  const tag = index("Create and push release tag");
+  const create = index("Create GitHub Release");
+  assert.ok(
+    publish >= 0 &&
+      publish < sign &&
+      sign < verify &&
+      verify < tag &&
+      tag < create,
+  );
+  assert.match(steps[publish], /^        id: image$/m);
+  const pinnedAttest = /actions\/attest@[a-f0-9]{40}/;
+  assert.match(steps[sign], pinnedAttest);
+  assert.equal(
+    steps[sign].match(pinnedAttest)?.[0],
+    branch.match(pinnedAttest)?.[0],
+  );
+  assert.match(
+    steps[sign],
+    /subject-digest: \$\{\{ steps\.image\.outputs\.digest \}\}/,
+  );
+  assert.match(steps[sign], /push-to-registry: true/);
+  assert.match(
+    steps[verify],
+    /gh attestation verify[\s\S]+@\$\{\{ steps\.image\.outputs\.digest \}\}/,
+  );
+  assert.match(
+    steps[verify],
+    /--predicate-type "https:\/\/slsa\.dev\/provenance\/v1"/,
+  );
+  assert.doesNotMatch(
+    steps.slice(sign, create + 1).join(""),
+    /^        (?:if|continue-on-error):/m,
+  );
+  assert.doesNotMatch(release, /^permissions:/m);
+  assert.match(
+    release,
+    /^    permissions:\n      contents: write\n      id-token: write\n      attestations: write\n      artifact-metadata: write\n      packages: write$/m,
+  );
+});
