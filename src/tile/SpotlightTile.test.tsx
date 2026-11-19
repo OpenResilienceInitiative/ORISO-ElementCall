@@ -378,3 +378,46 @@ test("upstream's shared screen is left exactly as it was", () => {
   );
   expect(screen.queryByTestId("oriso-face")).toBeNull();
 });
+
+test("the spotlight's person shows a raised hand with its duration (#173)", () => {
+  /*
+   * Frank, 18 Nov, on Dev: a raised hand was not to be seen. Every grid
+   * tile passes `handRaised$` to `MediaView`; the spotlight's did not, so
+   * the one person filling the stage could raise a hand and nobody saw it.
+   */
+  const alice = createRemoteMedia(
+    mockRtcMembership("@alice:example.org", "AAAA"),
+    { rawDisplayName: "ruhiger Fuchs 432" },
+    mockRemoteParticipant({}),
+  );
+  Object.defineProperty(alice, "handRaised$", {
+    value: constant(new Date(Date.now() - 100_000)),
+  });
+  const identities = new Map([
+    [
+      "@alice:example.org",
+      {
+        kind: "animal" as const,
+        file: "fox.svg",
+        bg: "#165e83",
+        ink: "#ffffff",
+      },
+    ],
+  ]);
+
+  render(
+    <OrisoStageContext value={{ identities, parentUrl: null, enabled: true }}>
+      <SpotlightTile
+        vm={new SpotlightTileViewModel(constant([alice]), constant(false))}
+        targetWidth={300}
+        targetHeight={200}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+
+  expect(screen.getByTestId("oriso-hand").textContent).toBe("1:40");
+});
