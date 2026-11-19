@@ -207,6 +207,7 @@
     "controls_label": "Call controls",
     "encrypted_short": "encrypted",
     "group_topic_title": "{{topic}} · Group call",
+    "guests_title": "Guests",
     "hand_raised_for": "Hand raised for {{duration}}",
     "hangup": "Hang up",
     "invite_button": "Share link",
