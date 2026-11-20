@@ -179,6 +179,7 @@
     "controls_label": "Anrufsteuerung",
     "encrypted_short": "verschlüsselt",
     "group_topic_title": "{{topic}} · Gruppengespräch",
+    "guests_title": "Gäste",
     "hand_raised_for": "Hand gehoben seit {{duration}}",
     "hangup": "Auflegen",
     "invite_button": "Link teilen",

@@ -9,12 +9,33 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { InviteLinkButton } from "./InviteLinkButton";
+import { InviteLinkBody, useInviteLink } from "./InviteLinkBody";
 import { type InviteLinkReply } from "./inviteLink";
+
+/** The link body behind a "Share link" button, as the guest button has it. */
+function Probe({
+  request,
+}: {
+  request: () => Promise<InviteLinkReply>;
+}): React.ReactNode {
+  const { state, start, close, copyAgain } = useInviteLink(request);
+  return (
+    <>
+      <button type="button" onClick={state.kind === "closed" ? start : close}>
+        Share link
+      </button>
+      {state.kind !== "closed" && (
+        <div data-testid="oriso-invite-popover">
+          <InviteLinkBody state={state} onCopy={copyAgain} />
+        </div>
+      )}
+    </>
+  );
+}
 
 const URL_ = "https://oriso.test/call/abc";
 
-describe("Link teilen (S8)", () => {
+describe("the call's link and its copy (S8, #170)", () => {
   let writeText: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -35,7 +56,7 @@ describe("Link teilen (S8)", () => {
     reply: InviteLinkReply,
   ): { request: ReturnType<typeof vi.fn> } => {
     const request = vi.fn().mockResolvedValue(reply);
-    render(<InviteLinkButton request={request} tone="light" />);
+    render(<Probe request={request} />);
     return { request };
   };
 
@@ -83,14 +104,10 @@ describe("Link teilen (S8)", () => {
     expect(screen.queryByTestId("oriso-invite-url")).toBeNull();
   });
 
-  it("closes on Escape and on a second click", async () => {
+  it("closes on a second click", async () => {
     const user = userEvent.setup();
     renderButton({ url: URL_ });
     const trigger = screen.getByRole("button", { name: "Share link" });
-    await user.click(trigger);
-    await screen.findByTestId("oriso-invite-url");
-    await user.keyboard("{Escape}");
-    expect(screen.queryByTestId("oriso-invite-popover")).toBeNull();
     await user.click(trigger);
     await screen.findByTestId("oriso-invite-url");
     await user.click(trigger);

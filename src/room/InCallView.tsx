@@ -109,8 +109,9 @@ import { OrisoHeader } from "../oriso/OrisoHeader";
 import { useOrisoWindow } from "../oriso/useOrisoWindow";
 import { useOrisoInviteAvailable } from "../oriso/useOrisoInviteAvailable";
 import { useOrisoCounsellors } from "../oriso/useOrisoCounsellors";
-import { InviteLinkButton } from "../oriso/InviteLinkButton";
-import { inviteLinkRequester } from "../oriso/inviteLink";
+import { OrisoGuestFab } from "../oriso/OrisoGuestFab";
+import { useOrisoGuestsInPlay } from "../oriso/useOrisoGuestsInPlay";
+import { type InviteLinkReply, inviteLinkRequester } from "../oriso/inviteLink";
 import { useCallDuration } from "../oriso/useCallDuration";
 import { useOrisoKnock } from "../oriso/useOrisoKnock";
 import {
@@ -515,6 +516,11 @@ export const InCallView: FC<InCallViewProps> = ({
 
   // Who knocks on this call's link, and its switch: both from the host (#108).
   const orisoKnock = useOrisoKnock();
+  // Guests: from a knock or the counsellor asking for the link on (#170).
+  const orisoGuests = useOrisoGuestsInPlay(
+    matrixRoom.roomId,
+    orisoKnock.waiting,
+  );
 
   const openProfile = useMemo(
     () =>
@@ -567,13 +573,21 @@ export const InCallView: FC<InCallViewProps> = ({
   const orisoGroupChrome = orisoEnabled && !alone;
   // The window buttons in the header, when the host leaves them to the call.
   const orisoWindow = useOrisoWindow(orisoEnabled && orisoHostChrome);
-  // "Link teilen" (S8): only when the host said it can make a link —
+  // The call's link: only when the host said it can make one —
   // `orisoInvite` at the start, `org.oriso.call.invite_available` later.
   const orisoInviteAvailable = useOrisoInviteAvailable(orisoInvite);
-  const orisoInviteRequest = useMemo(
-    () => (orisoEnabled && orisoInviteAvailable ? inviteLinkRequester() : null),
-    [orisoEnabled, orisoInviteAvailable],
-  );
+  const { markInviting } = orisoGuests;
+  const orisoInviteRequest = useMemo(() => {
+    const request =
+      orisoEnabled && orisoInviteAvailable ? inviteLinkRequester() : null;
+    if (request === null) return null;
+    // Asking for the link is inviting somebody: guests are part of the call
+    // from now on, and the guest button comes (#170).
+    return async (): Promise<InviteLinkReply> => {
+      markInviting();
+      return request();
+    };
+  }, [orisoEnabled, orisoInviteAvailable, markInviting]);
 
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
@@ -915,8 +929,6 @@ export const InCallView: FC<InCallViewProps> = ({
   const callMenu: CallMenuProps = {
     onToggleNotes: toggleNotes,
     waitingCount: orisoKnock.waiting,
-    knock: orisoKnock.knock,
-    onKnockChange: orisoKnock.setKnock,
     pointing: sharePointer.pointing,
     onPointingChange: sharePointer.onPointingChange,
     onHangup: (): void => vm.hangup(),
@@ -1059,15 +1071,6 @@ export const InCallView: FC<InCallViewProps> = ({
                 <ListBulletedIcon aria-hidden />
                 {t("oriso.video_stage_notes")}
               </button>
-            )}
-            {/* S8: the host's link to this call (`orisoInvite`). */}
-            {orisoInviteRequest !== null && (
-              <InviteLinkButton
-                request={orisoInviteRequest}
-                tone={orisoVideoOneOnOne ? "dark" : "light"}
-                compact={orisoMobile}
-                onTouchEnd={onHeaderTouchEnd}
-              />
             )}
             {/* S9: the ⋮ moves from the bar into a phone's header. */}
             {orisoMobile && (
@@ -1449,6 +1452,30 @@ export const InCallView: FC<InCallViewProps> = ({
     />
   );
 
+  /*
+   * #170: the guest button, once guests are part of the call — and only for
+   * whoever can do something there (the counsellor: the link or Anklopfen).
+   * Not in a call of the counsellor and logged-in people alone.
+   */
+  const guestFab = orisoEnabled &&
+    showControls &&
+    orisoGuests.inPlay &&
+    (orisoInviteRequest !== null || orisoKnock.setKnock !== null) && (
+      <OrisoGuestFab
+        inviteRequest={orisoInviteRequest}
+        knock={orisoKnock.knock}
+        onKnockChange={orisoKnock.setKnock}
+        waitingCount={orisoKnock.waiting}
+        compact={orisoMobile}
+        onTouchEnd={onControlsTouchEnd}
+        style={
+          {
+            "--oriso-footer-h": `${footerBounds.height}px`,
+          } as CSSProperties
+        }
+      />
+    );
+
   const footer = (
     <div
       ref={footerRef}
@@ -1597,6 +1624,7 @@ export const InCallView: FC<InCallViewProps> = ({
               {waitingOverlay}
               {footer}
               {notes}
+              {guestFab}
               {!isPopupMode && (
                 <>
                   <RageshakeRequestModal {...rageshakeRequestModalProps} />

@@ -328,23 +328,20 @@ describe("knocking in the call (#108)", () => {
     expect(row?.textContent).toContain("2 waiting");
   });
 
-  it("offers the Anklopfen switch with the host's setting", () => {
-    const onKnockChange = vi.fn();
-    render(<OrisoToolbar {...props({ knock: true, onKnockChange })} />);
+  it("keeps Anklopfen out of the menu: it lives on the guest button (#170)", () => {
+    render(<OrisoToolbar {...props({ waitingCount: 1 })} />);
     fireEvent.click(screen.getByTestId("incall_menu"));
-    const knock = screen.getByRole("switch", { name: "Knock first" });
-    expect(knock.getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(knock);
-    expect(onKnockChange).toHaveBeenCalledWith(false);
-    // The menu stays open, so the person sees the switch flip.
-    expect(screen.getByTestId("oriso-call-menu")).toBeTruthy();
+    expect(screen.queryByRole("switch", { name: "Knock first" })).toBeNull();
+    expect(
+      screen
+        .getByTestId("oriso-call-menu")
+        .querySelector('[data-entry="knock"]'),
+    ).toBeNull();
   });
 
-  it("has no accessibility violations with the badge and the switch", async () => {
+  it("has no accessibility violations with the badge", async () => {
     const { container } = render(
-      <OrisoToolbar
-        {...props({ waitingCount: 1, knock: false, onKnockChange: vi.fn() })}
-      />,
+      <OrisoToolbar {...props({ waitingCount: 1 })} />,
     );
     fireEvent.click(screen.getByTestId("incall_menu"));
     expect(await axe(container)).toHaveNoViolations();

@@ -32,7 +32,8 @@ Please see LICENSE in the repository root for full details.
  *   ?notes=1                      the notes card docked on the right
  *   ?names=dezent|popout          "Namen & Symbole" (set in the settings)
  *   ?atmosphere=<motif>|traeger   the person's stored choice
- *   ?invite=1|error               "Link teilen" in the header (S8); the fake
+ *   ?invite=1|error               guests are part of the call: the guest
+ *                                 button (#170) with the link; the fake
  *                                 host answers with a link, or with an error
  *   ?mobile=1                     the phone's full screen (S9, 5b): compact
  *                                 header with ⋮, wave band, short bar;
@@ -84,7 +85,7 @@ import {
 } from "../src/oriso/atmosphereChoice";
 import { readNameStyle } from "../src/oriso/nameStyle";
 import { OrisoMobileMenu, OrisoToolbar } from "../src/oriso/OrisoToolbar";
-import { InviteLinkButton } from "../src/oriso/InviteLinkButton";
+import { OrisoGuestFab } from "../src/oriso/OrisoGuestFab";
 import { type InviteLinkReply } from "../src/oriso/inviteLink";
 import { WaveBand } from "../src/oriso/WaveBand";
 import { speakerBandPlace } from "../src/oriso/speakerBand";
@@ -536,13 +537,6 @@ function Stage(): React.ReactNode {
                     fullscreen
                     actions={
                       <>
-                        {invite !== null && (
-                          <InviteLinkButton
-                            request={fakeInvite}
-                            tone="light"
-                            compact
-                          />
-                        )}
                         <OrisoMobileMenu
                           participantCount={count}
                           onToggleNotes={() => setNotesOpen((o) => !o)}
@@ -593,9 +587,6 @@ function Stage(): React.ReactNode {
                         offer={plan.offer}
                         onChange={setView}
                       />
-                      {invite !== null && (
-                        <InviteLinkButton request={fakeInvite} tone="light" />
-                      )}
                     </>
                   }
                 />
@@ -629,6 +620,16 @@ function Stage(): React.ReactNode {
                   }
                 />
               </div>
+              {invite !== null && (
+                <OrisoGuestFab
+                  inviteRequest={fakeInvite}
+                  knock={null}
+                  onKnockChange={null}
+                  waitingCount={0}
+                  compact={mobile}
+                  style={{ "--oriso-footer-h": `${FOOTER}px` } as CSSProperties}
+                />
+              )}
               <OrisoNotes
                 ref={sheetRef}
                 open={notesOpen}

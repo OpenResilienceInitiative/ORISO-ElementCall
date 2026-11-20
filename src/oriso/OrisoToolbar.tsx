@@ -77,9 +77,6 @@ export interface CallMenuProps {
   onOpenSettings: (() => void) | null;
   /** People knocking on this call's link, from the host (#108). */
   waitingCount?: number;
-  /** "Anklopfen" of this call's link; null hides the switch (no link to switch). */
-  knock?: boolean | null;
-  onKnockChange?: ((knock: boolean) => void) | null;
   /**
    * "Laserpointer": whether the others see where I point on a shared screen.
    * Null hides the switch — nobody else is sharing, or the call is not
@@ -151,8 +148,6 @@ export const OrisoToolbar: FC<Props> = ({
   onOpenSoundSettings,
   onOpenSettings,
   waitingCount = 0,
-  knock = null,
-  onKnockChange = null,
   pointing = null,
   onPointingChange = null,
   onTouchEnd,
@@ -320,8 +315,6 @@ export const OrisoToolbar: FC<Props> = ({
           onOpenSettings={onOpenSettings}
           onHangup={onHangup}
           waitingCount={waitingCount}
-          knock={knock}
-          onKnockChange={onKnockChange}
           onTouchEnd={onTouchEnd}
         />
       )}
@@ -472,8 +465,6 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
   onOpenSettings,
   onHangup,
   waitingCount = 0,
-  knock = null,
-  onKnockChange = null,
   pointing = null,
   onPointingChange = null,
   onTouchEnd,
@@ -551,31 +542,6 @@ export const CallMenuPanel: FC<CallMenuPanelProps> = ({
           >
             <LinkIcon aria-hidden width={21} height={21} />
           </MenuEntry>
-        )}
-        {knock !== null && onKnockChange !== null && (
-          <div className={styles.row} data-entry="knock">
-            <span className={styles.rowLabel}>
-              <span id={`${id}-knock`}>{t("oriso.knock_label")}</span>
-              <span id={`${id}-knock-state`} className={styles.rowDescription}>
-                {t(knock ? "oriso.knock_on" : "oriso.knock_off")}
-              </span>
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={knock}
-              aria-labelledby={`${id}-knock`}
-              aria-describedby={`${id}-knock-state`}
-              className={styles.switch}
-              data-state={knock ? "on" : "off"}
-              // The menu stays open: the person sees the switch flip.
-              onClick={() => onKnockChange(!knock)}
-              onTouchEnd={onTouchEnd}
-              data-testid="oriso-knock-switch"
-            >
-              <span className={styles.switchThumb} aria-hidden="true" />
-            </button>
-          </div>
         )}
       </div>
       <div className={styles.section}>
