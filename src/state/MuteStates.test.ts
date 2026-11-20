@@ -229,6 +229,28 @@ describe("MuteStates", () => {
     expect(lastVideoEnabled).toBe(true);
   });
 
+  test("locks the camera off for an ORISO audio call", async () => {
+    getUrlParams.mockReturnValue({
+      orisoDesign: true,
+      callIntent: "audio",
+      defaultVideoEnabled: true,
+    });
+    const muteStates = new MuteStates(
+      testScope,
+      mockMediaDevices({
+        audioOutput: aAudioOutputDevices(),
+        videoInput: aVideoInput(),
+      }),
+      constant(true),
+    );
+
+    await flushPromises();
+
+    expect(muteStates.audio.enabled$.value).toBe(true);
+    expect(muteStates.video.enabled$.value).toBe(false);
+    expect(muteStates.video.setEnabled$.value).toBeNull();
+  });
+
   test("should disable video for audio call intent", async () => {
     getUrlParams.mockReturnValue({
       callIntent: "audio",

@@ -9,6 +9,7 @@ import { type IOpenIDToken, type MatrixClient } from "matrix-js-sdk";
 import { logger } from "matrix-js-sdk/lib/logger";
 
 import {
+  CallStartRequiresCounsellorError,
   FailToGetOpenIdToken,
   LiveKitAuthDeniedError,
   LiveKitJwtServiceUnavailableError,
@@ -50,7 +51,6 @@ export async function getSFUConfigWithOpenID(
       error instanceof Error ? error : new Error("Unknown error"),
     );
   }
-  logger.debug("Got openID token", openIdToken);
 
   logger.info(`Trying to get JWT for focus ${serviceUrl}...`);
   const sfuConfig = await getLiveKitJWT(
@@ -64,11 +64,36 @@ export async function getSFUConfigWithOpenID(
   return sfuConfig;
 }
 
+/** The gateway's reason when nobody who may start the call is in it yet. */
+const CALL_START_REQUIRES_COUNSELLOR = "call_start_requires_counsellor";
+
+/**
+ * ORISO (Frank, 17 Nov 2026): how long to wait before asking once more when
+ * the gateway refused a join because no counsellor is in the call yet. The
+ * counsellor's own membership may reach the server a moment after the
+ * advice seeker pressed "Annehmen".
+ */
+export const CALL_START_RETRY_DELAY_MS = 2_000;
+
+async function startRefusalReason(res: Response): Promise<string | null> {
+  try {
+    const body: unknown = await res.json();
+    return typeof body === "object" &&
+      body !== null &&
+      (body as { reason?: unknown }).reason === CALL_START_REQUIRES_COUNSELLOR
+      ? CALL_START_REQUIRES_COUNSELLOR
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 async function getLiveKitJWT(
   client: OpenIDClientParts,
   livekitServiceURL: string,
   roomName: string,
   openIDToken: IOpenIDToken,
+  retried = false,
 ): Promise<SFUConfig> {
   let res: Response;
   try {
@@ -94,6 +119,27 @@ async function getLiveKitJWT(
   if (!res.ok) {
     // 401/403 → gateway explicitly refused the OpenID token (or the caller
     // isn't a member of the room it authorises against).
+    if (
+      res.status === 403 &&
+      (await startRefusalReason(res)) === CALL_START_REQUIRES_COUNSELLOR
+    ) {
+      // Only counsellors start calls: retry once, then say why.
+      if (retried) {
+        throw new CallStartRequiresCounsellorError(
+          new Error("JWT gateway refused: no counsellor in the call"),
+        );
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, CALL_START_RETRY_DELAY_MS),
+      );
+      return getLiveKitJWT(
+        client,
+        livekitServiceURL,
+        roomName,
+        openIDToken,
+        true,
+      );
+    }
     if (res.status === 401 || res.status === 403) {
       throw new LiveKitAuthDeniedError(
         res.status,

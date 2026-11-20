@@ -107,7 +107,9 @@ test("toggle fit/contain for a participant's video", () => {
   });
 });
 
-test("local media remembers whether it should always be shown", () => {
+test("local media is always shown, regardless of the stored setting", () => {
+  // LocalUserMediaViewModel deliberately overrides alwaysShow$ to true in this
+  // embedded deployment, so toggling the stored setting must not hide the tile.
   const vm1 = createLocalMedia(
     rtcMembership,
     {},
@@ -116,19 +118,18 @@ test("local media remembers whether it should always be shown", () => {
   );
   withTestScheduler(({ expectObservable, schedule }) => {
     schedule("-a|", { a: () => vm1.setAlwaysShow(false) });
-    expectObservable(vm1.alwaysShow$).toBe("ab", { a: true, b: false });
+    expectObservable(vm1.alwaysShow$).toBe("a", { a: true });
   });
 
-  // Next local media should start out *not* always shown
+  // A new local media still starts out (and stays) always shown
   const vm2 = createLocalMedia(
     rtcMembership,
     {},
     mockLocalParticipant({}),
     mockMediaDevices({}),
   );
-  withTestScheduler(({ expectObservable, schedule }) => {
-    schedule("-a|", { a: () => vm2.setAlwaysShow(true) });
-    expectObservable(vm2.alwaysShow$).toBe("ab", { a: false, b: true });
+  withTestScheduler(({ expectObservable }) => {
+    expectObservable(vm2.alwaysShow$).toBe("a", { a: true });
   });
 });
 

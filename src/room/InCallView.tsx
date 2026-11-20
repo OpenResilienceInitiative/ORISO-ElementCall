@@ -8,6 +8,7 @@ Please see LICENSE in the repository root for full details.
 import { Button, IconButton, Text, Tooltip } from "@vector-im/compound-web";
 import { type MatrixClient, type Room as MatrixRoom } from "matrix-js-sdk";
 import {
+  type CSSProperties,
   type FC,
   type PointerEvent,
   type TouchEvent,
@@ -23,9 +24,10 @@ import useMeasure from "react-use-measure";
 import { type MatrixRTCSession } from "matrix-js-sdk/lib/matrixrtc";
 import classNames from "classnames";
 import { BehaviorSubject, map } from "rxjs";
-import { useObservable } from "observable-hooks";
+import { useObservable, useObservableEagerState } from "observable-hooks";
 import { logger as rootLogger } from "matrix-js-sdk/lib/logger";
 import {
+  ListBulletedIcon,
   VoiceCallSolidIcon,
   VolumeOnSolidIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
@@ -66,9 +68,11 @@ import { useInitial } from "../useInitial";
 import { SpotlightTile } from "../tile/SpotlightTile";
 import { type EncryptionSystem } from "../e2ee/sharedKeyManagement";
 import { E2eeType } from "../e2ee/e2eeType";
+import { useSharePointer } from "../oriso/pointer/useSharePointer";
 import { makeGridLayout } from "../grid/GridLayout";
 import {
   type CallLayoutOutputs,
+  type Alignment,
   defaultPipAlignment,
   defaultSpotlightAlignment,
 } from "../grid/CallLayout";
@@ -76,6 +80,60 @@ import { makeOneOnOneLayout } from "../grid/OneOnOneLayout";
 import { makeSpotlightExpandedLayout } from "../grid/SpotlightExpandedLayout";
 import { makeSpotlightLandscapeLayout } from "../grid/SpotlightLandscapeLayout";
 import { makeSpotlightPortraitLayout } from "../grid/SpotlightPortraitLayout";
+import { makeOrisoGroveLayout } from "../grid/OrisoGroveLayout";
+import { makeEinzelgespraechLayout } from "../grid/EinzelgespraechLayout";
+import { type StageView, ViewSwitcher } from "../oriso/ViewSwitcher";
+import { KachelnPager } from "../oriso/KachelnPager";
+import { AtmospherePicker } from "../oriso/AtmospherePicker";
+import {
+  ATMOSPHERE_CHOICE_KEY,
+  type AtmosphereChoice,
+  readAtmosphereChoice,
+  resolveAtmosphere,
+} from "../oriso/atmosphereChoice";
+import { useNameStyle } from "../oriso/nameStyle";
+import {
+  type CallMenuProps,
+  OrisoMobileMenu,
+  OrisoToolbar,
+} from "../oriso/OrisoToolbar";
+import { WaveBand } from "../oriso/WaveBand";
+import {
+  kreisNamesSpeakerBeside,
+  PIP_BAND_BLOCK,
+  speakerBandPlace,
+} from "../oriso/speakerBand";
+import { useStageScrolled } from "../oriso/useStageScrolled";
+import { OrisoNotes } from "../oriso/OrisoNotes";
+import { OrisoHeader } from "../oriso/OrisoHeader";
+import { useOrisoWindow } from "../oriso/useOrisoWindow";
+import { useOrisoInviteAvailable } from "../oriso/useOrisoInviteAvailable";
+import { useOrisoCounsellors } from "../oriso/useOrisoCounsellors";
+import { OrisoGuestFab } from "../oriso/OrisoGuestFab";
+import { useOrisoGuestsInPlay } from "../oriso/useOrisoGuestsInPlay";
+import { type InviteLinkReply, inviteLinkRequester } from "../oriso/inviteLink";
+import { useCallDuration } from "../oriso/useCallDuration";
+import { useOrisoKnock } from "../oriso/useOrisoKnock";
+import {
+  OrisoStageContext,
+  useOrisoIdentities,
+} from "../oriso/useOrisoIdentities";
+import { OrisoShapeStore, OrisoShapesContext } from "../oriso/useOrisoShape";
+import { rectangularStage, roundStage } from "../oriso/shape";
+import {
+  type OrisoPins,
+  OrisoPinsContext,
+  OrisoViewContext,
+  type OrisoView,
+} from "../oriso/useOrisoView";
+import {
+  arrangementFor,
+  resolveStageView,
+  viewStorageKey,
+} from "../oriso/stageViews";
+import { stageTitle, stageTitleText } from "../oriso/stageTitle";
+import { useLocalStorage } from "../useLocalStorage";
+import { Atmosphere } from "../oriso/Atmosphere";
 import { GridTileViewModel, type TileViewModel } from "../state/TileViewModel";
 import {
   ReactionsSenderProvider,
@@ -93,6 +151,7 @@ import { ReactionsReader } from "../reactions/ReactionsReader";
 import { LivekitRoomAudioRenderer } from "../livekit/MatrixAudioRenderer.tsx";
 import { muteAllAudio$ } from "../state/MuteAllAudioModel.ts";
 import { useMediaDevices } from "../MediaDevicesContext.ts";
+import { InitialDeviceNotice } from "./InitialDeviceNotice";
 import { EarpieceOverlay } from "./EarpieceOverlay.tsx";
 import { useAppBarHidden, useAppBarSecondaryButton } from "../AppBar.tsx";
 import { useBehavior } from "../useBehavior.ts";
@@ -111,6 +170,28 @@ import { ObservableScope } from "../state/ObservableScope.ts";
 const logger = rootLogger.getChild("[InCallView]");
 
 const maxTapDurationMs = 400;
+
+// The notepad docks beside a group stage from this width (#112): 352px card
+// plus margins still leave the stage most of a laptop screen.
+const NOTES_DOCK_MIN_WIDTH = 900;
+// The video 1:1 docks its narrower card (5a) from here: a sheet over the
+// video stage would cover the person one is talking to.
+const VIDEO_NOTES_DOCK_MIN_WIDTH = 720;
+// The phone card, the same width at which the toolbar turns compact.
+const NOTES_COMPACT_MAX_WIDTH = 400;
+/*
+ * A phone (S9, designs 5b/5d): at or below this width the call is the
+ * mobile full screen — compact header with the ⋮, the wave band for groups,
+ * a four-to-five button bar. The header's own breakpoint is the same.
+ */
+const MOBILE_MAX_WIDTH = 550;
+// What the docked card takes from the stage: 352px plus 16px either side.
+const NOTES_DOCK_INSET = 352 + 2 * 16;
+const VIDEO_NOTES_WIDTH = 312;
+const VIDEO_NOTES_GAP = 16;
+// The card in the view ends just above the control bar; this keeps 12px of
+// air between it and whatever the stage draws above it.
+const NOTES_SHEET_CLEARANCE = 12;
 
 export interface ActiveCallProps extends Omit<
   InCallViewProps,
@@ -133,8 +214,14 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
     logger.info("START CALL VIEW SCOPE");
     const scope = new ObservableScope();
     const reactionsReader = new ReactionsReader(scope, props.rtcSession);
-    const { autoLeaveWhenOthersLeft, waitForCallPickup, sendNotificationType } =
-      urlParams;
+    const {
+      autoLeaveWhenOthersLeft,
+      waitForCallPickup,
+      sendNotificationType,
+      orisoDesign,
+      orisoCallType,
+      callIntent,
+    } = urlParams;
     const vm = createCallViewModel$(
       scope,
       props.rtcSession,
@@ -145,6 +232,13 @@ export const ActiveCall: FC<ActiveCallProps> = (props) => {
         encryptionSystem: props.e2eeSystem,
         autoLeaveWhenOthersLeft,
         waitForCallPickup: waitForCallPickup && sendNotificationType === "ring",
+        // Which arrangement each window size gets; see `CallViewModelOptions`.
+        orisoDesign,
+        // A group conversation stays a group at two people (S6b), and a
+        // video group is offered the video arrangements only (S7).
+        orisoCallType,
+        orisoCallIntent:
+          callIntent === "audio" || callIntent === "video" ? callIntent : null,
         matrixRTCMode$: matrixRTCModeSetting.value$,
       },
       reactionsReader.raisedHands$,
@@ -199,6 +293,7 @@ export const InCallView: FC<InCallViewProps> = ({
   matrixInfo,
   matrixRoom,
   muteStates,
+  rtcSession,
 
   header: headerStyle,
   onShareClick,
@@ -262,6 +357,7 @@ export const InCallView: FC<InCallViewProps> = ({
 
   const audioParticipants = useBehavior(vm.audioParticipants$);
   const participantCount = useBehavior(vm.participantCount$);
+  const participantUserIds = useBehavior(vm.participantUserIds$);
   const reconnecting = useBehavior(vm.reconnecting$);
   const windowMode = useBehavior(vm.windowMode$);
   const layout = useBehavior(vm.layout$);
@@ -273,6 +369,10 @@ export const InCallView: FC<InCallViewProps> = ({
   const earpieceMode = useBehavior(vm.earpieceMode$);
   const audioOutputSwitcher = useBehavior(vm.audioOutputSwitcher$);
   const sharingScreen = useBehavior(vm.sharingScreen$);
+  const screenShareFailure = useBehavior(vm.screenShareFailure$);
+  const localHandRaised = !!useBehavior(vm.handsRaised$)[
+    `${client.getUserId()}:${client.getDeviceId()}`
+  ];
 
   const ringOverlay = useBehavior(vm.ringOverlay$);
   const fatalCallError = useBehavior(vm.fatalError$);
@@ -369,6 +469,18 @@ export const InCallView: FC<InCallViewProps> = ({
     [vm, showFooter],
   );
 
+  // The ORISO header stays visible while the footer hides (flat windows,
+  // inactivity), so its controls must not cancel their own click the way a
+  // hidden footer does. A touch on it keeps the controls shown and does not
+  // reach the stage's tap-to-toggle.
+  const onHeaderTouchEnd = useCallback(
+    (e: TouchEvent) => {
+      e.stopPropagation();
+      vm.tapControls();
+    },
+    [vm],
+  );
+
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
       if (e.pointerType === "mouse") vm.hoverScreen();
@@ -389,6 +501,27 @@ export const InCallView: FC<InCallViewProps> = ({
     [setSettingsModalOpen],
   );
 
+  const openSoundSettings = useCallback(() => {
+    setSettingsTab("audio");
+    setSettingsModalOpen(true);
+  }, [setSettingsTab, setSettingsModalOpen]);
+
+  /*
+   * The Schmierzettel (#112, "Meine Gesprächsnotiz") lives in the call, for
+   * everyone in it: the notes stay in this window and end with the call.
+   */
+  const [notesOpen, setNotesOpen] = useState(false);
+  const toggleNotes = useCallback(() => setNotesOpen((was) => !was), []);
+  const closeNotes = useCallback(() => setNotesOpen(false), []);
+
+  // Who knocks on this call's link, and its switch: both from the host (#108).
+  const orisoKnock = useOrisoKnock();
+  // Guests: from a knock or the counsellor asking for the link on (#170).
+  const orisoGuests = useOrisoGuestsInPlay(
+    matrixRoom.roomId,
+    orisoKnock.waiting,
+  );
+
   const openProfile = useMemo(
     () =>
       // Profile settings are unavailable in widget mode
@@ -401,23 +534,138 @@ export const InCallView: FC<InCallViewProps> = ({
     [setSettingsTab, setSettingsModalOpen],
   );
 
+  /*
+   * Read before the bounds below, because they depend on it: see the ORISO
+   * section further down for what the gate means.
+   */
+  const {
+    parentUrl,
+    orisoAtmosphere,
+    orisoDesign,
+    orisoLogo,
+    orisoHostChrome,
+    orisoCallType,
+    orisoTopic,
+    orisoInvite,
+    callIntent,
+  } = useUrlParams();
+  const orisoEnabled = orisoDesign;
+  const orisoAudioOnly = orisoEnabled && callIntent === "audio";
+  const orisoVideoCall = orisoEnabled && callIntent === "video";
+  const alone = useBehavior(vm.orisoOneOnOne$);
+  /*
+   * #2233 (D1/D5): the cameras decide what two people see, not the call's
+   * intent — the split circle while both are off, the video stage with the
+   * other person large once one is on. An audio call has no camera.
+   */
+  const cameraOn = useBehavior(vm.orisoCameraOn$);
+  const orisoCameraOneOnOne = orisoEnabled && cameraOn && !orisoAudioOnly;
+  const orisoVideoOneOnOne =
+    orisoCameraOneOnOne && layout.type === "one-on-one";
+  /*
+   * #2233 (D2): the view rail and the atmosphere come with a group
+   * arrangement. That follows the plan (`orisoOneOnOne$`, which counts
+   * people): a person waiting alone gets a group arrangement and must keep
+   * the rail to leave a stored spotlight. A 1:1 with a shared screen is
+   * still two people and keeps the 1:1's rules — no rail, no atmosphere
+   * (live test 16 Nov).
+   */
+  const orisoGroupChrome = orisoEnabled && !alone;
+  // The window buttons in the header, when the host leaves them to the call.
+  const orisoWindow = useOrisoWindow(orisoEnabled && orisoHostChrome);
+  // The call's link: only when the host said it can make one —
+  // `orisoInvite` at the start, `org.oriso.call.invite_available` later.
+  const orisoInviteAvailable = useOrisoInviteAvailable(orisoInvite);
+  const { markInviting } = orisoGuests;
+  const orisoInviteRequest = useMemo(() => {
+    const request =
+      orisoEnabled && orisoInviteAvailable ? inviteLinkRequester() : null;
+    if (request === null) return null;
+    // Asking for the link is inviting somebody: guests are part of the call
+    // from now on, and the guest button comes (#170).
+    return async (): Promise<InviteLinkReply> => {
+      markInviting();
+      return request();
+    };
+  }, [orisoEnabled, orisoInviteAvailable, markInviting]);
+
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
+  const [notesRef, notesBounds] = useMeasure();
+  // The call's duration in the header of a 1:1 over the atmosphere (2b).
+  const orisoMobile =
+    orisoEnabled && bounds.width > 0 && bounds.width <= MOBILE_MAX_WIDTH;
+  // 2b on a desktop; on a phone the video 1:1 shows it too (5d).
+  const callDuration = useCallDuration(
+    rtcSession,
+    orisoEnabled &&
+      showControls &&
+      (!orisoVideoOneOnOne || orisoMobile) &&
+      alone,
+  );
+  // The wave band names whoever speaks (5b).
+  const orisoSpeaker = useBehavior(vm.orisoSpeaker$);
+
+  /*
+   * Where the notepad opens (#112), as in the design: beside the stage of a
+   * group call when there is room for both (2a), otherwise inside the view
+   * above the control bar (2b), compact on a phone. Either way the stage
+   * gives the card its room — the circle steps back rather than being
+   * covered.
+   */
+  /*
+   * S5: on a desktop-wide window the card is docked fixed on the right in
+   * every view — the 1:1 over the atmosphere too, where it used to open
+   * inside the view. Narrower windows keep the sheet above the bar.
+   */
+  const notesDocked = orisoVideoOneOnOne
+    ? bounds.width >= VIDEO_NOTES_DOCK_MIN_WIDTH
+    : bounds.width >= NOTES_DOCK_MIN_WIDTH;
+  const notesCompact = bounds.width <= NOTES_COMPACT_MAX_WIDTH;
+  const notesShown = orisoEnabled && showControls && notesOpen;
+  const videoStageGutter = orisoVideoOneOnOne
+    ? bounds.width >= 640
+      ? 20
+      : 12
+    : 0;
+  const dockInset = orisoVideoOneOnOne
+    ? VIDEO_NOTES_WIDTH + VIDEO_NOTES_GAP
+    : NOTES_DOCK_INSET;
+  const notesWidth = notesShown && notesDocked ? dockInset : 0;
+  const notesHeight =
+    notesShown && !notesDocked && notesBounds.height > 0
+      ? notesBounds.height + NOTES_SHEET_CLEARANCE
+      : 0;
 
   const gridBounds = useMemo(
     () => ({
-      width: bounds.width,
+      width: Math.max(0, bounds.width - notesWidth - 2 * videoStageGutter),
+      /*
+       * The footer's height comes off the stage — for ORISO even in `flat`.
+       *
+       * Upstream gives a flat window the whole height and floats the footer
+       * over it, which suits a spotlight whose subject sits in the middle.
+       * An ORISO arrangement puts people at the edges: a landscape phone,
+       * where the footer takes two rows below 660px, had the controls and
+       * the view rail sitting on top of the bottom of the circle, the outer
+       * participants, or a bottom-aligned screen share.
+       */
       height:
         bounds.height -
         headerBounds.height -
-        (windowMode === "flat" ? 0 : footerBounds.height),
+        (windowMode === "flat" && !orisoEnabled ? 0 : footerBounds.height) -
+        notesHeight,
     }),
     [
       bounds.width,
       bounds.height,
+      notesWidth,
+      videoStageGutter,
+      notesHeight,
       headerBounds.height,
       footerBounds.height,
       windowMode,
+      orisoEnabled,
     ],
   );
   const gridBoundsObservable$ = useObservable(
@@ -429,12 +677,173 @@ export const InCallView: FC<InCallViewProps> = ({
     () => new BehaviorSubject(defaultSpotlightAlignment),
   );
   const pipAlignment$ = useInitial(
-    () => new BehaviorSubject(defaultPipAlignment),
+    () =>
+      new BehaviorSubject<Alignment>(
+        // #2233 (D1): my own picture is a circle at the bottom left.
+        orisoEnabled ? { inline: "start", block: "end" } : defaultPipAlignment,
+      ),
   );
 
   const setGridMode = useCallback(
     (mode: GridMode) => vm.setGridMode(mode),
     [vm],
+  );
+
+  /* ---------------------------------------------------------------------- *
+   * ORISO
+   *
+   * The design is on when the embedding host ASKED for it, which is what
+   * `orisoDesign` says. Not `parentUrl`: that is the generic widget parameter
+   * every embedded Element Call carries, so gating on it would have handed the
+   * grove, the backdrop and the animals to any Element Web embedding of this
+   * build. Standalone and every other host keep upstream's rectangles — one
+   * tile implementation serving both, rather than a fork in the tree.
+   *
+   * `parentUrl` is still where the artwork is inherited FROM, which is a
+   * different question and only asked once the design is on.
+   * ---------------------------------------------------------------------- */
+  const orisoIdentities = useOrisoIdentities(matrixRoom);
+  // The laser pointer on a shared screen (#2233); only in an E2EE call.
+  const sharePointer = useSharePointer(
+    vm,
+    matrixInfo.e2eeSystem.kind !== E2eeType.NONE,
+    matrixRoom,
+  );
+  // Who the host says is a counsellor: the only source of "Beratung".
+  const orisoCounsellors = useOrisoCounsellors();
+  const orisoStage = useMemo(
+    () => ({
+      identities: orisoIdentities,
+      counsellors: orisoCounsellors,
+      parentUrl,
+      enabled: orisoEnabled,
+      audioOnly: orisoAudioOnly,
+      // #2233: the spotlight draws people as rounded rectangles too.
+      rectangular: rectangularStage(layout.type, orisoVideoOneOnOne),
+      // A 1:1 beside a shared screen: both people as circles (#2233).
+      round: roundStage(layout.type, alone),
+      pointer: sharePointer.context,
+    }),
+    [
+      orisoIdentities,
+      orisoCounsellors,
+      parentUrl,
+      orisoEnabled,
+      orisoAudioOnly,
+      orisoVideoOneOnOne,
+      sharePointer.context,
+      layout.type,
+      alone,
+    ],
+  );
+  const orisoShapes = useInitial(() => new OrisoShapeStore());
+
+  /*
+   * The backdrop world (S5, design 2a). The person chooses in the header's
+   * popover; the default is "Motiv des Trägers", the motif the counselling
+   * centre put on the URL. The choice is kept in this browser only.
+   */
+  const [storedAtmosphere, setStoredAtmosphere] = useLocalStorage(
+    ATMOSPHERE_CHOICE_KEY,
+  );
+  const atmosphereChoice = readAtmosphereChoice(storedAtmosphere);
+  const atmosphere = resolveAtmosphere(atmosphereChoice, orisoAtmosphere);
+  const [atmosphereOpen, setAtmosphereOpen] = useState(false);
+  const chooseAtmosphere = useCallback(
+    (choice: AtmosphereChoice) => setStoredAtmosphere(choice),
+    [setStoredAtmosphere],
+  );
+  const openAtmosphere = useCallback(() => setAtmosphereOpen(true), []);
+  // Only where the atmosphere is the stage: the video 1:1 is a dark stage.
+  const atmosphereShown = orisoGroupChrome && !orisoVideoOneOnOne;
+
+  // "Namen & Symbole" (S5): dezent or as a capsule, chosen in the settings
+  // (#2233) and followed here while the call runs.
+  const [nameStyle] = useNameStyle();
+
+  /*
+   * The view is remembered, because it is a preference about how somebody
+   * likes to see a room rather than a property of this call — the spotlight
+   * included (S6; it used to live in memory only).
+   *
+   * What the rail offers and what a stored choice means come from
+   * `stagePlan`: at exactly two people the stage is the Einzelgespräch
+   * whichever arrangement is stored, so the rail names that and offers the
+   * one real alternative, the spotlight. The machinery underneath holds two
+   * orthogonal settings — the arrangement in grid mode, and spotlight mode;
+   * see `useOrisoView.ts` for why they are not one enum.
+   *
+   * Two people are counted as the VIEW MODEL counts them, not as the stage
+   * happens to look: in spotlight mode the layout is a spotlight, and a rail
+   * that read the layout offered the grove again at two people.
+   */
+  // Kept per conversation type (S6b): `oriso-call-view-group` / `-single`.
+  const [storedView, setStoredView] = useLocalStorage(
+    viewStorageKey(orisoCallType),
+  );
+  // From the view model, which knows the head count, the conversation type
+  // and whether this is a video call (S7).
+  const orisoPlan = useBehavior(vm.orisoPlan$);
+  // A stable array, so the rail can memoise its entries on it and its
+  // keyboard handler cannot close over a list that has moved on.
+  const orisoOffer = orisoPlan.offer;
+  const orisoView: OrisoView = arrangementFor(
+    resolveStageView(storedView, orisoPlan),
+    orisoPlan,
+  );
+  const stageView: StageView =
+    gridMode === "spotlight"
+      ? "spotlight"
+      : alone
+        ? "einzelgespraech"
+        : orisoView;
+  const setStageView = useCallback(
+    (view: StageView) => {
+      /*
+       * The Einzelgespräch is what two people get, not an arrangement to
+       * keep: picking it only replaces a stored spotlight, so the grove or
+       * the fields come back when a third person arrives.
+       */
+      if (view !== "einzelgespraech" || storedView === "spotlight")
+        setStoredView(view);
+      setGridMode(view === "spotlight" ? "spotlight" : "grid");
+    },
+    [setGridMode, setStoredView, storedView],
+  );
+  // A call that was left in the spotlight starts in it again.
+  const restoredView = useRef(false);
+  useEffect(() => {
+    if (restoredView.current || !orisoEnabled) return;
+    restoredView.current = true;
+    if (storedView === "spotlight") setGridMode("spotlight");
+  }, [orisoEnabled, storedView, setGridMode]);
+  /*
+   * #2233 (D2): two people have no view rail, so nothing could bring them
+   * back from a spotlight a group left behind. Two people with a shared
+   * screen are still two: grid mode gives them the share beside the two of
+   * them (`orisoOneOnOneStage$`), under the 1:1's rules.
+   */
+  useEffect(() => {
+    if (orisoEnabled && alone && gridMode === "spotlight") setGridMode("grid");
+  }, [orisoEnabled, alone, gridMode, setGridMode]);
+
+  // "Anheften — bleibt groß" (S6): mine alone, for this call.
+  const [pinnedIds, setPinnedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const togglePin = useCallback(
+    (mediaId: string) =>
+      setPinnedIds((was) => {
+        const next = new Set(was);
+        if (next.has(mediaId)) next.delete(mediaId);
+        else next.add(mediaId);
+        return next;
+      }),
+    [],
+  );
+  const orisoPins: OrisoPins = useMemo(
+    () => ({ pinned: pinnedIds, toggle: orisoEnabled ? togglePin : null }),
+    [pinnedIds, orisoEnabled, togglePin],
   );
 
   useEffect(() => {
@@ -503,8 +912,213 @@ export const InCallView: FC<InCallViewProps> = ({
 
   useAppBarHidden(!showHeader);
 
+  // Names as the room has them; the panel's rows turn them into what the
+  // stage shows (the pseudonym, never a login name).
+  // Read again whenever somebody joins or leaves.
+  const callParticipants = useMemo(() => {
+    const names = new Map(
+      matrixRoom.getMembers().map((m) => [m.userId, m.name] as const),
+    );
+    return participantUserIds.map((userId) => ({
+      userId,
+      displayName: names.get(userId) ?? userId,
+    }));
+  }, [participantUserIds, matrixRoom]);
+
+  // The call menu's contents, in the bar's ⋮ or the phone header's (S9).
+  const callMenu: CallMenuProps = {
+    onToggleNotes: toggleNotes,
+    waitingCount: orisoKnock.waiting,
+    pointing: sharePointer.pointing,
+    onPointingChange: sharePointer.onPointingChange,
+    onHangup: (): void => vm.hangup(),
+    participantCount,
+    // "Teilnehmende" lists them and invites somebody else (#2233).
+    participants: orisoEnabled ? callParticipants : undefined,
+    inviteRequest: orisoInviteRequest,
+    // A phone's header has no room for the atmosphere popover (5b).
+    backgroundLabel:
+      atmosphereShown && !orisoMobile
+        ? atmosphereChoice === "traeger"
+          ? t("oriso.atmosphere_carrier")
+          : t(`oriso.atmosphere_${atmosphereChoice}`)
+        : null,
+    onOpenBackground: atmosphereShown && !orisoMobile ? openAtmosphere : null,
+    onToggleScreenShare: vm.toggleScreenSharing,
+    sharingScreen,
+    // The SettingsModal is not mounted in pip or flat mode.
+    onOpenSoundSettings: isPopupMode ? null : openSoundSettings,
+    onOpenSettings: isPopupMode ? null : openSettings,
+    onTouchEnd: onControlsTouchEnd,
+  };
+
+  // A shared screen takes its band off the Kreis's stage (`OrisoGroveLayout`),
+  // so the centre is measured beside it, not on the whole grid (#2233 review).
+  const spotlightBlock = useObservableEagerState(spotlightAlignment$).block;
+  const kreisSpotlight =
+    layout.type === "grid" && layout.spotlight !== undefined
+      ? spotlightBlock
+      : null;
+  // R27: who speaks, in every view and in the minimised call.
+  const speakerBand = speakerBandPlace({
+    enabled: orisoEnabled,
+    pip: layout.type === "pip",
+    headerShown: orisoEnabled && showControls && windowMode !== "pip",
+    mobile: orisoMobile,
+    view: stageView,
+    kreisNamesSpeaker: kreisNamesSpeakerBeside(gridBounds, kreisSpotlight),
+  });
+  // The Kacheln and the Felder scroll under the phone's header.
+  const [stageScrolled, onStageScroll] = useStageScrolled();
+
   let header: ReactNode = null;
-  if (showHeader) {
+  if (orisoEnabled && showControls && windowMode !== "pip") {
+    /*
+     * The ORISO header, whatever header style the host asked for: the
+     * design has one in every call (2a, 2b, 5a), and with `orisoHostChrome`
+     * it is where the window buttons live — without it the call would have
+     * none at all.
+     */
+    /*
+     * "Einzelgespräch · Schuldnerberatung" for a 1:1 the host gave a topic
+     * (#2233 R6), "QA Moabit · Gruppengespräch" for a group chat; a room
+     * with a real name keeps it. See `stageTitle`.
+     */
+    const titleParts = stageTitle({
+      roomName: matrixInfo.roomName,
+      defaultRoomName: t("oriso_call_title"),
+      callType: orisoCallType,
+      topic: orisoTopic,
+      group: participantCount > 2,
+    });
+    const orisoTitle = stageTitleText(titleParts, t, orisoVideoCall);
+    const orisoHeader = (
+      <OrisoHeader
+        ref={orisoMobile ? undefined : headerRef}
+        className={orisoMobile ? undefined : styles.header}
+        compact={orisoMobile}
+        tone={orisoVideoOneOnOne ? "dark" : "light"}
+        logo={orisoLogo}
+        title={orisoTitle}
+        encrypted={matrixInfo.e2eeSystem.kind !== E2eeType.NONE}
+        meta={
+          callDuration !== null ? (
+            <span
+              role="timer"
+              aria-label={t("oriso.call_duration", { duration: callDuration })}
+              data-testid="oriso-call-duration"
+            >
+              {callDuration}
+            </span>
+          ) : (
+            // 5b: "verschlüsselt · 6 Teilnehmende" on a phone. People, not
+            // devices, as the ⋮'s "Teilnehmende" counts them (#2233 review).
+            orisoMobile && (
+              <span data-testid="oriso-header-participants">
+                {t("oriso.participants_count", {
+                  count: callParticipants.length,
+                })}
+              </span>
+            )
+          )
+        }
+        onWindow={orisoWindow.send}
+        // `orisoInvite`: the host draws its share button top left (#2233).
+        hostShare={orisoInviteRequest !== null}
+        fullscreen={orisoWindow.fullscreen}
+        onTouchEnd={onHeaderTouchEnd}
+        speaker={
+          speakerBand === "header" ? (
+            <WaveBand
+              variant="header"
+              tone={orisoVideoOneOnOne ? "dark" : "light"}
+              speaker={orisoSpeaker}
+            />
+          ) : undefined
+        }
+        actions={
+          <>
+            {atmosphereShown && !orisoMobile && (
+              <AtmospherePicker
+                choice={atmosphereChoice}
+                current={atmosphere}
+                onChoose={chooseAtmosphere}
+                open={atmosphereOpen}
+                onOpenChange={setAtmosphereOpen}
+                onTouchEnd={onHeaderTouchEnd}
+              />
+            )}
+            {/* S5: the view rail is in the header (2a), inactive views as an
+                icon, the active one with its word. */}
+            {orisoGroupChrome && orisoOffer.length > 1 && !orisoMobile && (
+              <ViewSwitcher
+                tone={orisoVideoOneOnOne ? "dark" : "light"}
+                active={stageView}
+                offer={orisoOffer}
+                onChange={setStageView}
+                onTouchEnd={onHeaderTouchEnd}
+              />
+            )}
+            {orisoVideoOneOnOne && !orisoMobile && (
+              <button
+                type="button"
+                className={styles.videoNotesButton}
+                onClick={toggleNotes}
+                onTouchEnd={onHeaderTouchEnd}
+                aria-pressed={notesOpen}
+                data-testid="incall_video_header_notes"
+              >
+                <ListBulletedIcon aria-hidden />
+                {t("oriso.video_stage_notes")}
+              </button>
+            )}
+            {/* S9: the ⋮ moves from the bar into a phone's header. */}
+            {orisoMobile && (
+              <OrisoMobileMenu
+                {...callMenu}
+                onTouchEnd={onHeaderTouchEnd}
+                views={
+                  orisoGroupChrome
+                    ? {
+                        offer: orisoOffer,
+                        active: stageView,
+                        onChange: setStageView,
+                      }
+                    : undefined
+                }
+                onToggleWindow={
+                  orisoWindow.send === null
+                    ? null
+                    : (): void => orisoWindow.send?.("toggle_fullscreen")
+                }
+                fullscreen={orisoWindow.fullscreen}
+              />
+            )}
+            {orisoInviteRequest === null &&
+              !orisoMobile &&
+              headerStyle === "standard" &&
+              onShareClick !== null && (
+                <InviteButton
+                  className={styles.invite}
+                  onClick={onShareClick}
+                />
+              )}
+          </>
+        }
+      />
+    );
+    header = orisoMobile ? (
+      // A phone: the header and the wave band under it are measured
+      // together, so the stage starts below both. In every view, the 1:1
+      // included (R27).
+      <div ref={headerRef} className={styles.orisoMobileHeader}>
+        {orisoHeader}
+        {speakerBand === "phone" && <WaveBand speaker={orisoSpeaker} />}
+      </div>
+    ) : (
+      orisoHeader
+    );
+  } else if (showHeader) {
     switch (headerStyle) {
       case "none":
         // Cosmetic header to fill out space while still affecting the bounds of
@@ -564,6 +1178,25 @@ export const InCallView: FC<InCallViewProps> = ({
         {t("common.reconnecting")}
       </Toast>
     </>
+  );
+
+  /*
+   * #2233 (R8): a share that did not start used to leave the button off
+   * and say nothing. A closed picker stays silent (`screenShareFailure`).
+   */
+  const shareFailureToast = (
+    <Toast
+      onDismiss={vm.dismissScreenShareFailure}
+      open={screenShareFailure !== null}
+      autoDismiss={10000}
+      modal={false}
+    >
+      {screenShareFailure === "system"
+        ? t("oriso.share_failed_system")
+        : screenShareFailure === "blocked"
+          ? t("oriso.share_failed_blocked")
+          : t("oriso.share_failed")}
+    </Toast>
   );
 
   const earpieceOverlay = (
@@ -633,28 +1266,50 @@ export const InCallView: FC<InCallViewProps> = ({
       pipAlignment$,
     };
     return {
-      grid: makeGridLayout(inputs),
+      // Two entries swap for ORISO's; the other three are upstream's
+      // unchanged, because a screen share and an expanded speaker are the
+      // same thing in both designs.
+      grid: orisoEnabled
+        ? makeOrisoGroveLayout(inputs)
+        : makeGridLayout(inputs),
       "spotlight-landscape": makeSpotlightLandscapeLayout(inputs),
       "spotlight-portrait": makeSpotlightPortraitLayout(inputs),
       "spotlight-expanded": makeSpotlightExpandedLayout(inputs),
-      "one-on-one": makeOneOnOneLayout(inputs),
+      "one-on-one":
+        orisoEnabled && !orisoCameraOneOnOne
+          ? makeEinzelgespraechLayout(inputs)
+          : makeOneOnOneLayout({ ...inputs, fillStage: orisoEnabled }),
     };
-  }, [gridBoundsObservable$, spotlightAlignment$, pipAlignment$]);
+  }, [
+    gridBoundsObservable$,
+    spotlightAlignment$,
+    pipAlignment$,
+    orisoEnabled,
+    orisoCameraOneOnOne,
+  ]);
 
   const renderContent = (): JSX.Element => {
     if (layout.type === "pip") {
+      // The minimised call has no header: the speaker band (R27) is a slim
+      // line above its one form, and the form takes the rest.
+      // (Upstream hands the two sides over swapped; the band comes off the
+      // height either way.)
+      const band = speakerBand === "pip" ? PIP_BAND_BLOCK : 0;
       return (
-        <SpotlightTile
-          className={classNames(styles.tile, styles.maximised)}
-          vm={layout.spotlight}
-          expanded
-          onToggleExpanded={null}
-          targetWidth={gridBounds.height}
-          targetHeight={gridBounds.width}
-          showIndicators={false}
-          focusable={!contentObscured}
-          aria-hidden={contentObscured}
-        />
+        <>
+          {band > 0 && <WaveBand variant="pip" speaker={orisoSpeaker} />}
+          <SpotlightTile
+            className={classNames(styles.tile, styles.maximised)}
+            vm={layout.spotlight}
+            expanded
+            onToggleExpanded={null}
+            targetWidth={gridBounds.height - band}
+            targetHeight={gridBounds.width}
+            showIndicators={false}
+            focusable={!contentObscured}
+            aria-hidden={contentObscured}
+          />
+        </>
       );
     }
 
@@ -678,6 +1333,9 @@ export const InCallView: FC<InCallViewProps> = ({
       <Grid
         key="scrolling"
         className={styles.scrollingGrid}
+        // The card in the view takes its height from the stage, so the
+        // circle steps back above it (design 2b) instead of under it.
+        style={notesHeight > 0 ? { marginBlockEnd: notesHeight } : undefined}
         model={layout}
         Layout={layers.scrolling}
         Tile={Tile}
@@ -769,10 +1427,61 @@ export const InCallView: FC<InCallViewProps> = ({
       data-testid="incall_leave"
     />,
   );
+  const notes = orisoEnabled && showControls && (
+    <OrisoNotes
+      ref={notesRef}
+      open={notesOpen}
+      onClose={closeNotes}
+      layout={notesDocked ? "docked" : "sheet"}
+      compact={!notesDocked && notesCompact}
+      style={
+        {
+          "--oriso-notes-top": `${headerBounds.height + (orisoVideoOneOnOne && notesDocked ? 0 : 16)}px`,
+          "--oriso-notes-dock-bottom": orisoVideoOneOnOne
+            ? `${footerBounds.height}px`
+            : undefined,
+          "--oriso-footer-h": `${footerBounds.height}px`,
+          // The phone's bar is one 72px pill (S9).
+          "--oriso-toolbar-h": orisoMobile
+            ? "72px"
+            : notesCompact
+              ? "56px"
+              : "64px",
+        } as CSSProperties
+      }
+    />
+  );
+
+  /*
+   * #170: the guest button, once guests are part of the call — and only for
+   * whoever can do something there (the counsellor: the link or Anklopfen).
+   * Not in a call of the counsellor and logged-in people alone.
+   */
+  const guestFab = orisoEnabled &&
+    showControls &&
+    orisoGuests.inPlay &&
+    (orisoInviteRequest !== null || orisoKnock.setKnock !== null) && (
+      <OrisoGuestFab
+        inviteRequest={orisoInviteRequest}
+        knock={orisoKnock.knock}
+        onKnockChange={orisoKnock.setKnock}
+        waitingCount={orisoKnock.waiting}
+        compact={orisoMobile}
+        onTouchEnd={onControlsTouchEnd}
+        style={
+          {
+            "--oriso-footer-h": `${footerBounds.height}px`,
+          } as CSSProperties
+        }
+      />
+    );
+
   const footer = (
     <div
       ref={footerRef}
       className={classNames(styles.footer, {
+        // Gives the view rail a row of its own on a phone; see the CSS.
+        [styles.orisoFooter]: orisoEnabled,
         [styles.overlay]: windowMode === "flat",
         [styles.hidden]:
           !showFooter || (!showControls && headerStyle === "none"),
@@ -781,76 +1490,160 @@ export const InCallView: FC<InCallViewProps> = ({
       {headerStyle !== "none" && debugTileLayout
         ? `Tiles generation: ${tileStoreGeneration}`
         : undefined}
-      {showControls && <div className={styles.buttons}>{buttons}</div>}
-      {showControls && (
-        <LayoutToggle
-          className={styles.layout}
-          layout={gridMode}
-          setLayout={setGridMode}
-          onTouchEnd={onControlsTouchEnd}
-        />
-      )}
+      {/* #2233 (T12): the Kacheln's pager rides on the bar, which stays
+          put while the sheet scrolls. */}
+      {showControls &&
+        orisoEnabled &&
+        stageView === "kacheln" &&
+        layout.type === "grid" && <KachelnPager count={layout.grid.length} />}
+      {showControls &&
+        (orisoEnabled ? (
+          <OrisoToolbar
+            {...callMenu}
+            className={styles.orisoToolbar}
+            compact={orisoMobile}
+            audioMuted={!audioEnabled || mediaError !== null}
+            onToggleAudio={mediaError === null ? toggleAudio : null}
+            showVideo={!orisoAudioOnly}
+            videoMuted={!videoEnabled || mediaError !== null}
+            onToggleVideo={mediaError === null ? toggleVideo : null}
+            handRaised={localHandRaised}
+            onToggleHand={
+              supportsReactions && !isPopupMode
+                ? (): void => void toggleRaisedHand()
+                : null
+            }
+            notesOpen={notesOpen}
+            /*
+             * Every call on a desktop, audio included (#2233, R8): an audio
+             * call hid the share in the ⋮ menu, where nobody found it. The
+             * phone's bar keeps it in the menu (`compact`).
+             */
+            screenShareInBar
+          />
+        ) : (
+          <>
+            <div className={styles.buttons}>{buttons}</div>
+            <LayoutToggle
+              className={styles.layout}
+              layout={gridMode}
+              setLayout={setGridMode}
+              onTouchEnd={onControlsTouchEnd}
+            />
+          </>
+        ))}
     </div>
   );
 
   return (
-    <div
-      className={styles.inRoom}
-      ref={containerRef}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchCancel}
-      onPointerMove={onPointerMove}
-      onPointerOut={onPointerOut}
-    >
-      {header}
-      {mediaError !== null && (
-        <div className={styles.mediaError} role="alert">
-          <div>
-            <Text as="h2" size="sm" weight="semibold">
-              {mediaError.localisedTitle}
-            </Text>
-            {mediaError.localisedMessage && (
-              <Text size="sm">{mediaError.localisedMessage}</Text>
-            )}
-          </div>
-          <Button kind="secondary" size="sm" onClick={vm.retryMedia}>
-            {t("action.try_again")}
-          </Button>
-        </div>
-      )}
-      {audioParticipants.map(({ livekitRoom, url, participants }) => (
-        <LivekitRoomAudioRenderer
-          key={url}
-          url={url}
-          livekitRoom={livekitRoom}
-          validIdentities={participants}
-          muted={muteAllAudio}
-        />
-      ))}
-      {renderContent()}
-      <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
-      <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
-      {reconnectingToast}
-      {earpieceOverlay}
-      <ReactionsOverlay vm={vm} />
-      {waitingOverlay}
-      {footer}
-      {!isPopupMode && (
-        <>
-          <RageshakeRequestModal {...rageshakeRequestModalProps} />
-          <SettingsModal
-            client={client}
-            roomId={matrixRoom.roomId}
-            open={settingsModalOpen}
-            onDismiss={closeSettings}
-            tab={settingsTab}
-            onTabChange={setSettingsTab}
-            // TODO expose correct data to setttings modal
-            livekitRooms={[]}
-          />
-        </>
-      )}
-    </div>
+    // Three contexts rather than props threaded through Grid: the tiles need
+    // to know who somebody is and what form they are standing in, and Grid
+    // deliberately hands a tile nothing but its rectangle. Going through it
+    // would have meant teaching every upstream layout about a field it does
+    // not use.
+    <OrisoStageContext value={orisoStage}>
+      <OrisoShapesContext value={orisoShapes}>
+        <OrisoViewContext value={orisoView}>
+          <OrisoPinsContext value={orisoPins}>
+            <div
+              className={styles.inRoom}
+              ref={containerRef}
+              onTouchStart={onTouchStart}
+              onTouchEnd={onTouchEnd}
+              onTouchCancel={onTouchCancel}
+              onPointerMove={onPointerMove}
+              onPointerOut={onPointerOut}
+              onScroll={orisoEnabled ? onStageScroll : undefined}
+              data-stage-scrolled={
+                orisoEnabled && stageScrolled ? "true" : undefined
+              }
+              data-oriso={orisoEnabled ? "true" : undefined}
+              data-oriso-video-stage={orisoVideoOneOnOne ? "true" : undefined}
+              style={
+                orisoVideoOneOnOne
+                  ? ({
+                      "--oriso-stage-gutter": `${videoStageGutter}px`,
+                      "--oriso-video-notes-width": `${VIDEO_NOTES_WIDTH}px`,
+                      "--oriso-video-notes-inset": `${dockInset}px`,
+                    } as CSSProperties)
+                  : undefined
+              }
+              data-notes-docked={notesShown && notesDocked ? "true" : undefined}
+              // Names over video are always capsules (S7): a video call offers
+              // no "dezent".
+              data-oriso-names={
+                orisoEnabled
+                  ? orisoVideoCall
+                    ? "popout"
+                    : nameStyle
+                  : undefined
+              }
+            >
+              {/* The living backdrop. Behind everything, announced to
+                nobody: it carries no information, and reading it out would be
+                noise between a counsellor and what they need. The preset is
+                the person's own choice, the carrier's motif by default. */}
+              {atmosphereShown && (
+                <div className={styles.orisoBackdrop} aria-hidden="true">
+                  <Atmosphere palette={atmosphere} />
+                </div>
+              )}
+              {header}
+              {mediaError !== null && (
+                <div className={styles.mediaError} role="alert">
+                  <div>
+                    <Text as="h2" size="sm" weight="semibold">
+                      {mediaError.localisedTitle}
+                    </Text>
+                    {mediaError.localisedMessage && (
+                      <Text size="sm">{mediaError.localisedMessage}</Text>
+                    )}
+                  </div>
+                  <Button kind="secondary" size="sm" onClick={vm.retryMedia}>
+                    {t("action.try_again")}
+                  </Button>
+                </div>
+              )}
+              {audioParticipants.map(({ livekitRoom, url, participants }) => (
+                <LivekitRoomAudioRenderer
+                  key={url}
+                  url={url}
+                  livekitRoom={livekitRoom}
+                  validIdentities={participants}
+                  muted={muteAllAudio}
+                />
+              ))}
+              {renderContent()}
+              <CallEventAudioRenderer vm={vm} muted={muteAllAudio} />
+              <ReactionsAudioRenderer vm={vm} muted={muteAllAudio} />
+              {reconnectingToast}
+              {orisoEnabled && shareFailureToast}
+              <InitialDeviceNotice />
+              {earpieceOverlay}
+              <ReactionsOverlay vm={vm} />
+              {waitingOverlay}
+              {footer}
+              {notes}
+              {guestFab}
+              {!isPopupMode && (
+                <>
+                  <RageshakeRequestModal {...rageshakeRequestModalProps} />
+                  <SettingsModal
+                    client={client}
+                    roomId={matrixRoom.roomId}
+                    open={settingsModalOpen}
+                    onDismiss={closeSettings}
+                    tab={settingsTab}
+                    onTabChange={setSettingsTab}
+                    // TODO expose correct data to setttings modal
+                    livekitRooms={[]}
+                  />
+                </>
+              )}
+            </div>
+          </OrisoPinsContext>
+        </OrisoViewContext>
+      </OrisoShapesContext>
+    </OrisoStageContext>
   );
 };

@@ -245,7 +245,11 @@ export const RoomPage: FC = () => {
     // In embedded/confined usage, never fall back to standalone home/start page.
     // This avoids exposing branding/landing UI if a room-scoped route is lost.
     content =
-      confineToRoom || header !== "standard" ? <FullScreenView /> : <HomePage />;
+      confineToRoom || header !== "standard" ? (
+        <FullScreenView />
+      ) : (
+        <HomePage />
+      );
   } else {
     content = groupCallView();
   }

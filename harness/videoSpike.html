@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>ORISO · video in an organic form — measurement</title>
+    <style>
+      body {
+        margin: 0;
+        background: #2d2c28;
+        font: 13px/1.5 Inter, system-ui, sans-serif;
+        color: #fff;
+      }
+      #stage {
+        position: relative;
+        width: 960px;
+        height: 640px;
+        overflow: hidden;
+      }
+      .slot {
+        position: absolute;
+        overflow: hidden;
+      }
+      .slot video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      #out {
+        padding: 12px;
+        white-space: pre;
+        font-family: ui-monospace, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <div id="out">measuring…</div>
+    <script type="module" src="/harness/videoSpike.ts"></script>
+  </body>
+</html>

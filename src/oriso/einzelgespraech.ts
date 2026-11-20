@@ -1,0 +1,190 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/**
+ * The geometry of the two-person circle, ticket 04.
+ *
+ * Pure functions. The component is the markup around them, and the motion is
+ * a CSS transition over the values they return — not an animation loop.
+ */
+
+/** Who currently holds the floor. */
+export type Speaking = "none" | "both" | "first" | "second";
+
+/**
+ * Silence is an even split.
+ *
+ * Not 50.1% to the counsellor, not a nudge toward the local participant. In a
+ * counselling call an unearned advantage to either side is a statement, and
+ * silence is not a statement. This is the value the acceptance list means by
+ * "neither half favoured".
+ */
+export const EVEN_SHARE = 0.5;
+
+/**
+ * The most one side may take.
+ *
+ * The quiet person has not left the room. Letting the speaker swell to the
+ * whole circle would say they had.
+ */
+export const MAX_SHARE = 0.62;
+
+/** How far the seam bows at the widest split, as a share of the radius. */
+const MAX_BOW = 0.18;
+
+/** The ticket's transition, named so the component and the test agree. */
+export const SEAM_EASING = "0.45s cubic-bezier(0.2, 0, 0, 1)";
+
+/**
+ * The same curve, for the spring that actually drives the seam.
+ *
+ * It cannot be a CSS transition. The rendered halves carry
+ * `clip-path: url(#seam)`, and that string never changes — what changes is
+ * the `d` of the path it points at, which a transition on `clip-path` does
+ * not touch. (The first version put the transition on the invisible
+ * measurement slot, which has no clip path at all, so the seam simply
+ * jumped.) The share is tweened instead and the path is rebuilt from it, so
+ * the bow and the two faces' focus all move together, which is what the
+ * handoff draws.
+ */
+export const SEAM_TWEEN = {
+  duration: 450,
+  easing: (t: number): number => cubicBezier(0.2, 0, 0, 1, t),
+} as const;
+
+/**
+ * `cubic-bezier(x1, y1, x2, y2)` at `t`, by Newton on the x polynomial.
+ *
+ * react-spring takes an easing as a function, and CSS's curve is the one the
+ * ticket names; writing it out keeps the two the same thing rather than two
+ * things that look alike.
+ */
+function cubicBezier(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  t: number,
+): number {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const curve = (a: number, b: number, u: number): number =>
+    ((1 - u) ** 3 * 0 +
+      3 * (1 - u) ** 2 * u * a +
+      3 * (1 - u) * u ** 2 * b +
+      u ** 3) as number;
+  const slope = (a: number, b: number, u: number): number =>
+    3 * (1 - u) ** 2 * a + 6 * (1 - u) * u * (b - a) + 3 * u ** 2 * (1 - b);
+  let u = t;
+  for (let i = 0; i < 8; i++) {
+    const dx = curve(x1, x2, u) - t;
+    if (Math.abs(dx) < 1e-5) break;
+    const d = slope(x1, x2, u);
+    if (Math.abs(d) < 1e-6) break;
+    u -= dx / d;
+  }
+  return curve(y1, y2, Math.min(1, Math.max(0, u)));
+}
+
+/**
+ * The first participant's share of the circle.
+ *
+ * Symmetric by construction: mirroring the input mirrors the output. Both
+ * speaking is the same as neither — two people talking at once is not a
+ * reason to award the circle to whoever the code happens to check first.
+ */
+export function shareFor(speaking: Speaking): number {
+  if (speaking === "first") return MAX_SHARE;
+  if (speaking === "second") return 1 - MAX_SHARE;
+  return EVEN_SHARE;
+}
+
+/**
+ * How far the seam bows, from -1 (into the first) to 1 (into the second).
+ *
+ * The seam bulges into whoever is NOT speaking. That is what makes the growth
+ * read as one body pressing against another rather than as a bar filling up,
+ * and it is continuous through the midpoint so turn-taking never flicks.
+ */
+export function seamFor(share: number): number {
+  return ((share - EVEN_SHARE) / (MAX_SHARE - EVEN_SHARE)) * MAX_BOW;
+}
+
+/**
+ * The microphone on the seam, section 2b: nine short bars in a white capsule.
+ *
+ * The prototype's numbers, kept as data so the component and the test read
+ * the same thing. Each bar breathes on `oriso-barh` at its own speed and a
+ * little after the one above it, so the column never moves in step.
+ */
+export const SEAM_BARS: readonly {
+  width: number;
+  duration: number;
+  delay: number;
+}[] = [14, 34, 22, 44, 28, 38, 18, 32, 12].map((width, i) => ({
+  width,
+  duration: [0.62, 0.88, 1.14, 0.75, 1.01][i % 5],
+  delay: Math.round(i * 0.09 * 100) / 100,
+}));
+
+/**
+ * Where the seam crosses the middle of the circle, as a share of its width.
+ *
+ * The seam is a quadratic curve from (share, 0) through the control point
+ * (share + bow, 0.5) to (share, 1); at its midpoint it sits half the bow
+ * away from the straight line. The capsule rides there, on the seam.
+ */
+export function seamMiddleFor(share: number): number {
+  return share + seamFor(share) / 2;
+}
+
+/**
+ * The seam at height `y` (0 at the top of the circle, 1 at the bottom): where
+ * it is, as a share of the width, and how far a bar must turn to lie across
+ * it, in degrees.
+ *
+ * The clip path's quadratic has its control point at mid-height, so its
+ * parameter IS the height: x = share + 2y(1-y)·bow. The circle is square,
+ * so the slope in shares is the slope on screen.
+ */
+export function seamAt(share: number, y: number): { x: number; angle: number } {
+  const bow = seamFor(share);
+  const slope = 2 * bow * (1 - 2 * y);
+  // `+ 0` turns the -0 of a straight seam into a plain 0.
+  return {
+    x: share + 2 * y * (1 - y) * bow,
+    angle: (-Math.atan(slope) * 180) / Math.PI + 0,
+  };
+}
+
+/** The capsule, section 2b: 46px wide, 176px long or 63% of a small circle. */
+export const SEAM_CAPSULE = {
+  width: 46,
+  length: 176,
+  maxShare: 0.63,
+  /** A 4px bar and the 4px gap under it. */
+  barPitch: 8,
+} as const;
+
+/**
+ * The capsule's centre line in px, for a stroke as wide as the capsule with
+ * round caps: the piece of the seam it covers, so the capsule bends with the
+ * seam instead of standing straight on a curve (Frank, 28 Oct).
+ *
+ * A piece of a quadratic is a quadratic; its control point is where the
+ * tangents at its two ends meet, which by symmetry is at mid-height.
+ */
+export function capsulePathFor(share: number, circle: number): string {
+  if (circle <= 0) return "";
+  const length = Math.min(SEAM_CAPSULE.length, SEAM_CAPSULE.maxShare * circle);
+  const half = Math.max(0, (length - SEAM_CAPSULE.width) / 2) / circle;
+  const top = 0.5 - half;
+  const end = seamAt(share, top).x;
+  const control = end + half * 2 * seamFor(share) * (1 - 2 * top);
+  const px = (n: number): string => (n * circle).toFixed(3);
+  return `M${px(end)},${px(top)} Q${px(control)},${px(0.5)} ${px(end)},${px(1 - top)}`;
+}

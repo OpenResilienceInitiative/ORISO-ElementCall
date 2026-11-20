@@ -189,3 +189,459 @@ unconditionally select the container so we can use cqmin units */
 .fg > button:first-of-type {
   grid-area: button;
 }
+
+/* ------------------------------------------------------------------------- *
+ * ORISO
+ *
+ * A tile with an identity is a form, not a rectangle. Everything below is
+ * the difference between the two, kept here rather than in a second
+ * component so that one tile serves both and they cannot drift apart.
+ * ------------------------------------------------------------------------- */
+
+.media.oriso {
+  /* The form supplies its own radius, and the hover margin would hold the
+     shapes apart — the Hain packs them until they abut. */
+  --media-view-border-radius: 0;
+  --hover-space-margin: 0;
+  /* The chrome sits inside the form, which is round: inset by the corner
+     rather than by the rectangle's padding. */
+  --media-view-fg-inset: 8%;
+  border-radius: 0;
+}
+
+/* No plate behind the form. Upstream fills the tile with
+   --video-tile-background, which the design does not have: a form in
+   somebody's own colour standing on the stage is the whole picture, and a
+   black rectangle behind it is what made the first attempt look like
+   Element Call with round corners. */
+.media.oriso > .bg {
+  background-color: transparent;
+  contain: none;
+}
+
+/*
+ * Only the visible form takes the pointer.
+ *
+ * A grove tile's ROOT is a square; the shape lives on the face inside it, as
+ * an eight-value border radius. The packer sets `--hover-space-margin: 0` and
+ * packs the squares until they abut, so they overlap — and a neighbour's
+ * transparent corner sat on top of a visible form and swallowed the clicks,
+ * the drags and the context menu meant for it.
+ *
+ * The root stops being a hit target and its children become ones, so the
+ * pointer lands on the form and on the chrome rather than on empty corners.
+ * Handlers stay where they were: pointer events still bubble to the root.
+ *
+ * The Einzelgespräch is included. Its halves are given the same box and used
+ * to rely on a `clip-path` on the root for this; that clip also cut off the
+ * names, which stand under the circle, so the clip is now the face's alone.
+ * A clipped face is hit-tested along its clip, so the seam still decides
+ * which half a click belongs to.
+ */
+.media.oriso {
+  pointer-events: none;
+}
+
+/*
+ * The form and the chrome — never the layer they sit in.
+ *
+ * `> *` was wrong here: `.fg` is absolutely positioned across the whole tile,
+ * so re-enabling it handed the square corners straight back and the fix did
+ * nothing. `.fg` itself stays non-hit-testable; its children are listed
+ * instead, and in this design they all sit INSIDE the form, because
+ * `--media-view-fg-inset` insets the chrome by the corner rather than by the
+ * rectangle's padding.
+ */
+.media.oriso > .bg,
+.media.oriso .nameTag,
+.media.oriso .status,
+.media.oriso button {
+  pointer-events: auto;
+}
+
+/* The camera is cropped into the form, so it covers rather than letter-boxes
+   and brings no backdrop of its own. */
+.media.oriso video {
+  background-color: transparent;
+  object-fit: cover;
+}
+
+.media.oriso[data-oriso-rectangular="true"] {
+  --media-view-fg-inset: var(--cpd-space-3x);
+}
+
+.media.oriso[data-oriso-rectangular="true"] > .fg {
+  grid-template-rows: 1fr auto;
+  grid-template-areas: "reactions status button" "nameTag nameTag nameTag";
+}
+
+.media.oriso[data-oriso-rectangular="true"] .nameTag {
+  max-inline-size: min(100%, 17rem);
+}
+
+/* #2233 (D1): my own picture is a circle at the bottom left of the video
+   stage, so the other person's name moves to the bottom right, and mine sits
+   centred under my face inside the circle. */
+.media.oriso[data-oriso-rectangular="true"]:not([data-oriso-round="true"])
+  .nameTag {
+  justify-self: end;
+}
+
+.media.oriso[data-oriso-round="true"] .nameTag {
+  justify-self: center;
+  max-inline-size: 100%;
+}
+
+@container mediaView (height < 150px) {
+  .media.oriso[data-oriso-rectangular="true"] > .bg {
+    padding-block-end: var(--cpd-space-5x);
+  }
+}
+
+.media.oriso[data-video-fit="contain"] video {
+  object-fit: contain;
+}
+
+/* The name capsule, to the handoff's one specification: "the single answer to
+   how do we label a person. There is exactly one spec, used on every screen
+   and in every state." The numbers are its numbers. */
+.media.oriso .nameTag {
+  block-size: 26px;
+  padding: 0;
+  padding-inline: 10px;
+  border-radius: 13px;
+  background: color-mix(in srgb, #4c555f 92%, transparent);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  box-shadow: none;
+  gap: 6px;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 26px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+/*
+ * The capsule is as wide as its name, out of upstream's grid.
+ *
+ * In a field or a Kachel it may take the field's whole width: in the grid's
+ * first column, beside the `⋮`'s, and under the fixed 132px that used to
+ * stand in the rule above, it cut "Susanne P. ·…erin" in a 222px Kachel
+ * that had room for it. The `⋮` sits in the row below, so nothing is lost.
+ *
+ * On a grove's or a circle's form it may be wider than the form
+ * (`nameSide` is only set there, see below).
+ *
+ * A listener's blob is about 100px across and "Susanne P. · Beraterin" is
+ * not; held to the form, the capsule cut the middle out of names that had
+ * room on the stage ("Susanne P. ·…erin"), and a raised hand squeezed the
+ * name down to "sti… 907". Taken out of the grid, the capsule takes its own
+ * width and is centred on the form, or hung from its start or end edge
+ * near the stage's edge so it grows inward rather than off it (`nameSide`).
+ * The NAME is capped, never the hand beside it: about 24 characters show in
+ * full, a longer one loses its middle as before.
+ */
+.media.oriso:not([data-oriso-rectangular="true"], [data-oriso-half="true"])
+  .nameTag {
+  position: absolute;
+  grid-area: auto;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: max-content;
+}
+
+.media.oriso[data-oriso-name-side] .nameTag {
+  max-inline-size: none;
+}
+
+/* The capsule's row keeps its height without it, or the `⋮` in the row
+   below moved up under the capsule. */
+.media.oriso:not([data-oriso-rectangular="true"], [data-oriso-half="true"])
+  > .fg {
+  grid-template-rows: 26px 1fr;
+}
+
+.media.oriso[data-oriso-name-side="centre"] .nameTag {
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+}
+
+.media.oriso[data-oriso-name-side="end"] .nameTag {
+  inset-inline: auto 0;
+}
+
+/* A phone's forms are a third of the size; its names are cut sooner. */
+@media (max-width: 550px) {
+  .media.oriso {
+    --oriso-name-max: 112px;
+  }
+}
+
+.media.oriso[data-oriso-name-side] .nameTag > .name {
+  max-inline-size: var(--oriso-name-max, 184px);
+}
+
+/* Speaking loses the transparency. That is the only difference, so the
+   capsule carries it rather than a second element. */
+.media.oriso[data-oriso-speaking="true"] .nameTag {
+  background: #4c555f;
+}
+
+/* Video (5a): the name is always in the dark capsule, the stage's own
+   surface colour — bare or pale text on a moving picture cannot be read.
+   Speaking still loses the transparency. */
+.media.oriso[data-oriso-rectangular="true"] .nameTag {
+  background: rgb(34 36 35 / 78%);
+  color: #fbf4d3;
+}
+
+.media.oriso[data-oriso-rectangular="true"][data-oriso-speaking="true"]
+  .nameTag {
+  background: rgb(34 36 35);
+}
+
+/* "Namen dezent" (S5, 2a): plain text on the atmosphere instead of the
+   capsule. Never over a running camera or on the video stage, where bare text
+   cannot be read; never in the Einzelgespräch, whose names are already text
+   under the circle. */
+[data-oriso-names="dezent"]
+  .media.oriso:not(
+    [data-oriso-camera="true"],
+    [data-oriso-rectangular="true"],
+    [data-oriso-half="true"]
+  )
+  .nameTag {
+  background: transparent;
+  backdrop-filter: none;
+  color: rgb(45 44 40);
+  text-shadow: 0 0 6px rgb(255 255 255 / 90%);
+}
+
+[data-oriso-names="dezent"]
+  .media.oriso:not(
+    [data-oriso-camera="true"],
+    [data-oriso-rectangular="true"],
+    [data-oriso-half="true"]
+  )
+  .nameTag
+  .muteIcon {
+  color: rgb(45 44 40);
+}
+
+/* S6, design 2a: the status stands in the name's own dark capsule — the
+   microphone only when it is off, the raised hand with how long it has been
+   up. A live microphone says nothing worth a symbol. */
+.media.oriso:not([data-oriso-half="true"])
+  .nameTag
+  > svg:not([data-muted="true"]) {
+  display: none;
+}
+
+.media.oriso .orisoHand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding-inline-end: 6px;
+  border-inline-end: 1px solid rgb(255 255 255 / 30%);
+  color: #ffd27a;
+  font-variant-numeric: tabular-nums;
+}
+
+.media.oriso .nameTag > .name {
+  padding-inline: 0;
+}
+
+.media.oriso .nameTag > svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+.media.oriso .nameTag .muteIcon {
+  color: #fff;
+}
+
+/* The head gives way; the tail never does. An ORISO pseudonym is identified
+   by the number at its end, so a plain ellipsis removes the one part that
+   distinguishes two people with the same animal. */
+.media.oriso .nameTag > .name {
+  display: inline-flex;
+  min-inline-size: 0;
+  overflow: visible;
+}
+
+.media.oriso .nameHead {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-inline-size: 0;
+}
+
+.media.oriso .nameTail {
+  flex: none;
+  white-space: pre;
+}
+
+/*
+ * The Einzelgespräch's names stand UNDER the circle (section 2b).
+ *
+ * Plain text, not the capsule: the name of the left half at the circle's
+ * left edge, the right half's at its right edge, each with a status line
+ * ("spricht" in the primary colour, "hört zu" in grey) and its `⋮` on the
+ * outside. Both tiles are given the whole circle, so `.fg` is moved out of
+ * the box rather than into a half: under it, half its width, on its side.
+ *
+ * z 6 inside the stage: above every shape, as the stacking order asks.
+ */
+.media.oriso[data-oriso-half="true"] > .fg {
+  inset: auto;
+  inset-block-start: calc(100% + 12px);
+  inline-size: 50%;
+  z-index: var(--oriso-z-names, 6);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Each half's names may reach out past the circle, never toward the other
+   half: a small circle (the notes card open over a 1:1 on a laptop) left
+   90px for each and cut "ruhiger Fuchs 432" to "r… 432". On a phone the
+   circle is centred and nearly as wide as the screen; 50vw keeps the names
+   16px inside its edges. */
+.media.oriso[data-oriso-side="start"] > .fg {
+  inset-inline-end: 50%;
+  inline-size: max(50%, min(200px, 50vw - 16px));
+}
+
+.media.oriso[data-oriso-side="end"] > .fg {
+  inset-inline-start: 50%;
+  inline-size: max(50%, min(200px, 50vw - 16px));
+  flex-direction: row-reverse;
+}
+
+.media.oriso[data-oriso-half="true"] .nameTag,
+.media.oriso[data-oriso-half="true"][data-oriso-speaking="true"] .nameTag {
+  block-size: auto;
+  min-inline-size: 0;
+  max-inline-size: none;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  color: rgb(45 44 40);
+  letter-spacing: normal;
+}
+
+.media.oriso[data-oriso-half="true"] .orisoLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+  overflow: hidden;
+  /* Upstream holds every `span` in the tag at its size; this one gives way. */
+  flex-shrink: 1;
+}
+
+.media.oriso[data-oriso-side="end"] .orisoLabel {
+  align-items: flex-end;
+}
+
+/* The same cut as the capsule's — the head gives way, the number at the
+   end never does — one level further down. */
+.media.oriso[data-oriso-half="true"] .nameTag > .orisoLabel > .name {
+  display: flex;
+  min-inline-size: 0;
+  font:
+    500 14px / 18px Inter,
+    sans-serif;
+  max-inline-size: 100%;
+}
+
+.media.oriso[data-oriso-side="end"] .nameTag > .orisoLabel > .name {
+  justify-content: flex-end;
+}
+
+.media.oriso .orisoStatus {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font:
+    400 12px / 16px Inter,
+    sans-serif;
+  color: rgb(120 118 125);
+  white-space: nowrap;
+}
+
+.media.oriso .orisoStatus[data-speaking="true"] {
+  color: var(--oriso-primary, #a5000a);
+}
+
+/* The microphone icon says one thing here: that it is off. */
+.media.oriso .orisoStatus > svg {
+  inline-size: 14px;
+  block-size: 14px;
+  color: currentcolor;
+}
+
+.media.oriso .orisoStatus > svg:not([data-muted="true"]) {
+  display: none;
+}
+
+/* The `⋮` stands beside the name and is always there, quietly — not
+   upstream's button that appears on hover inside the tile. */
+.media.oriso[data-oriso-half="true"] > .fg > button {
+  flex: none;
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: none;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.media.oriso[data-oriso-half="true"] > .fg > button > svg {
+  color: rgb(73 69 79);
+}
+
+@media (hover) {
+  .media.oriso[data-oriso-half="true"] > .fg > button:hover {
+    opacity: 1;
+    background: rgb(0 0 0 / 6%);
+  }
+}
+
+.media.oriso[data-oriso-half="true"] > .fg > button[data-state="open"] {
+  opacity: 1;
+  background: rgb(230 239 252);
+}
+
+/* A raised hand or a reaction stays inside the circle, on its half. */
+.media.oriso[data-oriso-half="true"] .reactions {
+  position: absolute;
+  inset-block-end: calc(100% + 24px);
+}
+
+/* And the same for a form with no shape of its own: `OrisoFace` centres a
+   square of the tile's smaller side, so the chrome has to be inset to that
+   square rather than to the rectangle around it. In an 800x450 spotlight the
+   circle begins at x=175 and the capsule used to begin near x=64 — the label
+   floating off the form it names. */
+.media.oriso[data-oriso-circle="true"] > .fg {
+  inset-inline: var(--oriso-circle-inset-inline, 8%);
+  inset-block: var(--oriso-circle-inset-block, 8%);
+}
+
+/* A shared screen in the ORISO design (#2233, R25): a rectangle with only a
+   slight corner — the design's 24px, Compound's 6x space — and never a
+   bubble. On the tile rather than on the spotlight around it, because the
+   spotlight drops its corner to 0 when maximised and the grove's fixed slot
+   has none of its own. `.bg` inherits the radius and clips the picture. */
+.media[data-oriso-share="true"] {
+  --media-view-border-radius: var(--cpd-space-6x);
+  overflow: hidden;
+}

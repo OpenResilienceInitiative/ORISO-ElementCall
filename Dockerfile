@@ -10,9 +10,10 @@ FROM nginxinc/nginx-unprivileged:1.29.5-alpine-slim@sha256:08c2bc93448bc00d2a2e8
 
 # Patch fixable HIGH CVEs in Alpine packages until the pinned base image
 # ships them: CVE-2026-45447 (libcrypto3/libssl3), CVE-2026-40200
-# (musl/musl-utils), CVE-2026-22184 (zlib).
+# (musl/musl-utils), CVE-2026-22184 (zlib), CVE-2026-86145, CVE-2026-89157,
+# CVE-2026-89161 and CVE-2026-103111 (pcre2).
 USER root
-RUN apk upgrade --no-cache libcrypto3 libssl3 musl musl-utils zlib
+RUN apk upgrade --no-cache libcrypto3 libssl3 musl musl-utils zlib pcre2
 USER 101
 
 COPY --from=builder ./dist /app

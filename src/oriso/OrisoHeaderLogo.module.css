@@ -1,0 +1,28 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* The Träger's logo in the call header: one fixed height, whatever its shape. */
+.logo {
+  flex-shrink: 0;
+  block-size: 28px;
+  inline-size: auto;
+  max-inline-size: 120px;
+  object-fit: contain;
+  /* Träger logos are made for a light page; the call header is dark, so the
+     logo sits on a light plate rather than disappearing into it. */
+  box-sizing: content-box;
+  padding: 2px var(--cpd-space-2x);
+  border-radius: var(--cpd-radius-pill-effect);
+  background: #fff;
+}
+
+/* On a phone the logo must not squeeze the title out of the header. */
+@media (max-width: 550px) {
+  .logo {
+    max-inline-size: 88px;
+  }
+}

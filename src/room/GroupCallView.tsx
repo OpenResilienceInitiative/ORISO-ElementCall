@@ -24,6 +24,7 @@ import {
   type MatrixRTCSession,
 } from "matrix-js-sdk/lib/matrixrtc";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import type { IWidgetApiRequest } from "matrix-widget-api";
 import {
@@ -47,6 +48,7 @@ import {
 } from "../e2ee/sharedKeyManagement";
 import { useRoomAvatar } from "./useRoomAvatar";
 import { useRoomName } from "./useRoomName";
+import { roomDisplayName } from "./roomDisplayName";
 import { useJoinRule } from "./useJoinRule";
 import { InviteModal } from "./InviteModal";
 import {
@@ -178,13 +180,21 @@ export const GroupCallView: FC<Props> = ({
 
   const room = rtcSession.room as Room;
   const { displayName, avatarUrl } = useProfile(client);
-  const roomName = useRoomName(room);
+  const matrixRoomName = useRoomName(room);
   const roomAvatar = useRoomAvatar(room);
   const {
+    orisoDesign,
     perParticipantE2EE,
     returnToLobby,
     password: passwordFromUrl,
   } = useUrlParams();
+  const { t } = useTranslation();
+  const roomName = roomDisplayName(
+    matrixRoomName,
+    room.roomId,
+    t("oriso_call_title"),
+    Boolean(widget && orisoDesign),
+  );
   const e2eeSystem = useRoomEncryptionSystem(room.roomId);
 
   // Save the password once we start the groupCallView

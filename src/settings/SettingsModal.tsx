@@ -7,6 +7,7 @@ Please see LICENSE in the repository root for full details.
 
 import { type FC, type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import classNames from "classnames";
 import { type MatrixClient } from "matrix-js-sdk";
 import { Button, Root as Form, Separator } from "@vector-im/compound-web";
 import { type Room as LivekitRoom } from "livekit-client";
@@ -34,6 +35,14 @@ import { FieldRow, InputField } from "../input/Input";
 import { useSubmitRageshake } from "./submit-rageshake";
 import { useUrlParams } from "../UrlParams";
 import { useBehavior } from "../useBehavior";
+
+/*
+ * Hidden by requirement. Constants rather than a literal `false &&`, so the
+ * intent is named, the definitions below stay compiled, and re-enabling
+ * either is one word.
+ */
+const SHOW_FEEDBACK_TAB = false;
+const SHOW_DEVELOPER_TAB = false;
 
 type SettingsTab =
   | "audio"
@@ -114,7 +123,7 @@ export const SettingsModal: FC<Props> = ({
   // a single device. These are called "headset" or "speaker" (or similar) but contain both input and output.
   // On EC, we decided that it is less confusing for the user if they see those options in the output section
   // rather than the input section.
-  const { controlledAudioDevices } = useUrlParams();
+  const { controlledAudioDevices, orisoDesign } = useUrlParams();
   // If we are on iOS we will show a button to open the native audio device picker.
   const iosDeviceMenu = useBehavior(iosDeviceMenu$);
 
@@ -220,17 +229,26 @@ export const SettingsModal: FC<Props> = ({
   const tabs = [audioTab, videoTab];
   if (widget === null) tabs.push(profileTab);
   tabs.push(preferencesTab);
-  // Feedback tab hidden by requirement (keep definition for easy re-enable)
-  if (false && (isRageshakeAvailable || import.meta.env.VITE_PACKAGE === "full")) {
+  // Hidden by requirement, with the definitions kept so re-enabling is one
+  // word each. Named constants rather than a literal `false &&`, which the
+  // linter reads — correctly — as a condition that cannot vary.
+  if (
+    SHOW_FEEDBACK_TAB &&
+    (isRageshakeAvailable || import.meta.env.VITE_PACKAGE === "full")
+  ) {
     tabs.push(feedbackTab);
   }
-  // Developer tab hidden by requirement (keep definition for easy re-enable)
-  if (false && showDeveloperSettingsTab) tabs.push(developerTab);
+  if (SHOW_DEVELOPER_TAB && showDeveloperSettingsTab) tabs.push(developerTab);
 
   return (
     <Modal
       title={t("common.settings")}
-      className={styles.settingsModal}
+      className={classNames(
+        styles.settingsModal,
+        // The ORISO look (#110): light tokens under the dark call, and a plain
+        // class the tab bar's and the device list's ORISO rules hang on.
+        orisoDesign && [styles.oriso, "cpd-theme-light", "oriso-settings"],
+      )}
       open={open}
       onDismiss={onDismiss}
       tabbed

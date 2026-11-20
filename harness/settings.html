@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ORISO call settings — visual proof</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        background: #2d2c28;
+        font-family:
+          Inter,
+          -apple-system,
+          system-ui,
+          sans-serif;
+        color: #fff;
+      }
+      .plate {
+        position: relative;
+        margin: 0;
+        overflow: hidden;
+      }
+      .caption {
+        position: absolute;
+        inset-block-start: 8px;
+        inset-inline-start: 12px;
+        z-index: 5;
+        font:
+          500 12px/1.4 Inter,
+          sans-serif;
+        letter-spacing: 0.3px;
+        color: rgb(255 255 255 / 70%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/harness/settings.tsx"></script>
+  </body>
+</html>

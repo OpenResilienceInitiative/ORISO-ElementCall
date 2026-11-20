@@ -20,7 +20,12 @@ import {
   mockRemoteParticipant,
 } from "../utils/test";
 import { SpotlightTileViewModel } from "../state/TileViewModel";
+import { ScreenShareViewModel } from "../state/MediaViewModel";
+import { E2eeType } from "../e2ee/e2eeType";
+import { mockLivekitRoom, testScope } from "../utils/test";
 import { constant } from "../state/Behavior";
+import { OrisoStageContext } from "../oriso/useOrisoIdentities";
+import { rectangularStage } from "../oriso/shape";
 
 global.IntersectionObserver = class MockIntersectionObserver {
   public observe(): void {}
@@ -77,4 +82,299 @@ test("SpotlightTile is accessible", async () => {
   // Can toggle whether the tile is expanded
   await user.click(screen.getByRole("button", { name: "Expand" }));
   expect(toggleExpanded).toHaveBeenCalled();
+});
+
+test("the spotlight shows a person as their ORISO form", () => {
+  /*
+   * The spotlight layouts were the last place the design did not reach. They
+   * are what upstream falls back to on a flat window — flipping a phone into
+   * landscape, on purpose — and they are the third view ORISO's own rail
+   * offers, so the big tile was a black rectangle while the rail beside it
+   * showed everybody as a form.
+   *
+   * No `TileShape` here and none wanted: the spotlight is one form filling the
+   * stage, which is the default circle.
+   */
+  const alice = createRemoteMedia(
+    mockRtcMembership("@alice:example.org", "AAAA"),
+    { rawDisplayName: "ruhiger Fuchs 432" },
+    mockRemoteParticipant({}),
+  );
+  const identities = new Map([
+    [
+      "@alice:example.org",
+      {
+        kind: "animal" as const,
+        file: "fox.svg",
+        bg: "#165e83",
+        ink: "#ffffff",
+      },
+    ],
+  ]);
+
+  render(
+    <OrisoStageContext value={{ identities, parentUrl: null, enabled: true }}>
+      <SpotlightTile
+        vm={new SpotlightTileViewModel(constant([alice]), constant(false))}
+        targetWidth={300}
+        targetHeight={200}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+
+  const face = screen.getByTestId("oriso-face");
+  expect(face.style.background).toBe("rgb(22, 94, 131)");
+  // The default circle, because no layout publishes a shape for a spotlight.
+  expect(face.style.borderRadius).toBe("50%");
+});
+
+/*
+ * A shared screen stays a rectangle, and that is structural rather than
+ * tested: the identity is attached in `SpotlightUserMediaItem`, and
+ * `SpotlightItem` sends a `ScreenShareViewModel` straight to `MediaView`
+ * without going through it. There is no path that gives a screen a face.
+ */
+
+/*
+ * The shared screen carries its sharer's NAME, and that name was the one
+ * place the substitution did not reach.
+ *
+ * The comment above says a `ScreenShareViewModel` goes straight to
+ * `MediaView` without passing through `SpotlightUserMediaItem`. That is what
+ * keeps a screen a rectangle — and it is also what kept the raw Matrix id on
+ * its label, so in a call where a counsellor shared their screen, every face
+ * read "ruhiger Fuchs 432" while the shared screen above them read
+ * `@cyrus:oriso.org`. Review suspected this surface; it was right.
+ */
+test("a shared screen is labelled with its sharer's name, not their id", () => {
+  const sharer = "@cyrus:oriso.org";
+  const screenShare = new ScreenShareViewModel(
+    testScope(),
+    "screenshare",
+    sharer,
+    constant(mockRemoteParticipant({})),
+    { kind: E2eeType.PER_PARTICIPANT },
+    constant(mockLivekitRoom({})),
+    constant(undefined),
+    constant(false),
+    // What the homeserver holds for an ORISO account: nothing, so the SDK
+    // hands the tile the user id.
+    constant(sharer),
+    constant(undefined),
+    false,
+  );
+  const identities = new Map([
+    [
+      sharer,
+      {
+        kind: "animal" as const,
+        file: "deer.svg",
+        bg: "#fce7e6",
+        ink: "#1a1a1a",
+        name: "Beratung Nord",
+      },
+    ],
+  ]);
+
+  render(
+    <OrisoStageContext value={{ identities, parentUrl: null, enabled: true }}>
+      <SpotlightTile
+        vm={new SpotlightTileViewModel(constant([screenShare]), constant(true))}
+        targetWidth={300}
+        targetHeight={200}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+
+  expect(screen.getByTestId("name_tag").textContent?.trim()).toBe(
+    "Beratung Nord",
+  );
+  // And it is still a rectangle: a screen is not a person.
+  expect(screen.queryByTestId("oriso-face")).toBeNull();
+});
+
+/*
+ * #2233: in the spotlight everybody is a rectangle with slightly rounded
+ * corners, like Element's spotlight (Frank, 13 Nov: no speech bubbles); with
+ * the camera off the animal or the initials sit inside it. A shared screen
+ * is a rectangle too, with the design's 24px corner (R25).
+ */
+function sharedScreenOf(userId: string): ScreenShareViewModel {
+  return new ScreenShareViewModel(
+    testScope(),
+    "screenshare",
+    userId,
+    constant(mockRemoteParticipant({})),
+    { kind: E2eeType.PER_PARTICIPANT },
+    constant(mockLivekitRoom({})),
+    constant(undefined),
+    constant(false),
+    constant("ruhiger Fuchs 432"),
+    constant(undefined),
+    false,
+  );
+}
+
+test("the spotlight's person is a rounded rectangle, animal inside", () => {
+  const alice = createRemoteMedia(
+    mockRtcMembership("@alice:example.org", "AAAA"),
+    { rawDisplayName: "ruhiger Fuchs 432" },
+    mockRemoteParticipant({}),
+  );
+  render(
+    <OrisoStageContext
+      value={{
+        identities: new Map(),
+        parentUrl: null,
+        enabled: true,
+        // As InCallView sets it for every spotlight layout.
+        rectangular: rectangularStage("spotlight-landscape", false),
+      }}
+    >
+      <SpotlightTile
+        vm={new SpotlightTileViewModel(constant([alice]), constant(false))}
+        targetWidth={800}
+        targetHeight={450}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+  const face = screen.getByTestId("oriso-face");
+  expect(face.style.borderRadius).toBe("var(--cpd-space-5x)");
+  expect(face.closest('[data-oriso-rectangular="true"]')).not.toBeNull();
+});
+
+test("a shared screen in the ORISO spotlight is a rounded rectangle, never a bubble", () => {
+  render(
+    <OrisoStageContext
+      value={{
+        identities: new Map(),
+        parentUrl: null,
+        enabled: true,
+        rectangular: true,
+      }}
+    >
+      <SpotlightTile
+        vm={
+          new SpotlightTileViewModel(
+            constant([sharedScreenOf("@cyrus:oriso.org")]),
+            constant(true),
+          )
+        }
+        targetWidth={800}
+        targetHeight={450}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+  expect(screen.queryByTestId("oriso-face")).toBeNull();
+  expect(screen.getByTestId("videoTile")).toHaveAttribute(
+    "data-oriso-share",
+    "true",
+  );
+});
+
+test("a person beside a 1:1's shared screen is a circle, not an ellipse (#2233)", () => {
+  const alice = createRemoteMedia(
+    mockRtcMembership("@alice:example.org", "AAAA"),
+    { rawDisplayName: "ruhiger Fuchs 432" },
+    mockRemoteParticipant({}),
+  );
+  render(
+    <OrisoStageContext
+      value={{
+        identities: new Map(),
+        parentUrl: null,
+        enabled: true,
+        rectangular: true,
+        round: true,
+      }}
+    >
+      <SpotlightTile
+        vm={new SpotlightTileViewModel(constant([alice]), constant(false))}
+        // The spotlight rail's slot: 180x135.
+        targetWidth={180}
+        targetHeight={135}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+  const face = screen.getByTestId("oriso-face");
+  expect(face.style.borderRadius).toBe("50%");
+  // A centred square of the shorter side, so 50% is a circle.
+  expect(face.style.inlineSize).toBe("135px");
+  expect(face.style.blockSize).toBe("135px");
+  expect(face.closest('[data-oriso-round="true"]')).not.toBeNull();
+});
+
+test("a shared screen stays a rectangle in a 1:1's round stage (#2233)", () => {
+  render(
+    <OrisoStageContext
+      value={{
+        identities: new Map(),
+        parentUrl: null,
+        enabled: true,
+        rectangular: true,
+        round: true,
+      }}
+    >
+      <SpotlightTile
+        vm={
+          new SpotlightTileViewModel(
+            constant([sharedScreenOf("@cyrus:oriso.org")]),
+            constant(true),
+          )
+        }
+        targetWidth={800}
+        targetHeight={450}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
+        showIndicators
+        focusable={true}
+      />
+    </OrisoStageContext>,
+  );
+  const tile = screen.getByTestId("videoTile");
+  expect(tile).toHaveAttribute("data-oriso-share", "true");
+  expect(tile).not.toHaveAttribute("data-oriso-round");
+});
+
+test("upstream's shared screen is left exactly as it was", () => {
+  render(
+    <SpotlightTile
+      vm={
+        new SpotlightTileViewModel(
+          constant([sharedScreenOf("@cyrus:oriso.org")]),
+          constant(true),
+        )
+      }
+      targetWidth={800}
+      targetHeight={450}
+      expanded={false}
+      onToggleExpanded={vi.fn()}
+      showIndicators
+      focusable={true}
+    />,
+  );
+  expect(screen.getByTestId("videoTile")).not.toHaveAttribute(
+    "data-oriso-share",
+  );
+  expect(screen.queryByTestId("oriso-face")).toBeNull();
 });

@@ -25,3 +25,29 @@ Please see LICENSE in the repository root for full details.
   background: transparent; /* Chrome/Safari/Webkit */
   width: 0px;
 }
+
+/* The ORISO settings (#110): the tabs are the call menu's choice tiles
+   (1c), a pill per tab, the picked one ringed in the primary colour. */
+:global(.oriso-settings) .tabList {
+  border-block-end: none;
+}
+
+:global(.oriso-settings) .tabList li::before {
+  display: none;
+}
+
+:global(.oriso-settings) .tabList button {
+  min-block-size: 40px;
+  padding-inline: 16px;
+  border-radius: 20px;
+  font:
+    500 15px / 20px Inter,
+    sans-serif;
+  color: rgb(73 69 79);
+}
+
+:global(.oriso-settings) .tabList button[aria-selected="true"] {
+  background: rgb(240 237 238);
+  box-shadow: inset 0 0 0 2px var(--oriso-primary, #a5000a);
+  color: rgb(45 44 40);
+}

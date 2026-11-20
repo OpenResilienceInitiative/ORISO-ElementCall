@@ -515,6 +515,7 @@ export function mockMediaDevices(data: Partial<MediaDevices>): MediaDevices {
     audioInput: deviceStub,
     audioOutput: deviceStub,
     videoInput: deviceStub,
+    unmatchedInitialInputs$: constant([]),
     ...data,
   } as MediaDevices;
 }

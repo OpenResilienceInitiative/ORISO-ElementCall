@@ -85,3 +85,23 @@ borders don't support gradients */
   background: var(--cpd-color-bg-subtle-primary);
   border-color: var(--cpd-color-border-interactive-hovered);
 }
+
+/* ORISO: name and role at the top of a person's ⋮ (design 2a). */
+.menuHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--cpd-space-2x) var(--cpd-space-4x) var(--cpd-space-3x);
+  border-block-end: 1px solid var(--cpd-color-separator-primary, #e1e6ec);
+  margin-block-end: var(--cpd-space-1x);
+}
+
+.menuHeaderName {
+  font: var(--cpd-font-body-sm-medium);
+  color: var(--cpd-color-text-primary);
+}
+
+.menuHeaderRole {
+  font: var(--cpd-font-body-xs-regular);
+  color: var(--cpd-color-text-secondary);
+}

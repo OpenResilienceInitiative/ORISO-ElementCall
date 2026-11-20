@@ -14,6 +14,13 @@ export default defineConfig((configEnv) =>
           },
         },
         setupFiles: ["src/vitest.setup.ts"],
+        server: {
+          deps: {
+            // Ships ES modules with extensionless imports, which Node cannot
+            // load; Vite resolves them. Used by the call's brand palette.
+            inline: ["@material/material-color-utilities"],
+          },
+        },
         include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
         coverage: {
           reporter: ["html", "json"],

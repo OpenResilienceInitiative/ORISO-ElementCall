@@ -33,3 +33,57 @@ Please see LICENSE in the repository root for full details.
 .volumeSlider > p {
   color: var(--cpd-color-text-secondary);
 }
+
+/* The ORISO look (#110). The design has no dialog of its own, so these are
+   the call menu's values (1c): light surface, 28px corners, the primary ring,
+   Inter. Compound reads its colours from these tokens. */
+.oriso {
+  --oriso-ink: rgb(45 44 40);
+  --cpd-color-bg-canvas-default: rgb(250 249 249);
+  --cpd-color-text-primary: var(--oriso-ink);
+  --cpd-color-text-secondary: rgb(110 108 112);
+  --cpd-color-bg-action-primary-rest: var(--oriso-primary, #a5000a);
+  --cpd-color-bg-action-primary-hovered: var(--oriso-primary-hover, #820006);
+  --cpd-color-bg-action-primary-pressed: var(--oriso-primary-hover, #820006);
+  --cpd-color-bg-accent-rest: var(--oriso-primary, #a5000a);
+  --cpd-color-bg-accent-hovered: var(--oriso-primary-hover, #820006);
+  --cpd-color-border-focused: var(--oriso-primary, #a5000a);
+
+  color-scheme: light;
+  color: var(--oriso-ink);
+  font-family: Inter, sans-serif;
+}
+
+/* On a desk the dialog sits in Compound's glass frame; the menu has none,
+   just the primary ring on the edge. */
+.oriso:not([data-vaul-drawer]) {
+  padding: 0;
+  border-radius: 28px;
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: -2px;
+  box-shadow: 0 14px 32px rgb(0 0 0 / 20%);
+}
+
+.oriso:not([data-vaul-drawer]) > :first-child {
+  border-radius: 28px;
+}
+
+.oriso h2,
+.oriso h4 {
+  font-family: Inter, sans-serif;
+  font-weight: 500;
+  color: var(--oriso-ink);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .oriso {
+    animation: oriso-sheet 0.3s cubic-bezier(0.2, 0, 0, 1);
+  }
+}
+
+@keyframes oriso-sheet {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+}

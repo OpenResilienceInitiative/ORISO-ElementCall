@@ -143,7 +143,7 @@ function createGroupCallView(
     // A real MatrixClient always exposes this, so the mock should too. It was
     // missing, and the encryption guard's unconditional `client.getCrypto()`
     // crashed every test in this file with a TypeError.
-    ...(omitGetCrypto ? {} : { getCrypto: () => undefined }),
+    ...(omitGetCrypto ? {} : { getCrypto: (): undefined => undefined }),
   } as Partial<MatrixClient> as MatrixClient;
   const room = mockMatrixRoom({
     relations: {

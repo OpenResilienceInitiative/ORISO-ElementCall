@@ -106,6 +106,21 @@ Please see LICENSE in the repository root for full details.
   justify-self: end;
 }
 
+/*
+ * The ORISO footer holds one thing: the toolbar, centred, on every width.
+ *
+ * The view rail no longer sits here; it moved into the toolbar's `⋮` menu
+ * ("Ansicht"), so a phone keeps the choice without a second row.
+ */
+.footer.orisoFooter {
+  grid-template-areas: ". buttons buttons buttons .";
+}
+
+.orisoToolbar {
+  grid-area: buttons;
+  justify-self: center;
+}
+
 @media (max-width: 660px) {
   .footer {
     grid-template-areas: ". buttons buttons buttons .";
@@ -190,4 +205,210 @@ Please see LICENSE in the repository root for full details.
 .tile.maximised {
   position: relative;
   flex-grow: 1;
+}
+
+/* The living backdrop behind the whole call: behind every tile, the header
+   and the footer, and behind every row of a stage that scrolls. */
+.orisoBackdrop {
+  /*
+   * Pinned to the scrollport, not to the first screenful.
+   *
+   * `.inRoom` is the scroll container, and `position: absolute; inset: 0`
+   * inside it sizes the backdrop to the padding box — one screen — and
+   * scrolls it away with the content. Above eight people the fields scroll,
+   * and every row below the fold came out from under the pond onto bare
+   * background.
+   *
+   * Fixed rather than sticky, because sticky needs the element to stay in
+   * flow: as a flex item of this column it would then take a row's worth of
+   * height, and the usual way out — `block-size: 100%; margin-block-end:
+   * -100%` — does not work here, since a PERCENTAGE BLOCK MARGIN resolves
+   * against the containing block's INLINE size. In a landscape window that
+   * subtracts more than the backdrop's height and drags the header and the
+   * stage up out of the box.
+   *
+   * `.inRoom` fills the viewport (100%/100%, and nothing on it establishes a
+   * containing block for fixed descendants), so the viewport IS this
+   * scrollport: the first screenful looks exactly as it did, and the rows
+   * below it now have the pond behind them too.
+   */
+  position: fixed;
+  inset: 0;
+  /* Behind the call's own content, and WITHOUT reaching into it.
+     The first version lifted every sibling instead, with
+     `.inRoom[data-oriso] > *:not(.orisoBackdrop) { position: relative }` —
+     which also overrode `position: absolute` on the fixed grid layer and
+     `position: sticky` on the header and the footer, so the controls scrolled
+     away with the stage. A negative z-index on the backdrop asks nothing of
+     anything else. */
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/*
+ * One stacking order for the whole call, bottom to top (28 Oct audit):
+ *
+ *   stage            z 1, isolated: the shapes' own z (1..5) and the names
+ *                    and the seam (6) can never leak out of it
+ *   call note        z 15, under the bar, so its menu opens over the card
+ *   toolbar + menu   z 20, on the toolbar itself
+ *   header           z 30
+ *
+ * The side panels (z 10) are the host's, around this iframe. The menus
+ * Compound portals to the body (a person's `⋮`) sit above all of this.
+ */
+.inRoom[data-oriso="true"] {
+  /* The platform error colour, for what ends or destroys (hang up, leave),
+     independent of the Träger's colour (Frank, 11 Nov; ORISO-ElementCall#138).
+     It is the design system's "Error" token (#B1005E, Figma variable
+     54778:420; ORISO-Frontend Light.tokens.json, orisoTuning `error`), i.e.
+     the light scheme's `--cpd-color-bg-critical-primary`. Fixed here, not
+     read from the token at run time: the call is dark, whose critical token
+     is a pale pink that cannot carry text on the light menu card, and a
+     Träger `orisoSignal` must not move it. oriso-theme.css is checked
+     against this value. */
+  --oriso-critical: #b1005e;
+  --oriso-z-stage: 1;
+  --oriso-z-names: 6;
+  --oriso-z-notes: 15;
+  --oriso-z-toolbar: 20;
+  --oriso-z-header: 30;
+
+  position: relative;
+  /* So that -1 means "behind the call" and not "behind the page". Without a
+     stacking context here the backdrop would slide under the host document
+     and vanish. */
+  isolation: isolate;
+}
+
+.inRoom[data-oriso="true"] > .scrollingGrid,
+.inRoom[data-oriso="true"] > .fixedGrid {
+  z-index: var(--oriso-z-stage);
+  isolation: isolate;
+}
+
+.inRoom[data-oriso="true"] > .footer {
+  z-index: var(--oriso-z-toolbar);
+}
+
+.inRoom[data-oriso="true"] > .header {
+  z-index: var(--oriso-z-header);
+}
+
+/* "Meine Gesprächsnotiz" docked beside a group stage (#112, design 2a): the
+   stage and the control bar give up the card's width plus its margins, so
+   the card covers nobody. */
+.inRoom[data-notes-docked="true"] {
+  --oriso-notes-inset: calc(352px + 2 * 16px);
+}
+
+.inRoom[data-notes-docked="true"] > .fixedGrid,
+.inRoom[data-notes-docked="true"] > .scrollingGrid {
+  inline-size: calc(100% - var(--oriso-notes-inset));
+  align-self: flex-start;
+  inset-inline-start: 0;
+}
+
+/* A margin, not padding: the footer sits above the card, and padding would
+   still be its box — clicks on the card's note field landed on the footer
+   (ORISO-Frontend#2174). */
+.inRoom[data-notes-docked="true"] > .footer {
+  margin-inline-end: var(--oriso-notes-inset);
+}
+
+.inRoom[data-oriso-video-stage="true"] {
+  --oriso-video-surface: #222423;
+  --oriso-video-ink: #fbf4d3;
+  --oriso-notes-dock-width: var(--oriso-video-notes-width);
+  --oriso-notes-dock-end: var(--oriso-stage-gutter);
+  --oriso-notes-inset: 0px;
+  --oriso-header-gutter: var(--oriso-stage-gutter);
+
+  background: var(--oriso-video-surface);
+}
+
+.inRoom[data-oriso-video-stage="true"][data-notes-docked="true"] {
+  --oriso-notes-inset: var(--oriso-video-notes-inset);
+}
+
+.videoNotesButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--cpd-space-2x);
+  border: 0;
+  border-radius: var(--cpd-radius-pill-effect);
+  background: rgb(251 244 211 / 14%);
+  color: inherit;
+  white-space: nowrap;
+  min-block-size: var(--cpd-space-9x);
+  padding-inline: var(--cpd-space-3x);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.videoNotesButton:hover,
+.videoNotesButton[aria-pressed="true"] {
+  background: var(--oriso-video-ink);
+  color: var(--oriso-video-surface);
+}
+
+.videoNotesButton svg {
+  inline-size: var(--cpd-space-4x);
+  block-size: var(--cpd-space-4x);
+}
+
+.inRoom[data-oriso-video-stage="true"] > .scrollingGrid,
+.inRoom[data-oriso-video-stage="true"] > .fixedGrid {
+  inline-size: calc(
+    100% - 2 * var(--oriso-stage-gutter) - var(--oriso-notes-inset)
+  );
+  align-self: flex-start;
+  inset-inline-start: var(--oriso-stage-gutter);
+}
+
+.inRoom[data-oriso-video-stage="true"] > .footer {
+  box-sizing: border-box;
+  padding-inline-end: 0;
+  padding-block: 2px 26px;
+}
+
+/* A phone (S9): the compact header and, for a group, the wave band under
+   it, over the stage rather than on a bar of their own. */
+.orisoMobileHeader {
+  position: sticky;
+  flex-shrink: 0;
+  inset-block-start: 0;
+  z-index: var(--oriso-z-header, 30);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block-end: 8px;
+}
+
+.inRoom[data-oriso="true"] > .orisoMobileHeader {
+  z-index: var(--oriso-z-header);
+}
+
+/* The Kacheln and the Felder scroll under the phone's header. It stays put
+   (sticky), but transparent over the stage the tiles ran through its title
+   and "verschlüsselt · …"; once anything is under it, it takes a surface
+   (#2233). The wave band keeps its own pill on top of it. */
+.inRoom[data-stage-scrolled="true"] > .orisoMobileHeader {
+  background: rgb(250 247 245 / 82%);
+  backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 6%);
+}
+
+.footer.orisoFooter .orisoToolbar[data-compact] {
+  justify-self: stretch;
+}
+
+/* The phone's bar runs across the width with 16px gutters (5b/5d): no grid
+   gaps eating into it, and less air below than the desktop's 40px. */
+.footer.orisoFooter:has(.orisoToolbar[data-compact]) {
+  column-gap: 0;
+  padding-block: var(--cpd-space-4x);
 }

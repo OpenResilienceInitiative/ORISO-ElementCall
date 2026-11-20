@@ -17,7 +17,10 @@ import { pickBy } from "lodash-es";
 import { Config } from "./config/Config";
 import { type EncryptionSystem } from "./e2ee/sharedKeyManagement";
 import { E2eeType } from "./e2ee/e2eeType";
+import { parseBrandLogo } from "./oriso/brandLogo";
+import { readTopic } from "./oriso/stageTitle";
 import { platform } from "./Platform";
+import { parseBrandHex } from "./oriso/theme/brandParams";
 
 interface RoomIdentifier {
   roomAlias: string | null;
@@ -50,6 +53,86 @@ export interface UrlProperties {
   // Widget api related params
   widgetId: string | null;
   parentUrl: string | null;
+  /**
+   * The Träger's logo, written into the call address by ORISO-Frontend (epic
+   * ORISO-Frontend#2187, "Call branding"): the TenantService's public logo
+   * route, `https://<host>/service/tenant/public/branding/<id>/logo`.
+   *
+   * The address comes from a link anybody can craft and ends up in an
+   * `<img src>`, so it is fail-closed. Here only its SHAPE is checked (see
+   * `parseBrandLogo`): anything but that route arrives as null. Whether the
+   * HOST is trusted (the call's own origin, or `oriso.brand_logo_origins` in
+   * the config) is decided where the logo is drawn, `OrisoHeaderLogo`, because
+   * this value is parsed and cached before the config has been fetched.
+   */
+  orisoLogo: string | null;
+  /**
+   * The ORISO backdrop preset, chosen centrally by the counselling centre.
+   *
+   * On the URL because it is the centre's configuration, not a call setting:
+   * an advice seeker never picks it, and a counsellor only from what the
+   * centre has configured. An unknown value falls back to the default rather
+   * than rendering nothing.
+   */
+  orisoAtmosphere: string | null;
+  /**
+   * Whether the embedding host asked for the ORISO design.
+   *
+   * Explicit, and deliberately not inferred from `parentUrl`. `parentUrl` is
+   * the generic widget parameter every embedded Element Call carries, so
+   * keying the design off it would hand the grove, the backdrop and the
+   * animals to any Element Web embedding of this build. ORISO-Frontend sets
+   * this flag; nobody else does, and without it the call is upstream's.
+   */
+  orisoDesign: boolean;
+  /**
+   * Whether the ORISO host leaves the window controls to the call.
+   *
+   * Set by ORISO-Frontend (`orisoHostChrome=1`) when it draws no window
+   * buttons of its own over the iframe. The call's header then carries
+   * "Verkleinern" and "Vollbild" and asks the host to act on them through
+   * the `org.oriso.call.window` widget action. Without it the host still has
+   * its own corner buttons, and the header keeps their corner free.
+   */
+  orisoHostChrome: boolean;
+  /**
+   * What kind of counselling conversation this call belongs to, set by
+   * ORISO-Frontend from the conversation type: `group` or `single`.
+   *
+   * It decides the view a call starts in, not the head count: a group
+   * conversation starts in the "Kreis" even when only two people are in it,
+   * a single conversation in the "Einzelgespräch". Without it (an older
+   * host) the head count decides as before. Anything else is ignored.
+   */
+  orisoCallType: "group" | "circle" | "single" | null;
+  /**
+   * What the conversation is called, for the call's header: a 1:1's topic
+   * (#2233 R6, "Einzelgespräch · Schuldnerberatung") or a group chat's own
+   * name ("QA Moabit · Brieftriage zu viert 08.11"). Plain text, trimmed and
+   * cut to one line (`readTopic`); null without one. See `stageTitle`.
+   */
+  orisoTopic: string | null;
+  /**
+   * Whether this person may hand out a link to the running call.
+   *
+   * Set by ORISO-Frontend (`orisoInvite=1`) when it can create one. The
+   * header then shows "Link teilen", which asks the host for the link with
+   * the `org.oriso.call.invite_link` widget action.
+   */
+  orisoInvite: boolean;
+  /**
+   * The Träger's brand colours, written into the call address by ORISO-Frontend
+   * when the call starts (epic ORISO-Frontend#2187, "Call branding").
+   *
+   * Each is six lowercase hex digits without a `#` on the address, and arrives
+   * here as `#rrggbb`. Anything else is dropped to null: the value ends up in
+   * a stylesheet, so it is validated, never repaired. `orisoPrimary` drives the
+   * palette (a missing or too-pale one keeps the shipped default); accent and
+   * signal are optional refinements of it.
+   */
+  orisoPrimary: string | null;
+  orisoAccent: string | null;
+  orisoSignal: string | null;
   /**
    * Anything about what room we're pointed to should be from useRoomIdentifier which
    * parses the path and resolves alias with respect to the default server name, however
@@ -246,6 +329,23 @@ export interface UrlConfiguration {
 
   callIntent?: RTCCallIntent;
 }
+
+/**
+ * The input devices the host app asks the call to start with, by label
+ * (ORISO-ElementCall#116).
+ *
+ * By label, because device ids are scoped to the origin that asked for them
+ * and the host runs on another origin than the call; labels are the same on
+ * both once media permission is granted. The same convention as the
+ * `io.element.join` action's `JoinCallData`. `null` keeps the default device.
+ */
+export interface InitialInputDevices {
+  /** `audioInput`: label of the microphone to start with. */
+  audioInput: string | null;
+  /** `videoInput`: label of the camera to start with. */
+  videoInput: string | null;
+}
+
 interface IntentAndPlatformDerivedConfiguration {
   defaultAudioEnabled?: boolean;
   defaultVideoEnabled?: boolean;
@@ -260,7 +360,8 @@ export interface UrlParams
   extends
     UrlProperties,
     UrlConfiguration,
-    IntentAndPlatformDerivedConfiguration {}
+    IntentAndPlatformDerivedConfiguration,
+    InitialInputDevices {}
 
 // This is here as a stopgap, but what would be far nicer is a function that
 // takes a UrlParams and returns a query string. That would enable us to
@@ -382,6 +483,21 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
 
   const widgetId = parser.getParam("widgetId");
   const parentUrl = parser.getParam("parentUrl");
+  const orisoLogo = parseBrandLogo(parser.getParam("orisoLogo"));
+  const orisoAtmosphere = parser.getParam("orisoAtmosphere");
+  const orisoDesign = parser.getFlagParam("orisoDesign");
+  const orisoHostChrome = parser.getFlagParam("orisoHostChrome");
+  const orisoInvite = parser.getFlagParam("orisoInvite");
+  const orisoCallType =
+    parser.getEnumParam("orisoCallType", [
+      "group",
+      "circle",
+      "single",
+    ] as const) ?? null;
+  const orisoTopic = readTopic(parser.getParam("orisoTopic"));
+  const orisoPrimary = parseBrandHex(parser.getParam("orisoPrimary"));
+  const orisoAccent = parseBrandHex(parser.getParam("orisoAccent"));
+  const orisoSignal = parseBrandHex(parser.getParam("orisoSignal"));
   const isWidget = !!widgetId && !!parentUrl;
 
   /**
@@ -498,6 +614,16 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const properties: UrlProperties = {
     widgetId,
     parentUrl,
+    orisoLogo,
+    orisoAtmosphere,
+    orisoDesign,
+    orisoHostChrome,
+    orisoCallType,
+    orisoTopic,
+    orisoInvite,
+    orisoPrimary,
+    orisoAccent,
+    orisoSignal,
     // NB. we don't validate roomId here as we do in getRoomIdentifierFromUrl:
     // what would we do if it were invalid? If the widget API says that's what
     // the room ID is, then that's what it is.
@@ -567,6 +693,24 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
       explicitCallIntent === "video";
   }
 
+  // The host's own pre-join check (ORISO-ElementCall#116): start with the
+  // microphone and camera as the person left them there. Applied as the
+  // default, so it holds before any track is created — a camera that was
+  // switched off is never captured, let alone published. Sending the same
+  // choice later through `io.element.device_mute` would leave a moment with
+  // the default.
+  const audioEnabled = parser.getFlag("audioEnabled");
+  if (audioEnabled !== undefined)
+    intentAndPlatformDerivedConfiguration.defaultAudioEnabled = audioEnabled;
+  const videoEnabled = parser.getFlag("videoEnabled");
+  if (videoEnabled !== undefined)
+    intentAndPlatformDerivedConfiguration.defaultVideoEnabled = videoEnabled;
+
+  const initialInputDevices: InitialInputDevices = {
+    audioInput: parser.getParam("audioInput") || null,
+    videoInput: parser.getParam("videoInput") || null,
+  };
+
   // Log the final configuration for debugging purposes.
   // This will only log when the cache is not yet set.
   logger.info(
@@ -586,6 +730,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     ...intentPreset,
     ...pickBy(configuration, (v?: unknown) => v !== undefined),
     ...intentAndPlatformDerivedConfiguration,
+    ...initialInputDevices,
   };
 };
 

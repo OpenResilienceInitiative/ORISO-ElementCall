@@ -58,6 +58,9 @@ export interface LocalMatrixLivekitMember extends MatrixLivekitMember {
  */
 export interface RemoteMatrixLivekitMember extends MatrixLivekitMember {
   participant: RemoteTaggedParticipant;
+  /* A remote member does have one: the factory below keys on it and returns
+     it. Only the local member's comes from the JWT instead. */
+  participantId: string;
 }
 
 interface Props {

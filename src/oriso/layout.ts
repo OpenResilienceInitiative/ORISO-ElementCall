@@ -1,0 +1,377 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+import { HALO_ROOM_MAX_SHARE, HALO_ROOM_PX } from "./halo";
+
+/**
+ * Layout engine for the ORISO call arrangements.
+ *
+ * PORTED VERBATIM from the design handoff's prototype
+ * (`design/Dynamische Call-Ansichten.dc.html`, the `data-dc-script` block),
+ * as Ticket 01 requires. The bodies below are the prototype's, unchanged; only
+ * types and `export` were added around them.
+ *
+ * DO NOT "clean up" the constants — the golden angle 137.507764°, the initial
+ * radius k = sqrt(0.7·box² / (π·Σw²)), the 240 relaxation passes, the 0.99
+ * overlap padding, the 0.006 centre pull, the 2.6 speaker weight. The handoff
+ * says why, and it is worth repeating because it has already been ignored once:
+ *
+ *   "Every one of those was tuned by eye against the real animal glyphs.
+ *    They are the design."
+ *   "Rewriting them from a description will produce something that looks
+ *    broadly similar and feels wrong."
+ *
+ * That is exactly what happened in an earlier attempt: the functions were
+ * reimplemented from the prose description, and the result looked plausible
+ * and was wrong — round bubbles where the design has organic forms, shapes
+ * overlapping at two participants, a different scatter function altogether.
+ *
+ * Pure by contract: no DOM, no React, no imports from the app. Everything is a
+ * total function of its arguments, so the same room looks the same on every
+ * client and the tests can pin it down.
+ */
+
+/*
+ * The bodies below are the prototype's, unchanged, and two of this
+ * repository's rules disagree with how they are written: `one-var` objects
+ * to `const a = pts[i], b = pts[j]`, and the explicit-return-type rule to the
+ * short helpers. Reformatting a verbatim port to satisfy a linter is how a
+ * port stops being verbatim, so the rules are turned off for this file and
+ * the file says why. The header above says what happens when they are not.
+ */
+/* eslint-disable one-var, @typescript-eslint/explicit-function-return-type */
+
+export interface Shape {
+  /** CSS `border-radius`, eight values. */
+  blob: string;
+  /** Degrees, as a string with one decimal — the prototype's `toFixed(1)`. */
+  tilt: string;
+  wobble: number;
+  quiet: number;
+  jitter: [number, number];
+}
+
+export interface Placement {
+  size: number;
+  x: number;
+  y: number;
+  blob: string;
+  tilt: string;
+}
+
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface Cell extends Rect {
+  /** Index into the list that was passed in. */
+  i: number;
+}
+
+// Nobody gets a shape from a list of eight — every person gets their OWN,
+// derived from their name, so "ruhiger Fuchs 432" always arrives as the same
+// slightly lopsided form and no two people in a room look alike.
+export function seeded(str: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h += 0x6d2b79f5;
+    let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function ownShape(name: string): Shape {
+  const rnd = seeded(name);
+  // Eight independent radii: four horizontal, four vertical. Kept between
+  // 32–68% so the form always stays round enough to hold a face.
+  const v = Array.from({ length: 8 }, () => Math.round(26 + rnd() * 48));
+  return {
+    blob: `${v[0]}% ${v[1]}% ${v[2]}% ${v[3]}% / ${v[4]}% ${v[5]}% ${v[6]}% ${v[7]}%`,
+    tilt: (rnd() * 22 - 11).toFixed(1),
+    wobble: 0.8 + rnd() * 0.48,
+    quiet: 0.68 + rnd() * 0.26,
+    jitter: [rnd() * 2 - 1, rnd() * 2 - 1],
+  };
+}
+
+// Where everyone stands AND how much room they take. Weight comes from who is
+// speaking, so the whole field breathes when the turn passes on — the same
+// behaviour that makes the subdivision view work, in a soft arrangement.
+// Real packing, not a layout: the shapes are sized to fill the frame, then
+// pushed apart until they just touch. Whoever speaks grows, and the growth
+// physically displaces the others — they lose room to the person talking.
+export function packShapes(
+  names: readonly string[],
+  box: number,
+  weights: readonly number[],
+): Placement[] {
+  const n = names.length;
+  const shapes = names.map(ownShape);
+  const w = weights.map((x, i) => x * shapes[i].wobble);
+  const areaSum = w.reduce((a, b) => a + b * b, 0);
+  const k = Math.sqrt((0.7 * box * box) / (Math.PI * areaSum));
+  const golden = 137.507764 * (Math.PI / 180);
+  const pts = w.map((weight, i) => {
+    const a = i * golden + shapes[i].jitter[0] * 0.3;
+    const rr = box * 0.3 * Math.sqrt((i + 0.5) / n);
+    return {
+      x: box / 2 + rr * Math.cos(a),
+      y: box / 2 + rr * Math.sin(a),
+      r: k * weight,
+    };
+  });
+  // A touch of negative padding so they genuinely abut rather than hover apart.
+  const pad = 0.99;
+  for (let it = 0; it < 240; it++) {
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = pts[i],
+          b = pts[j];
+        const dx = b.x - a.x,
+          dy = b.y - a.y;
+        const d = Math.hypot(dx, dy) || 0.01;
+        const min = (a.r + b.r) * pad;
+        if (d < min) {
+          const push = (min - d) / d;
+          // The bigger shape holds its ground; the smaller one gives way.
+          const sa = b.r / (a.r + b.r),
+            sb = a.r / (a.r + b.r);
+          a.x -= dx * push * sa;
+          a.y -= dy * push * sa;
+          b.x += dx * push * sb;
+          b.y += dy * push * sb;
+        }
+      }
+    }
+    for (const p of pts) {
+      p.x += (box / 2 - p.x) * 0.006;
+      p.y += (box / 2 - p.y) * 0.006;
+      p.x = Math.max(p.r + 3, Math.min(box - p.r - 3, p.x));
+      p.y = Math.max(p.r + 3, Math.min(box - p.r - 3, p.y));
+    }
+  }
+  return pts.map((p, i) => ({
+    size: Math.round(p.r * 2),
+    x: Math.round(p.x - p.r),
+    y: Math.round(p.y - p.r),
+    blob: shapes[i].blob,
+    tilt: shapes[i].tilt,
+  }));
+}
+
+export function organicSpots(
+  names: readonly string[],
+  box: number,
+  weights: readonly number[],
+): Placement[] {
+  const n = names.length;
+  const golden = 137.507764 * (Math.PI / 180);
+  // In a phyllotaxis the nearest-neighbour spacing is roughly the scale
+  // constant c, so solve for the shape size that keeps neighbours just clear.
+  // Fewer people therefore means everyone is genuinely bigger, and the whole
+  // field re-settles the moment somebody joins or leaves.
+  const shapes = names.map(ownShape);
+  const w2 = weights.map((w, i) =>
+    w >= 1 ? w : w > 0.7 ? w : shapes[i].quiet,
+  );
+  const avgW = w2.reduce((a, b) => a + b, 0) / n;
+  // Deliberately over-scaled: the shapes should crowd and just nudge each
+  // other, the way a group actually stands together.
+  const base = box / 2 / (0.44 + avgW * 0.86 * Math.sqrt(n - 0.1));
+  const sizes = w2.map((w, i) => Math.round(base * w * shapes[i].wobble));
+  const maxS = Math.max(...sizes);
+  const c = (box / 2 - maxS * 0.48) / Math.sqrt(n - 1 + 0.9);
+  return sizes.map((size, i) => {
+    const r = c * Math.sqrt(i + 0.9);
+    const a = i * golden + shapes[i].jitter[0] * 0.16;
+    const jr = r + shapes[i].jitter[1] * Math.min(26, c * 0.2);
+    return {
+      size,
+      x: Math.round(box / 2 + jr * Math.cos(a) - size / 2),
+      y: Math.round(box / 2 + jr * Math.sin(a) - size / 2),
+      blob: shapes[i].blob,
+      tilt: shapes[i].tilt,
+    };
+  });
+}
+
+/**
+ * The grove at TWO people: the rectangle divided, one organic form per half.
+ *
+ * `packShapes` is a relaxation, and with two shapes it has nothing to relax
+ * against: measured, the worst overlap at two is 31.2% of a shape — one
+ * person buried behind the other — where four or more settle to a few per
+ * cent of deliberate abutting. The engine is the prototype's and is ported
+ * verbatim, so this does not touch it; it routes the one count that cannot
+ * work around it.
+ *
+ * The division is the fields' — the same orientation rule as `splitCells`,
+ * the same proportional cut — but with the GROVE's weights rather than the
+ * fields' own 2.6. That matters at two: `splitCells` gives a speaker 72% of
+ * the width, and a circle inscribed in the remaining 28% is a quarter of the
+ * size of the one speaking. On a counselling stage with exactly two people in
+ * it, that is not emphasis, it is a demotion. With the grove's 1.6 the forms
+ * end in the same ratio the packing would have given them.
+ *
+ * What stays the grove's is the FORM: each cell gets the person's own blob
+ * and lean from `ownShape`, inscribed in it, not a field's rounded rectangle.
+ *
+ * Decided by design on 2026-10-17, against withholding the view at two or
+ * leaving the overlap. Three, five and six still bury one another by 12 to
+ * 18% and are NOT routed here — that is the prototype's packing and awaits
+ * its own decision; `layout.test.ts` pins it.
+ */
+export function pairShapes(
+  names: readonly string[],
+  rect: Rect,
+  weights: readonly number[],
+): Placement[] {
+  const shapes = names.map(ownShape);
+  const total = weights[0] + weights[1];
+  // The long axis is cut, as `splitCells` cuts it: a phone-shaped stage puts
+  // the two above each other rather than squeezing them side by side.
+  const horiz = rect.w >= rect.h;
+  const cut = Math.round((horiz ? rect.w : rect.h) * (weights[0] / total));
+  const cells: Rect[] = horiz
+    ? [
+        { ...rect, w: cut },
+        { ...rect, x: rect.x + cut, w: rect.w - cut },
+      ]
+    : [
+        { ...rect, h: cut },
+        { ...rect, y: rect.y + cut, h: rect.h - cut },
+      ];
+  // Short of the cell, so the two forms keep a visible gap at the seam and a
+  // speaking halo has somewhere to go.
+  const fill = 0.92;
+  /*
+   * A LEANING form is wider than its box.
+   *
+   * `OrisoFace` rotates by the shape's own tilt — up to ±11° — around the
+   * centre, after placement and without anything clipping it to the cell. A
+   * square of side s at angle t spans s * (cos t + sin t), which at 11° is
+   * 17% more than the box it was given. Two forms sized to 0.92 of their
+   * cells leave about 23px between their upright boxes on a square stage,
+   * and the lean can add twice that — so the forms could still touch, the
+   * one thing this function exists to prevent, while a test that compared
+   * the placement boxes saw nothing wrong.
+   *
+   * The square is the worst case: the blobs are rounded well inside it. The
+   * worst case is what has to fit.
+   */
+  const leanFactor = (tilt: string): number => {
+    const radians = (Math.abs(Number(tilt)) * Math.PI) / 180;
+    return Math.cos(radians) + Math.sin(radians);
+  };
+  return cells.map((cell, i) => {
+    const size = Math.round(
+      (Math.min(cell.w, cell.h) * fill) / leanFactor(shapes[i].tilt),
+    );
+    return {
+      size,
+      x: Math.round(cell.x + (cell.w - size) / 2),
+      y: Math.round(cell.y + (cell.h - size) / 2),
+      blob: shapes[i].blob,
+      tilt: shapes[i].tilt,
+    };
+  });
+}
+
+// Recursive subdivision: one shape splits until everyone has a cell. The
+// speaker's branch keeps the larger share, so the picture re-balances by itself.
+export function splitCells(
+  list: readonly number[],
+  rect: Rect,
+  /**
+   * Who is speaking: one index, or several.
+   *
+   * Several, because people talk over each other — MatrixRTC reports
+   * `isSpeaking` per participant and the grove weights every one of them. A
+   * single index made the subdivided fields pick whoever happened to come
+   * first in the grid and leave the others at a listener's size, which is
+   * not a decision anybody made.
+   */
+  speaker: number | ReadonlySet<number>,
+): Cell[] {
+  if (list.length === 1) return [{ i: list[0], ...rect }];
+  const half = Math.ceil(list.length / 2);
+  const a = list.slice(0, half),
+    b = list.slice(half);
+  // Weight-proportional, not a fixed 62/38: with a fixed ratio the speaker's
+  // advantage was diluted away again by the even cuts inside their own branch.
+  const speaking = (i: number): boolean =>
+    typeof speaker === "number" ? i === speaker : speaker.has(i);
+  const wt = (arr: readonly number[]) =>
+    arr.reduce((t, i) => t + (speaking(i) ? 2.6 : 1), 0);
+  const ratio = wt(a) / (wt(a) + wt(b));
+  const horiz = rect.w >= rect.h;
+  const cut = Math.round((horiz ? rect.w : rect.h) * ratio);
+  const r1 = horiz ? { ...rect, w: cut } : { ...rect, h: cut };
+  const r2 = horiz
+    ? { ...rect, x: rect.x + cut, w: rect.w - cut }
+    : { ...rect, y: rect.y + cut, h: rect.h - cut };
+  return splitCells(a, r1, speaker).concat(splitCells(b, r2, speaker));
+}
+
+/**
+ * The square the grove packs into, and where it sits on the stage.
+ *
+ * Inset, not the whole stage. `packShapes` is free to place a form within a
+ * few pixels of its box, and a SPEAKING form paints `HALO_ROOM_PX` past its
+ * own edge and rises `HALO_LIFT_PX` further — while `.inRoom` clips
+ * horizontal overflow. So an edge participant speaking lost most of the halo,
+ * which is the whole speaking signal, exactly when it mattered.
+ *
+ * The inset is capped at the chrome's own share of the stage, the same cap
+ * `shapelessFaceSide` uses, so a small stage gives away a sixth of itself at
+ * most: past that the margin would be eating the grove it is protecting, and
+ * a clipped halo is the lesser loss.
+ */
+export function groveBox(
+  width: number,
+  height: number,
+): { box: number; offsetX: number; offsetY: number } {
+  const stage = Math.min(width, height);
+  if (!Number.isFinite(stage) || stage <= 0)
+    return { box: 1, offsetX: 0, offsetY: 0 };
+  const box = Math.max(1, Math.round(stage - 2 * haloRoomFor(width, height)));
+  return {
+    box,
+    offsetX: Math.round((width - box) / 2),
+    offsetY: Math.round((height - box) / 2),
+  };
+}
+
+/**
+ * How much of a stage to keep clear so a speaking form at its edge is not
+ * cut in half by it.
+ *
+ * One function for every arrangement, because the reason is the same in all
+ * of them and two copies of a margin drift apart: the grove packs to its box,
+ * the fields divide theirs, and in both the outermost form is flush against
+ * the stage while its halo paints `HALO_ROOM_PX` past its own edge and the
+ * rise carries it further. `.inRoom` clips horizontally and clips or scrolls
+ * vertically, so that overflow is lost rather than merely untidy.
+ *
+ * Capped at the chrome's own share, the same cap `shapelessFaceSide` uses, so
+ * a small stage gives away at most a sixth of itself: past that the margin
+ * eats the arrangement it protects, and a clipped halo is the lesser loss.
+ */
+export function haloRoomFor(width: number, height: number): number {
+  const stage = Math.min(width, height);
+  if (!Number.isFinite(stage) || stage <= 0) return 0;
+  return Math.min(HALO_ROOM_PX, stage * HALO_ROOM_MAX_SHARE);
+}

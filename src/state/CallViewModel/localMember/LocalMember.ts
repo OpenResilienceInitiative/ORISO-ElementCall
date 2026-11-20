@@ -58,6 +58,10 @@ import {
   type FailedToStartError,
 } from "../remoteMembers/Connection.ts";
 import { type HomeserverConnected } from "./HomeserverConnected.ts";
+import {
+  type ScreenShareFailure,
+  screenShareFailure,
+} from "../../../oriso/screenShareFailure.ts";
 import { and$ } from "../../../utils/observable.ts";
 
 export enum TransportState {
@@ -114,6 +118,7 @@ interface Props {
   // that the inputs for those createSomething$() functions should NOT contain any js-sdk objectes
   scope: ObservableScope;
   muteStates: MuteStates;
+  ownMembershipPresent$: Observable<boolean>;
   connectionManager: IConnectionManager;
   createPublisherFactory: (connection: Connection) => Publisher;
   joinMatrixRTC: (transport: LivekitTransport) => void;
@@ -148,6 +153,7 @@ export const createLocalMembership$ = ({
   joinMatrixRTC,
   logger: parentLogger,
   muteStates,
+  ownMembershipPresent$,
   matrixRTCSession,
 }: Props): {
   /**
@@ -168,6 +174,9 @@ export const createLocalMembership$ = ({
    * Callback to toggle screen sharing. If null, screen sharing is not possible.
    */
   toggleScreenSharing: (() => void) | null;
+  /** Why the last attempt to share the screen did not start, if it did not. */
+  screenShareFailure$: Behavior<ScreenShareFailure | null>;
+  dismissScreenShareFailure: () => void;
   tracks$: Behavior<LocalTrack[]>;
   participant$: Behavior<LocalParticipant | null>;
   connection$: Behavior<Connection | null>;
@@ -498,12 +507,32 @@ export const createLocalMembership$ = ({
       }
     });
 
-  combineLatest([muteStates.video.enabled$, homeserverConnected.combined$])
-    .pipe(scope.bind())
-    .subscribe(([videoEnabled, connected]) => {
-      if (!connected) return;
-      void matrixRTCSession.updateCallIntent(videoEnabled ? "video" : "audio");
-    });
+  const callIntent$ = scope.behavior(
+    combineLatest([
+      muteStates.video.enabled$,
+      homeserverConnected.combined$,
+      ownMembershipPresent$,
+    ]).pipe(
+      map(([videoEnabled, connected, ownMembershipPresent]) => {
+        if (!connected || !ownMembershipPresent) return null;
+        return videoEnabled ? ("video" as const) : ("audio" as const);
+      }),
+      distinctUntilChanged(),
+      // A rejoin needs its own update even if the media mode did not change.
+      map((intent) => (intent === null ? null : { intent })),
+    ),
+  );
+
+  // The SDK emits MembershipsChanged before updating its own membership.
+  // Reconcile asynchronously so the intent update sees that membership.
+  scope.reconcile(callIntent$, async (update) => {
+    if (update === null) return;
+    try {
+      await matrixRTCSession.updateCallIntent(update.intent);
+    } catch (error) {
+      logger.warn("Failed to update call intent", error);
+    }
+  });
 
   // Keep matrix rtc session in sync with localTransport$, connectRequested$
   scope.reconcile(
@@ -594,6 +623,9 @@ export const createLocalMembership$ = ({
     ),
   );
 
+  const screenShareFailure$ = new BehaviorSubject<ScreenShareFailure | null>(
+    null,
+  );
   let toggleScreenSharing: (() => void) | null = null;
   if (
     "getDisplayMedia" in (navigator.mediaDevices ?? {}) &&
@@ -620,9 +652,16 @@ export const createLocalMembership$ = ({
       // We also allow screen sharing to be toggled even if the connection
       // is still initializing or publishing tracks, because there's no
       // technical reason to disallow this. LiveKit will publish if it can.
+      screenShareFailure$.next(null);
       participant$.value
         ?.setScreenShareEnabled(targetScreenshareState, screenshareSettings)
-        .catch(logger.error);
+        .catch((e: unknown) => {
+          logger.error("Failed to toggle screen sharing", e);
+          // ORISO (#2233, R8): a share that did not start used to say
+          // nothing. Tell the person why, unless they closed the picker.
+          if (targetScreenshareState)
+            screenShareFailure$.next(screenShareFailure(e));
+        });
     };
   }
 
@@ -642,6 +681,8 @@ export const createLocalMembership$ = ({
     ),
     sharingScreen$,
     toggleScreenSharing,
+    screenShareFailure$,
+    dismissScreenShareFailure: (): void => screenShareFailure$.next(null),
     connection$: localConnection$,
   };
 };
@@ -698,6 +739,8 @@ export function enterRTCSession(
     multiSFU ? transport : undefined,
     {
       notificationType,
+      // The ORISO widget only has permission to send the modern event.
+      ...(widget && { sendLegacyNotification: false }),
       callIntent,
       manageMediaKeys: encryptMedia,
       ...(useDeviceSessionMemberEvents !== undefined && {

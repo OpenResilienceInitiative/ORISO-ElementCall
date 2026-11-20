@@ -9,13 +9,14 @@ import { logger } from "matrix-js-sdk/lib/logger";
 import { createRoomWidgetClient } from "matrix-js-sdk";
 import {
   MatrixCapabilities,
-  WidgetApi,
+  type WidgetApi,
   WidgetApiToWidgetAction,
 } from "matrix-widget-api";
 
 import type { MatrixClient } from "matrix-js-sdk";
 import type { IWidgetApiRequest } from "matrix-widget-api";
 import { LazyEventEmitter } from "./LazyEventEmitter";
+import { OrisoWidgetApi } from "./OrisoWidgetApi";
 import { getUrlParams } from "./UrlParams";
 import { Config } from "./config/Config";
 import { clearStandaloneMatrixSession } from "./matrixSessionStorage";
@@ -45,6 +46,38 @@ export enum ElementWidgetActions {
   DeviceMute = "io.element.device_mute",
 }
 
+/** ORISO's own actions between the call and the host app around it. */
+export enum OrisoWidgetActions {
+  // toWidget: who knocks on this call's link, and its "Anklopfen" setting
+  //   { waiting: number, knock: boolean | null } — null: no link to switch.
+  //   The host sends it whenever either changes (#108).
+  KnockState = "org.oriso.call.knock_state",
+  // fromWidget: the person flipped "Anklopfen" in the call menu. The link
+  //   belongs to the host, so the call only asks: { knock: boolean }.
+  SetKnock = "org.oriso.call.set_knock",
+  // fromWidget: a window button in the call's header (`orisoHostChrome`).
+  //   The window belongs to the host, so the call only asks:
+  //   { command: "minimise" | "toggle_fullscreen" }, response {}.
+  Window = "org.oriso.call.window",
+  // toWidget: whether the host shows the call full screen, so the header's
+  //   button can say which way it goes: { fullscreen: boolean }.
+  WindowState = "org.oriso.call.window_state",
+  // fromWidget: "Link teilen" in the header (`orisoInvite`). The host makes
+  //   or reuses the call's link: {} → { url: string } | { error: string }.
+  //   The error is a field of a normal reply, not a widget error.
+  InviteLink = "org.oriso.call.invite_link",
+  // toWidget: whether this call may offer its link at all, when the host
+  //   learns it during the call: { available: boolean }, response {}.
+  //   `orisoInvite` is the start; false hides "Link teilen" and
+  //   "Einladelink senden" live, true brings them back (#1662).
+  InviteAvailable = "org.oriso.call.invite_available",
+  // toWidget: who in this call is a counsellor, from the host's own records
+  //   rather than the self-published identity: { userIds: string[] },
+  //   response {}. Sent once the call is ready and again on every change.
+  //   The only source of a "Beratung" label; see `shownRole`.
+  Counsellors = "org.oriso.call.counsellors",
+}
+
 export interface JoinCallData {
   audioInput: string | null;
   videoInput: string | null;
@@ -71,7 +104,7 @@ export const widget = ((): WidgetHelpers | null => {
       clearStandaloneMatrixSession();
       const parentOrigin = new URL(parentUrl).origin;
       logger.info("Widget API is available");
-      const api = new WidgetApi(widgetId, parentOrigin);
+      const api = new OrisoWidgetApi(widgetId, parentOrigin);
 
       // A widget owns no access token, so it cannot call the authenticated
       // media endpoints itself. MSC4039 lets us ask the *host* to fetch media
@@ -92,6 +125,10 @@ export const widget = ((): WidgetHelpers | null => {
         ElementWidgetActions.TileLayout,
         ElementWidgetActions.SpotlightLayout,
         ElementWidgetActions.DeviceMute,
+        OrisoWidgetActions.KnockState,
+        OrisoWidgetActions.WindowState,
+        OrisoWidgetActions.Counsellors,
+        OrisoWidgetActions.InviteAvailable,
       ].forEach((action) => {
         api.on(`action:${action}`, (ev: CustomEvent<IWidgetApiRequest>) => {
           ev.preventDefault();
@@ -111,6 +148,7 @@ export const widget = ((): WidgetHelpers | null => {
         baseUrl,
         e2eEnabled,
         allowIceFallback,
+        orisoDesign,
       } = getUrlParams();
       if (!roomId) throw new Error("Room ID must be supplied");
       if (!userId) throw new Error("User ID must be supplied");
@@ -119,7 +157,7 @@ export const widget = ((): WidgetHelpers | null => {
 
       const client = createRoomWidgetClient(
         api,
-        buildOrisoWidgetCapabilities(userId, deviceId),
+        buildOrisoWidgetCapabilities(userId, deviceId, orisoDesign),
         roomId,
         {
           baseUrl,

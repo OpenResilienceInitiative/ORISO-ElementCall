@@ -1,0 +1,93 @@
+diff --git a/lib/matrixrtc/MatrixRTCSession.d.ts b/lib/matrixrtc/MatrixRTCSession.d.ts
+index 8edfc458a7e821db3810346635471033971bdcb1..90b706b5d3db1aae13622dac299d962b51b87e39 100644
+--- a/lib/matrixrtc/MatrixRTCSession.d.ts
++++ b/lib/matrixrtc/MatrixRTCSession.d.ts
+@@ -23,7 +23,7 @@ export type MatrixRTCSessionEventHandlerMap = {
+     [MatrixRTCSessionEvent.MembershipManagerError]: (error: unknown) => void;
+     [MatrixRTCSessionEvent.DidSendCallNotification]: (notificationContentNew: {
+         event_id: string;
+-    } & IRTCNotificationContent, notificationContentLegacy: {
++    } & IRTCNotificationContent, notificationContentLegacy?: {
+         event_id: string;
+     } & ICallNotifyContent) => void;
+ };
+@@ -33,6 +33,8 @@ export interface SessionConfig {
+      * @default `undefined` (no notification)
+      */
+     notificationType?: RTCNotificationType;
++    /** Send the legacy event as well as the modern RTC notification. Defaults to true. */
++    sendLegacyNotification?: boolean;
+     /**
+      * Determines the kind of call this will be.
+      */
+diff --git a/lib/matrixrtc/MatrixRTCSession.js b/lib/matrixrtc/MatrixRTCSession.js
+index 7acfaffedb35d4208577427665452f9a925db9b9..77c0eb89ab8ff62894c3e9bcdc1a6c89b2ac3791 100644
+--- a/lib/matrixrtc/MatrixRTCSession.js
++++ b/lib/matrixrtc/MatrixRTCSession.js
+@@ -629,15 +629,15 @@ export class MatrixRTCSession extends TypedEventEmitter {
+         return _ref2.apply(this, arguments);
+       };
+     }();
+-    void Promise.all([sendLegacyNotificationEvent(), sendNewNotificationEvent()]).then(_ref3 => {
++    var legacyNotification = this.joinConfig?.sendLegacyNotification === false ? Promise.resolve(undefined) : sendLegacyNotificationEvent();
++    void Promise.all([legacyNotification, sendNewNotificationEvent()]).then(_ref3 => {
+       var [legacy, newNotification] = _ref3;
+       // Join event_id and origin event content
+-      var legacyResult = _objectSpread(_objectSpread({}, legacy.response), legacy.content);
++      var legacyResult = legacy && _objectSpread(_objectSpread({}, legacy.response), legacy.content);
+       var newResult = _objectSpread(_objectSpread({}, newNotification.response), newNotification.content);
+       this.emit(MatrixRTCSessionEvent.DidSendCallNotification, newResult, legacyResult);
+-    }).catch(_ref4 => {
+-      var [errorLegacy, errorNew] = _ref4;
+-      return this.logger.error("Failed to send call notification", errorLegacy, errorNew);
++    }).catch(error => {
++      return this.logger.error("Failed to send call notification", error);
+     });
+   }
+ }
+diff --git a/src/matrixrtc/MatrixRTCSession.ts b/src/matrixrtc/MatrixRTCSession.ts
+index 4e7b2b30067c76182c6d845ef215d6b61ca39d70..b9390e243c5501bd57ec91d1d1e6e81eee3c0e0f 100644
+--- a/src/matrixrtc/MatrixRTCSession.ts
++++ b/src/matrixrtc/MatrixRTCSession.ts
+@@ -80,7 +80,7 @@ export type MatrixRTCSessionEventHandlerMap = {
+     [MatrixRTCSessionEvent.MembershipManagerError]: (error: unknown) => void;
+     [MatrixRTCSessionEvent.DidSendCallNotification]: (
+         notificationContentNew: { event_id: string } & IRTCNotificationContent,
+-        notificationContentLegacy: { event_id: string } & ICallNotifyContent,
++        notificationContentLegacy?: { event_id: string } & ICallNotifyContent,
+     ) => void;
+ };
+ 
+@@ -91,6 +91,9 @@ export interface SessionConfig {
+      */
+     notificationType?: RTCNotificationType;
+ 
++    /** Send the legacy event as well as the modern RTC notification. Defaults to true. */
++    sendLegacyNotification?: boolean;
++
+     /**
+      * Determines the kind of call this will be.
+      */
+@@ -824,16 +827,17 @@ export class MatrixRTCSession extends TypedEventEmitter<
+             return { response, content };
+         };
+ 
+-        void Promise.all([sendLegacyNotificationEvent(), sendNewNotificationEvent()])
++        const legacyNotification = this.joinConfig?.sendLegacyNotification === false
++            ? Promise.resolve(undefined)
++            : sendLegacyNotificationEvent();
++        void Promise.all([legacyNotification, sendNewNotificationEvent()])
+             .then(([legacy, newNotification]) => {
+                 // Join event_id and origin event content
+-                const legacyResult = { ...legacy.response, ...legacy.content };
++                const legacyResult = legacy && { ...legacy.response, ...legacy.content };
+                 const newResult = { ...newNotification.response, ...newNotification.content };
+                 this.emit(MatrixRTCSessionEvent.DidSendCallNotification, newResult, legacyResult);
+             })
+-            .catch(([errorLegacy, errorNew]) =>
+-                this.logger.error("Failed to send call notification", errorLegacy, errorNew),
+-            );
++            .catch((error: unknown) => this.logger.error("Failed to send call notification", error));
+     }
+ 
+     /**

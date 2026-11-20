@@ -147,7 +147,29 @@ export class Publisher {
           throw error;
         });
     }
-    throw Error("audio and video is false");
+    // Both off — chosen in the host's pre-join check (ORISO-ElementCall#116),
+    // or the microphone muted for a large call while the camera is off. The
+    // call needs a track to join with, and LiveKit cannot create none, so it
+    // joins with a microphone that is muted before it is ever published:
+    // nothing is heard until the person unmutes, and no camera is opened.
+    const tracks = await lkRoom.localParticipant
+      .createTracks({ audio: true, video: false })
+      .catch((error) => {
+        this.logger.error("Failed to create the muted microphone", error);
+        throw error;
+      });
+    try {
+      for (const track of tracks) await track.mute();
+    } catch (error) {
+      tracks.forEach((track) => track.stop());
+      this.logger.error("Failed to mute the microphone before joining", error);
+      throw error;
+    }
+    this.logger.info(
+      "created muted track",
+      tracks.map((t) => t.kind + ", " + t.id),
+    );
+    this._tracks$.next(tracks);
   }
 
   private _publishing$ = new BehaviorSubject<boolean>(false);
