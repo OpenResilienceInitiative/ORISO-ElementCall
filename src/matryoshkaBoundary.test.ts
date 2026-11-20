@@ -13,25 +13,57 @@ const readSource = (relativePath: string): string =>
 
 describe("Matryoshka-only embedding boundary", () => {
   it("publishes immutable multi-platform images with supply-chain evidence", () => {
+    const imageAction = readSource(
+      "../.github/actions/scanned-image/action.yml",
+    );
+    const defaultPlatforms = imageAction.match(
+      /^ {2}platforms:\n(?: {4}[^\n]+\n)*? {4}default: ([^\n]+)$/m,
+    )?.[1];
+    expect(imageAction).toContain("platforms: ${{ inputs.platforms }}");
+    expect(imageAction).toContain("IMAGE_PLATFORMS: ${{ inputs.platforms }}");
+    expect(imageAction).toContain("outputs: type=oci,dest=");
+    expect(imageAction).toContain("push: false");
+    expect(imageAction).toContain("provenance: mode=max");
+    expect(imageAction).toContain("sbom: true");
+    expect(imageAction).toContain(
+      "aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514",
+    );
+    const scan = imageAction.indexOf(
+      "run: bash scripts/ci/scan-image-archive.sh",
+    );
+    const login = imageAction.indexOf("uses: docker/login-action");
+    const publish = imageAction.indexOf(
+      "run: bash scripts/ci/publish-image-archive.sh",
+    );
+    expect(scan).toBeGreaterThanOrEqual(0);
+    expect(login).toBeGreaterThan(scan);
+    expect(publish).toBeGreaterThan(login);
+    expect(imageAction).toContain(
+      "EXPECTED_ARCHIVE_SHA256: ${{ steps.scan.outputs.archive_sha256 }}",
+    );
+    expect(imageAction).toContain("value: ${{ steps.publish.outputs.digest }}");
+
     for (const workflow of [
       readSource("../.github/workflows/ci-main.yml"),
       readSource("../.github/workflows/build-and-publish-docker.yaml"),
     ]) {
-      expect(workflow).toContain("platforms: linux/amd64,linux/arm64");
-      expect(workflow).toContain("provenance: mode=max");
-      expect(workflow).toContain("sbom: true");
+      const publisherInputs = workflow.match(
+        /^ {8}id: image\n {8}uses: \.\/\.github\/actions\/scanned-image\n {8}with:\n((?: {10}[^\n]+\n)+)/m,
+      )?.[1];
+      expect(publisherInputs).toContain("publish: true");
+      const platforms = publisherInputs?.match(/^ +platforms: (.+)$/m)?.[1];
+      expect(platforms ?? defaultPlatforms).toBe("linux/amd64,linux/arm64");
       expect(workflow).toContain("id-token: write");
       expect(workflow).toContain("attestations: write");
-      expect(workflow).toContain(
-        "aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25",
-      );
       expect(workflow).toContain(
         "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6",
       );
       expect(workflow).toMatch(
-        /image-ref: .*@\$\{\{ steps\..*\.outputs\.digest \}\}/,
+        /gh attestation verify\s+"oci:\/\/[^"\n]+@\$\{\{ steps\.image\.outputs\.digest \}\}"/,
       );
-      expect(workflow).toContain("subject-digest: ${{ steps.");
+      expect(workflow).toContain(
+        "subject-digest: ${{ steps.image.outputs.digest }}",
+      );
       expect(workflow).toContain(
         '--predicate-type "https://slsa.dev/provenance/v1"',
       );
