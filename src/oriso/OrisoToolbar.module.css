@@ -250,10 +250,6 @@ Please see LICENSE in the repository root for full details.
   color: rgb(110 108 112);
 }
 
-.row[data-entry="knock"] {
-  padding-block: 8px;
-}
-
 /* The M3 switch: 52 x 32 track, the thumb grows when on. */
 .switch {
   appearance: none;

@@ -30,6 +30,12 @@ Please see LICENSE in the repository root for full details.
  *   ?chrome=call|host             call: the header's own window buttons;
  *                                 host: the host's four corner buttons drawn
  *                                 over the iframe, as ORISO-Frontend does
+ *   ?invite=1                     the counsellor may hand out the call's link
+ *                                 (`orisoInvite`); the host answers with a
+ *                                 made-up address. "Einladelink senden" in
+ *                                 the ⋮; the guest button (#170) comes once
+ *                                 somebody knocks (?waiting=1) or the link
+ *                                 was asked for
  *   ?names=login|bare             the homeserver holds the login name; with
  *                                 "bare" nobody published a name either
  *   ?artwork=none                 the animal drawings never arrive
@@ -78,6 +84,9 @@ import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { Toast } from "../src/Toast";
 import { type OrisoIdentity, shownNameFor } from "../src/oriso/identity";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
+import { OrisoGuestFab } from "../src/oriso/OrisoGuestFab";
+import { useOrisoGuestsInPlay } from "../src/oriso/useOrisoGuestsInPlay";
+import { type InviteLinkReply } from "../src/oriso/inviteLink";
 import { readTopic, stageTitle } from "../src/oriso/stageTitle";
 import { WaveBand } from "../src/oriso/WaveBand";
 import { formatCallDuration } from "../src/oriso/useCallDuration";
@@ -122,6 +131,7 @@ const videoStage = video && params.get("camera") !== "off";
 const showHeader = params.get("header") === "1";
 const chrome = params.get("chrome");
 const hostShare = params.get("hostShare") === "1";
+const invite = params.get("invite") === "1";
 const names = params.get("names");
 const noArtwork = params.get("artwork") === "none";
 const mobile = params.get("mobile") === "1";
@@ -252,13 +262,12 @@ function Footer({
   const [audioMuted, setAudioMuted] = useState(muted === "second");
   const [videoMuted, setVideoMuted] = useState(true);
   const [hand, setHand] = useState(false);
-  const [knock, setKnock] = useState(true);
   return (
     <OrisoToolbar
       compact={mobile}
       waitingCount={Number(waiting ?? 0)}
-      knock={waiting === null ? null : knock}
-      onKnockChange={waiting === null ? null : setKnock}
+      inviteRequest={inviteRequest}
+      participants={invite ? harnessParticipants : undefined}
       className={styles.orisoToolbar}
       audioMuted={audioMuted}
       onToggleAudio={() => setAudioMuted((m) => !m)}
@@ -279,6 +288,47 @@ function Footer({
     />
   );
 }
+
+/** The host's answer to `org.oriso.call.invite_link`, without a host. */
+const INVITED = "oriso-harness-invited";
+const inviteRequest = invite
+  ? async (): Promise<InviteLinkReply> => {
+      // Asking for the link is inviting: InCallView marks guests in play.
+      window.dispatchEvent(new Event(INVITED));
+      return Promise.resolve({ url: "https://dev.oriso.org/call/j/Xk3p9Q" });
+    }
+  : null;
+
+/** The guest button, as InCallView draws it once guests are in play. */
+function GuestFab(): React.ReactNode {
+  const waitingCount = Number(waiting ?? 0);
+  const { inPlay, markInviting } = useOrisoGuestsInPlay(
+    "harness",
+    waitingCount,
+  );
+  const [knock, setKnock] = useState(true);
+  useEffect(() => {
+    window.addEventListener(INVITED, markInviting);
+    return (): void => window.removeEventListener(INVITED, markInviting);
+  }, [markInviting]);
+  if (!inPlay || (inviteRequest === null && waiting === null)) return null;
+  return (
+    <OrisoGuestFab
+      inviteRequest={inviteRequest}
+      knock={waiting === null ? null : knock}
+      onKnockChange={waiting === null ? null : setKnock}
+      waitingCount={waitingCount}
+      compact={mobile}
+      style={{ "--oriso-footer-h": `${FOOTER_BLOCK}px` } as CSSProperties}
+    />
+  );
+}
+
+/** Who the participants panel lists. */
+const harnessParticipants = [
+  { userId: "@remote:oriso.test", displayName: "Fuchs" },
+  { userId: "@local:oriso.test", displayName: "Beratung" },
+];
 
 /** What `InCallView` subtracts for its footer before handing on the stage. */
 const FOOTER_BLOCK = mobile ? 104 : 144;
@@ -379,22 +429,31 @@ function Header(): React.ReactNode {
       }
       actions={
         mobile ? (
-          <OrisoMobileMenu
-            participantCount={2}
-            onToggleNotes={() => {}}
-            onHangup={() => {}}
-            onToggleScreenShare={() => {}}
-            sharingScreen={false}
-            onOpenSoundSettings={() => {}}
-            onOpenSettings={() => {}}
-            onToggleWindow={(): void => {}}
-            fullscreen
-          />
-        ) : videoStage ? (
-          <button type="button" className={styles.videoNotesButton}>
-            Notizen
-          </button>
-        ) : undefined
+          <>
+            <OrisoMobileMenu
+              participantCount={2}
+              inviteRequest={inviteRequest}
+              participants={invite ? harnessParticipants : undefined}
+              waitingCount={Number(waiting ?? 0)}
+              onToggleNotes={() => {}}
+              onHangup={() => {}}
+              onToggleScreenShare={() => {}}
+              sharingScreen={false}
+              onOpenSoundSettings={() => {}}
+              onOpenSettings={() => {}}
+              onToggleWindow={(): void => {}}
+              fullscreen
+            />
+          </>
+        ) : (
+          <>
+            {videoStage && (
+              <button type="button" className={styles.videoNotesButton}>
+                Notizen
+              </button>
+            )}
+          </>
+        )
       }
       onWindow={chrome === "call" ? (): void => {} : null}
       hostShare={hostShare}
@@ -501,6 +560,7 @@ function Call(): React.ReactNode {
               onToggleNotes={() => setNotesOpen((o) => !o)}
             />
           </div>
+          <GuestFab />
           <OrisoNotes
             ref={notesRef}
             open={notesOpen}

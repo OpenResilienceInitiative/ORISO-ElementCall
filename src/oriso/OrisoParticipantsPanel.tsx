@@ -22,7 +22,7 @@ import classNames from "classnames";
 
 import styles from "./OrisoParticipantsPanel.module.css";
 import menuStyles from "./OrisoToolbar.module.css";
-import { InviteLinkBody, useInviteLink } from "./InviteLinkButton";
+import { InviteLinkBody, useInviteLink } from "./InviteLinkBody";
 import { type InviteLinkReply } from "./inviteLink";
 import { lettersFor } from "./OrisoFace";
 import { useArtwork } from "./artwork";

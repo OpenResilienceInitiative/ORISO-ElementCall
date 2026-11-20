@@ -11,9 +11,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Enable Corepack
         run: corepack enable
@@ -30,9 +35,14 @@ jobs:
       - name: Build full package
         run: yarn run build:full
 
-      - name: Build Docker image (no push)
-        uses: docker/build-push-action@v7
+      - name: Verify the image archive gate
+        run: node --test scripts/ci/image-archive.test.cjs
+
+      - name: Build and scan the standard Docker image
+        uses: ./.github/actions/scanned-image
+
+      - name: Build and scan the release Docker image
+        uses: ./.github/actions/scanned-image
         with:
-          context: .
-          push: false
-          tags: ghcr.io/openresilienceinitiative/element-call:pr-${{ github.sha }}
+          dockerfile: Dockerfile.prod
+          platforms: linux/amd64

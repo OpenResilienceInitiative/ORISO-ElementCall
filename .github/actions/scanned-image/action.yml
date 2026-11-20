@@ -1,0 +1,97 @@
+name: Build, scan and optionally publish Element Call
+description: Scan every requested platform before publishing the same OCI archive.
+
+inputs:
+  dockerfile:
+    description: Dockerfile in the checked-out repository
+    required: false
+    default: Dockerfile
+  platforms:
+    description: Comma-separated target platforms
+    required: false
+    default: linux/amd64,linux/arm64
+  tags:
+    description: Newline-separated registry tags for publication
+    required: false
+    default: ""
+  labels:
+    description: Newline-separated OCI labels attached at build time
+    required: false
+    default: ""
+  publish:
+    description: Whether to publish the verified OCI archive
+    required: false
+    default: "false"
+  github_token:
+    description: GitHub token used only when publication is enabled
+    required: false
+    default: ""
+
+outputs:
+  digest:
+    description: Immutable digest of the scanned and published image
+    value: ${{ steps.publish.outputs.digest }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Build the complete image without publishing
+      id: build
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: ${{ inputs.dockerfile }}
+        platforms: ${{ inputs.platforms }}
+        push: false
+        outputs: type=oci,dest=${{ runner.temp }}/element-call-${{ inputs.dockerfile }}.tar
+        provenance: mode=max
+        sbom: true
+        labels: ${{ inputs.labels }}
+
+    - name: Install OCI transport
+      shell: bash
+      run: |
+        if ! command -v skopeo >/dev/null; then
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends skopeo
+        fi
+
+    - name: Install Trivy
+      uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+      with:
+        version: v0.70.0
+        cache: true
+
+    - name: Reject fixable high or critical vulnerabilities on every platform
+      id: scan
+      shell: bash
+      env:
+        IMAGE_ARCHIVE: ${{ runner.temp }}/element-call-${{ inputs.dockerfile }}.tar
+        IMAGE_PLATFORMS: ${{ inputs.platforms }}
+        EXPECTED_DIGEST: ${{ steps.build.outputs.digest }}
+      run: bash scripts/ci/scan-image-archive.sh "$IMAGE_ARCHIVE" "$IMAGE_PLATFORMS" "$EXPECTED_DIGEST"
+
+    - name: Login to GHCR
+      if: ${{ inputs.publish == 'true' }}
+      uses: docker/login-action@v4
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ inputs.github_token }}
+
+    - name: Publish the scanned archive without rebuilding
+      id: publish
+      if: ${{ inputs.publish == 'true' }}
+      shell: bash
+      env:
+        IMAGE_ARCHIVE: ${{ runner.temp }}/element-call-${{ inputs.dockerfile }}.tar
+        IMAGE_TAGS: ${{ inputs.tags }}
+        EXPECTED_DIGEST: ${{ steps.build.outputs.digest }}
+        EXPECTED_ARCHIVE_SHA256: ${{ steps.scan.outputs.archive_sha256 }}
+      run: bash scripts/ci/publish-image-archive.sh "$IMAGE_ARCHIVE" "$EXPECTED_DIGEST" "$EXPECTED_ARCHIVE_SHA256"

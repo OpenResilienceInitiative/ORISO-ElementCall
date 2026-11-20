@@ -1,0 +1,63 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* The link, its copy button and what happens next: the body of the guest
+   button (#170) and of the participants panel's invite (#2233). */
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.url {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 8px 10px;
+  border: 1px solid rgb(0 0 0 / 12%);
+  border-radius: 10px;
+  background: rgb(0 0 0 / 3%);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.copy {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--oriso-primary, #a5000a);
+  color: var(--oriso-on-primary, #fff);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.hint,
+.status,
+.detail {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgb(96 94 99);
+}
+
+.error {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+  color: #cc0000;
+}
+
+.copy:focus-visible {
+  outline: 2px solid var(--oriso-primary, #a5000a);
+  outline-offset: 2px;
+}
