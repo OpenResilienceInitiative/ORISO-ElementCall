@@ -16,6 +16,8 @@ import { SettingsModal } from "./SettingsModal";
 import { MediaDevicesContext } from "../MediaDevicesContext";
 import { deviceStub, mockMediaDevices } from "../utils/test";
 import styles from "./SettingsModal.module.css";
+import { CallAppearanceContext } from "../useTheme";
+import { type ContrastLevel } from "../oriso/theme/orisoScheme";
 
 // The video tab's blur switch asks the track processor, which a call provides.
 vi.mock("../livekit/TrackProcessorContext", () => ({
@@ -47,11 +49,17 @@ const microphones = {
   selected$: of({ id: "mic-a" }),
 };
 
-const renderSettings = (orisoDesign: boolean): HTMLElement => {
+const renderSettings = (
+  orisoDesign: boolean,
+  contrast: ContrastLevel = "standard",
+  callIntent = "",
+): HTMLElement => {
   render(
     <MemoryRouter
       initialEntries={[
-        orisoDesign ? "/room/#?orisoDesign=true" : "/room/#?widgetId=w",
+        orisoDesign
+          ? `/room/#?orisoDesign=true&orisoCallType=single&callIntent=${callIntent}`
+          : "/room/#?widgetId=w",
       ]}
     >
       <MediaDevicesContext
@@ -61,13 +69,15 @@ const renderSettings = (orisoDesign: boolean): HTMLElement => {
         })}
       >
         <TooltipProvider>
-          <SettingsModal
-            open
-            onDismiss={vi.fn()}
-            tab="audio"
-            onTabChange={vi.fn()}
-            client={{} as MatrixClient}
-          />
+          <CallAppearanceContext value={{ scheme: "dark", contrast }}>
+            <SettingsModal
+              open
+              onDismiss={vi.fn()}
+              tab="audio"
+              onTabChange={vi.fn()}
+              client={{} as MatrixClient}
+            />
+          </CallAppearanceContext>
         </TooltipProvider>
       </MediaDevicesContext>
     </MemoryRouter>,
@@ -82,6 +92,25 @@ describe("the settings dialog in the ORISO design (#110)", () => {
     expect(dialog.classList).toContain("cpd-theme-light");
     expect(dialog.classList).toContain("oriso-settings");
     expect(dialog.classList).toContain(styles.oriso);
+  });
+
+  it.each(["medium", "high"] as const)(
+    "uses the light %s palette for the open single video settings portal",
+    (contrast) => {
+      const dialog = renderSettings(true, contrast, "video");
+      expect(dialog).toHaveClass(
+        contrast === "high" ? "cpd-theme-light-hc" : "cpd-theme-light",
+      );
+      expect(dialog).toHaveAttribute("data-oriso-contrast-level", contrast);
+      expect(dialog.parentElement).toBe(document.body);
+      expect(screen.getByRole("radio", { name: "Headset" })).toBeChecked();
+    },
+  );
+
+  it("keeps the standard light settings for the single audio call", () => {
+    const dialog = renderSettings(true, "high", "audio");
+    expect(dialog).toHaveClass("cpd-theme-light");
+    expect(dialog).not.toHaveAttribute("data-oriso-contrast-level");
   });
 
   it("stays Element Call's dialog without the ORISO design", () => {

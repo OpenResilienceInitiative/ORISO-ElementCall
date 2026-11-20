@@ -107,7 +107,9 @@ export const OrisoHeader: FC<Props> = ({
     >
       <OrisoHeaderLogo src={logo} />
       <div className={styles.lead}>
-        <span className={styles.title}>{title}</span>
+        <span className={styles.title} title={title}>
+          {title}
+        </span>
         {(encrypted || meta) && (
           <span className={styles.meta}>
             {encrypted && (

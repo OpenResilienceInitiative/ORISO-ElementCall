@@ -355,6 +355,21 @@ Please see LICENSE in the repository root for full details.
   color: var(--oriso-video-surface);
 }
 
+.hostVideoHeader .videoNotesButton {
+  background: var(--cpd-color-bg-action-secondary-rest);
+  color: var(--cpd-color-text-primary);
+}
+
+.hostVideoHeader .videoNotesButton:hover,
+.hostVideoHeader .videoNotesButton[aria-pressed="true"] {
+  background: var(--cpd-color-bg-action-secondary-pressed);
+}
+
+.hostVideoHeader .videoNotesButton:focus-visible {
+  outline: 2px solid var(--cpd-color-border-focused);
+  outline-offset: 2px;
+}
+
 .videoNotesButton svg {
   inline-size: var(--cpd-space-4x);
   block-size: var(--cpd-space-4x);
@@ -400,6 +415,11 @@ Please see LICENSE in the repository root for full details.
   background: rgb(250 247 245 / 82%);
   backdrop-filter: blur(16px) saturate(1.2);
   box-shadow: 0 1px 0 rgb(0 0 0 / 6%);
+}
+
+.inRoom[data-oriso-follow-host][data-stage-scrolled="true"]
+  > .orisoMobileHeader {
+  background: var(--cpd-color-bg-canvas-default);
 }
 
 .footer.orisoFooter .orisoToolbar[data-compact] {

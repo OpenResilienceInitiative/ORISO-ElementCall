@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
+import type { TFunction } from "i18next";
 import {
   type AtmosphereName,
   DEFAULT_ATMOSPHERE,
@@ -36,6 +37,28 @@ export function carrierAtmosphere(urlValue: string | null): AtmosphereName {
   return urlValue !== null && isAtmosphereName(urlValue)
     ? urlValue
     : DEFAULT_ATMOSPHERE;
+}
+
+const ATMOSPHERE_LABELS: Record<AtmosphereChoice, (t: TFunction) => string> = {
+  teich: (t) => t("oriso.atmosphere_teich"),
+  fluss: (t) => t("oriso.atmosphere_fluss"),
+  nebel: (t) => t("oriso.atmosphere_nebel"),
+  glut: (t) => t("oriso.atmosphere_glut"),
+  lichtung: (t) => t("oriso.atmosphere_lichtung"),
+  strom: (t) => t("oriso.atmosphere_strom"),
+  nacht: (t) => t("oriso.atmosphere_nacht"),
+  spirale: (t) => t("oriso.atmosphere_spirale"),
+  lagerfeuer: (t) => t("oriso.atmosphere_lagerfeuer"),
+  ruhe: (t) => t("oriso.atmosphere_ruhe"),
+  duene: (t) => t("oriso.atmosphere_duene"),
+  traeger: (t) => t("oriso.atmosphere_carrier"),
+};
+
+export function atmosphereLabel(
+  choice: AtmosphereChoice,
+  t: TFunction,
+): string {
+  return ATMOSPHERE_LABELS[choice](t);
 }
 
 /** The backdrop to draw for a choice. */

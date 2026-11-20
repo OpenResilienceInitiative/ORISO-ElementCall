@@ -40,7 +40,6 @@
     "survey_prompt": "How did it go?"
   },
   "call_name": "Name of call",
-  "oriso_call_title": "Call",
   "common": {
     "analytics": "Analytics",
     "audio": "Audio",
@@ -310,6 +309,7 @@
     "window_fullscreen": "Full screen",
     "window_minimise": "Minimise"
   },
+  "oriso_call_title": "Call",
   "participant_count_one": "{{count, number}}",
   "participant_count_other": "{{count, number}}",
   "qr_code": "QR Code",
