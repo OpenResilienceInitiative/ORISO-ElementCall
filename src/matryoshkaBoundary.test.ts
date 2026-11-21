@@ -13,25 +13,41 @@ const readSource = (relativePath: string): string =>
 
 describe("Matryoshka-only embedding boundary", () => {
   it("publishes immutable multi-platform images with supply-chain evidence", () => {
+    // The build, scan and push live in one composite action since the scan
+    // gate moved before publication (93aa95c3): it builds an OCI archive,
+    // scans every platform in it and pushes that same archive by digest.
+    const action = readSource("../.github/actions/scanned-image/action.yml");
+    expect(action).toMatch(
+      /platforms:\n\s+description: .*\n\s+required: false\n\s+default: linux\/amd64,linux\/arm64/,
+    );
+    expect(action).toContain("platforms: ${{ inputs.platforms }}");
+    expect(action).toContain("push: false");
+    expect(action).toContain("provenance: mode=max");
+    expect(action).toContain("sbom: true");
+    expect(action).toContain(
+      "aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514",
+    );
+    expect(action).toContain(
+      'scripts/ci/scan-image-archive.sh "$IMAGE_ARCHIVE" "$IMAGE_PLATFORMS" "$EXPECTED_DIGEST"',
+    );
+    expect(action).toContain("Publish the scanned archive without rebuilding");
+
     for (const workflow of [
       readSource("../.github/workflows/ci-main.yml"),
       readSource("../.github/workflows/build-and-publish-docker.yaml"),
     ]) {
-      expect(workflow).toContain("platforms: linux/amd64,linux/arm64");
-      expect(workflow).toContain("provenance: mode=max");
-      expect(workflow).toContain("sbom: true");
+      expect(workflow).toContain("uses: ./.github/actions/scanned-image");
+      expect(workflow).toContain("publish: true");
+      // The published dev images stay multi-platform: no platform override.
+      expect(workflow).not.toMatch(/^\s+platforms:/m);
       expect(workflow).toContain("id-token: write");
       expect(workflow).toContain("attestations: write");
       expect(workflow).toContain(
-        "aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25",
-      );
-      expect(workflow).toContain(
         "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6",
       );
-      expect(workflow).toMatch(
-        /image-ref: .*@\$\{\{ steps\..*\.outputs\.digest \}\}/,
+      expect(workflow).toContain(
+        "subject-digest: ${{ steps.image.outputs.digest }}",
       );
-      expect(workflow).toContain("subject-digest: ${{ steps.");
       expect(workflow).toContain(
         '--predicate-type "https://slsa.dev/provenance/v1"',
       );
