@@ -561,20 +561,15 @@ Please see LICENSE in the repository root for full details.
 }
 
 @media (hover) {
-  .pill:hover:not(:disabled) {
+  .pill:hover {
     background: var(--m3-surface-container-low);
   }
 }
 
-.pill:disabled {
-  cursor: not-allowed;
-  color: var(--text-low-emphasis, rgb(0 0 0 / 60%));
-}
-
-/* The type used last: icon and word, in the brand colour. A long word (Russian)
-   gets an ellipsis, not a wider field. */
-.pill.pillLast,
-.pill.pillLast:disabled {
+/* The type used last, or chosen for the next note: icon and word, in the brand
+   colour. A long word (Russian) gets an ellipsis, not a wider field. The type
+   buttons are never disabled (#172): on an empty field they choose. */
+.pill.pillLast {
   inline-size: auto;
   min-inline-size: 0;
   flex: 0 1 auto;
@@ -597,7 +592,7 @@ Please see LICENSE in the repository root for full details.
 }
 
 @media (hover) {
-  .pill.pillLast:hover:not(:disabled) {
+  .pill.pillLast:hover {
     background: var(--m3-primary-hover);
   }
 }

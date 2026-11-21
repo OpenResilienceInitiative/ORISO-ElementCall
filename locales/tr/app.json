@@ -125,6 +125,7 @@
   "microphone_on": "Mikrofon açık",
   "mute_microphone_button_label": "Mikrofonu sessize al",
   "oriso": {
+    "notes_choose": "{{kind}} seç",
     "notes_close": "Kapat",
     "notes_copied": "Kopyalandı",
     "notes_copy": "Metin olarak kopyala",
@@ -161,6 +162,7 @@
     "notes_send_as": "{{kind}} olarak gönder",
     "notes_send_group": "Hemen şu olarak gönder",
     "notes_title": "Karalama kâğıdı",
+    "notes_type_group": "Not türü",
     "notes_up": "Yukarı taşı"
   },
   "participant_count_one": "{{count, number}}",

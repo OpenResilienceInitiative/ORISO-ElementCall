@@ -136,6 +136,7 @@
   "microphone_on": "Микрофон включен",
   "mute_microphone_button_label": "Отключить микрофон",
   "oriso": {
+    "notes_choose": "Выбрать: «{{kind}}»",
     "notes_close": "Закрыть",
     "notes_copied": "Скопировано",
     "notes_copy": "Копировать как текст",
@@ -172,6 +173,7 @@
     "notes_send_as": "Отправить как «{{kind}}»",
     "notes_send_group": "Сразу отправить как",
     "notes_title": "Черновик",
+    "notes_type_group": "Тип заметки",
     "notes_up": "Вверх"
   },
   "participant_count_one": "{{count, number}}",
