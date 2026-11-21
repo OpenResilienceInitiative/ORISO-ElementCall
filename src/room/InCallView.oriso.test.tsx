@@ -82,7 +82,11 @@ import { LivekitRoomAudioRenderer } from "../livekit/MatrixAudioRenderer";
 import { MediaDevicesContext } from "../MediaDevicesContext";
 import { HeaderStyle } from "../UrlParams";
 import { setLocalStorageItemReactive } from "../useLocalStorage";
-import { type ElementCallError } from "../utils/errors";
+import {
+  type ElementCallError,
+  LocalMediaEncryptionError,
+  MediaPermissionDeniedError,
+} from "../utils/errors";
 import { type ScreenShareFailure } from "../oriso/screenShareFailure";
 
 vi.hoisted(
@@ -551,6 +555,31 @@ describe("the call, in the ORISO design", () => {
     expect(within(toolbar).getByTestId("incall_leave")).toHaveTextContent(
       "Hang up",
     );
+  });
+
+  it("hides the call encryption badge while local encryption is unavailable", async () => {
+    createInCallView({
+      callIntent: "audio",
+      published: {},
+      encrypted: true,
+      mediaError: new LocalMediaEncryptionError(new Error("key import failed")),
+    });
+    const header = await screen.findByTestId("oriso-header");
+    expect(within(header).queryByTestId("oriso-header-e2ee")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Call encryption is unavailable",
+    );
+  });
+
+  it("keeps the call encryption badge for a microphone permission error", async () => {
+    createInCallView({
+      callIntent: "audio",
+      published: {},
+      encrypted: true,
+      mediaError: new MediaPermissionDeniedError(),
+    });
+    const header = await screen.findByTestId("oriso-header");
+    expect(within(header).getByTestId("oriso-header-e2ee")).toBeInTheDocument();
   });
 
   it("keeps the split circle in a video call while both cameras are off (#2233 D5)", async () => {
