@@ -43,8 +43,7 @@ export function kachelSize(
 ): KachelSize {
   const min = width < PHONE_STAGE ? KACHEL_MIN_WIDTH_PHONE : KACHEL_MIN_WIDTH;
   const fitting = Math.floor((width + gutter) / (min + gutter));
-  const twoFit =
-    width >= PHONE_MIN_COLUMNS * PHONE_TILE_FLOOR + gutter;
+  const twoFit = width >= PHONE_MIN_COLUMNS * PHONE_TILE_FLOOR + gutter;
   const fits =
     width < PHONE_STAGE && twoFit
       ? Math.max(PHONE_MIN_COLUMNS, fitting)

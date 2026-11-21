@@ -88,3 +88,16 @@ Please see LICENSE in the repository root for full details.
   background: var(--oriso-primary, #a5000a);
   color: #fff;
 }
+
+[data-oriso-follow-host] .rail.light {
+  background: var(--cpd-color-bg-action-secondary-rest);
+}
+
+[data-oriso-follow-host] .light .view {
+  color: var(--cpd-color-text-primary);
+}
+
+[data-oriso-follow-host] .light .view[aria-checked="true"] {
+  background: var(--cpd-color-bg-action-primary-rest);
+  color: var(--cpd-color-text-on-solid-primary);
+}

@@ -53,6 +53,7 @@ import { TooltipProvider } from "@vector-im/compound-web";
 import { RoomContext, useLocalParticipant } from "@livekit/components-react";
 
 import { forgetGuestsInPlay } from "../oriso/useOrisoGuestsInPlay";
+import { CallAppearanceContext } from "../useTheme";
 import { InCallView } from "./InCallView";
 import {
   mockLivekitRoom,
@@ -280,6 +281,7 @@ function createInCallView({
   crowd = false,
   callIntent,
   callType,
+  scheme = "dark",
   encrypted = false,
   orisoLogo,
   cameraOn = false,
@@ -301,6 +303,7 @@ function createInCallView({
   callIntent?: "audio" | "video";
   /** `orisoCallType` on the URL, and in the view model as InCallView passes it. */
   callType?: "group" | "circle" | "single";
+  scheme?: "light" | "dark";
   encrypted?: boolean;
   /** The Träger's logo, as the app puts it into the call address. */
   orisoLogo?: string;
@@ -464,6 +467,13 @@ function createInCallView({
         </ReactionsSenderProvider>
       </MediaDevicesContext>
     </MemoryRouter>,
+    {
+      wrapper: ({ children }) => (
+        <CallAppearanceContext value={{ scheme, contrast: "standard" }}>
+          {children}
+        </CallAppearanceContext>
+      ),
+    },
   );
   return {
     ...renderResult,
@@ -582,6 +592,22 @@ describe("the call, in the ORISO design", () => {
       );
     },
   );
+
+  it("uses the host's light header in a video 1:1 while the camera is on", () => {
+    createInCallView({
+      callIntent: "video",
+      callType: "single",
+      scheme: "light",
+      cameraOn: true,
+      published: {},
+    });
+    const header = screen.getByTestId("oriso-header");
+    expect(header.dataset.tone).toBe("light");
+    expect(
+      within(header).getByTestId("incall_video_header_notes"),
+    ).toBeVisible();
+    expect(screen.getByTestId("incall_videomute")).toBeVisible();
+  });
 
   it("opens docked notes from the header of an embedded video call", () => {
     const { container } = createInCallView({
@@ -1423,12 +1449,28 @@ describe("guest settings only when guests are part of the call (#170)", () => {
     hostGuests.waiting = 1;
     createInCallView({ callIntent: "audio", invite: true });
     const fab = screen.getByRole("button", { name: "Guests, 1 waiting" });
+    expect(screen.queryByTestId("oriso-waiting-badge")).not.toBeInTheDocument();
+    expect(fab.closest(".cpd-theme-light")).not.toBeNull();
     fireEvent.click(fab);
     expect(
       within(screen.getByTestId("oriso-guest-panel")).getByRole("switch", {
         name: "Knock first",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("inherits the call appearance only in 1:1 video calls", () => {
+    hostGuests.knock = true;
+    hostGuests.waiting = 1;
+    createInCallView({
+      callIntent: "video",
+      callType: "single",
+      cameraOn: true,
+      published: {},
+      invite: true,
+    });
+    const fab = screen.getByRole("button", { name: "Guests, 1 waiting" });
+    expect(Boolean(fab.closest(".cpd-theme-light"))).toBe(false);
   });
 
   it("brings the guest button once the counsellor sends the invite link", async () => {

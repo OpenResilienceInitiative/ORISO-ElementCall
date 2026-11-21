@@ -30,6 +30,7 @@ interface Props {
   matrixInfo: MatrixInfo;
   videoEnabled: boolean;
   videoTrack: LocalVideoTrack | null;
+  followsHostAppearance?: boolean;
   children: ReactNode;
 }
 
@@ -37,6 +38,7 @@ export const VideoPreview: FC<Props> = ({
   matrixInfo,
   videoEnabled,
   videoTrack,
+  followsHostAppearance,
   children,
 }) => {
   const { t } = useTranslation();
@@ -60,7 +62,12 @@ export const VideoPreview: FC<Props> = ({
   );
 
   return (
-    <div className={classNames(styles.preview)} ref={previewRef}>
+    <div
+      className={classNames(styles.preview, {
+        [styles.personalAppearance]: followsHostAppearance,
+      })}
+      ref={previewRef}
+    >
       <video
         className={
           videoTrack &&

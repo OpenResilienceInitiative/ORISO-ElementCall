@@ -442,6 +442,33 @@ describe("the call menu in a phone's header (S9)", () => {
     return { ...menu, ...overrides };
   };
 
+  it.each(["header", "bar"] as const)(
+    "retains and focuses the full room title in the %s menu",
+    (placement) => {
+      const roomTitle = "Einzelgespräch · Beratung zur sozialen Unterstützung";
+      const mobile = placement === "header";
+      render(
+        mobile ? (
+          <OrisoMobileMenu {...menuProps({ roomTitle })} />
+        ) : (
+          <OrisoToolbar {...props({ roomTitle })} />
+        ),
+      );
+      const trigger = screen.getByTestId(
+        mobile ? "oriso-mobile-menu" : "incall_menu",
+      );
+      fireEvent.click(trigger);
+      const menu = screen.getByTestId("oriso-call-menu");
+      const title = within(menu).getByText(roomTitle);
+      expect(title).toHaveFocus();
+      expect(within(menu).getAllByRole("button").length).toBeGreaterThan(0);
+
+      fireEvent.keyDown(title, { key: "Escape" });
+      expect(trigger).toHaveFocus();
+      expect(screen.queryByTestId("oriso-call-menu")).toBeNull();
+    },
+  );
+
   it("holds the view rail and the usual entries", () => {
     const onChange = vi.fn();
     render(
@@ -476,16 +503,21 @@ describe("the call menu in a phone's header (S9)", () => {
       const menu = screen.getByTestId("oriso-call-menu");
       let triggerRight = 208;
       trigger.getBoundingClientRect = (): DOMRect =>
-        ({ right: triggerRight }) as DOMRect;
-      menu.getBoundingClientRect = (): DOMRect => ({ width: 288 }) as DOMRect;
+        ({ right: triggerRight, bottom: 60 }) as DOMRect;
       fireEvent(window, new Event("resize"));
-      // Slid right by 96px: 16px free on the left, 16px on the right.
-      expect(menu.style.right).toBe("-96px");
-      // Wide enough: it hangs from the ⋮ as before.
-      triggerRight = 1024 - 112;
-      window.innerWidth = 1024;
+      // The panel ends 16px from the same edge while the header holds the trigger.
+      expect(menu.style.getPropertyValue("--oriso-menu-inline-offset")).toBe(
+        "-96px",
+      );
+      expect(menu.style.getPropertyValue("--oriso-menu-anchor-bottom")).toBe(
+        "60px",
+      );
+      triggerRight = 390 - 112;
+      window.innerWidth = 390;
       fireEvent(window, new Event("resize"));
-      expect(menu.style.right).toBe("");
+      expect(menu.style.getPropertyValue("--oriso-menu-inline-offset")).toBe(
+        "-96px",
+      );
     } finally {
       window.innerWidth = width;
     }
@@ -515,16 +547,21 @@ describe("the call menu in a phone's header (S9)", () => {
       expect(panel.dataset.placement).toBe("header");
       let triggerRight = 208;
       trigger.getBoundingClientRect = (): DOMRect =>
-        ({ right: triggerRight }) as DOMRect;
-      panel.getBoundingClientRect = (): DOMRect => ({ width: 288 }) as DOMRect;
+        ({ right: triggerRight, bottom: 60 }) as DOMRect;
       fireEvent(window, new Event("resize"));
-      // Slid right by 96px: 16px free on the left, 16px on the right.
-      expect(panel.style.right).toBe("-96px");
-      // Wide enough: it hangs from the ⋮ as before.
-      triggerRight = 1024 - 112;
-      window.innerWidth = 1024;
+      // The panel ends 16px from the same edge while the header holds the trigger.
+      expect(panel.style.getPropertyValue("--oriso-menu-inline-offset")).toBe(
+        "-96px",
+      );
+      expect(panel.style.getPropertyValue("--oriso-menu-anchor-bottom")).toBe(
+        "60px",
+      );
+      triggerRight = 390 - 112;
+      window.innerWidth = 390;
       fireEvent(window, new Event("resize"));
-      expect(panel.style.right).toBe("");
+      expect(panel.style.getPropertyValue("--oriso-menu-inline-offset")).toBe(
+        "-96px",
+      );
     } finally {
       window.innerWidth = width;
     }

@@ -13,6 +13,7 @@ import {
   type PointerEvent,
   type TouchEvent,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -33,6 +34,7 @@ import {
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { useTranslation } from "react-i18next";
 
+import { CallAppearanceContext } from "../useTheme";
 import type { IWidgetApiRequest } from "matrix-widget-api";
 import {
   EndCallButton,
@@ -88,6 +90,7 @@ import { AtmospherePicker } from "../oriso/AtmospherePicker";
 import {
   ATMOSPHERE_CHOICE_KEY,
   type AtmosphereChoice,
+  atmosphereLabel,
   readAtmosphereChoice,
   resolveAtmosphere,
 } from "../oriso/atmosphereChoice";
@@ -562,6 +565,13 @@ export const InCallView: FC<InCallViewProps> = ({
   const orisoCameraOneOnOne = orisoEnabled && cameraOn && !orisoAudioOnly;
   const orisoVideoOneOnOne =
     orisoCameraOneOnOne && layout.type === "one-on-one";
+  const { scheme: callScheme, contrast } = useContext(CallAppearanceContext);
+  const followsHostAppearance = orisoVideoCall && orisoCallType === "single";
+  const headerTone = followsHostAppearance
+    ? callScheme
+    : orisoVideoOneOnOne
+      ? "dark"
+      : "light";
   /*
    * #2233 (D2): the view rail and the atmosphere come with a group
    * arrangement. That follows the plan (`orisoOneOnOne$`, which counts
@@ -925,10 +935,32 @@ export const InCallView: FC<InCallViewProps> = ({
     }));
   }, [participantUserIds, matrixRoom]);
 
+  // The header and its overflow menu display the same room or topic title.
+  const orisoTitle = orisoEnabled
+    ? stageTitleText(
+        stageTitle({
+          roomName: matrixInfo.roomName,
+          defaultRoomName: t("oriso_call_title"),
+          callType: orisoCallType,
+          topic: orisoTopic,
+          group: participantCount > 2,
+        }),
+        t,
+        orisoVideoCall,
+      )
+    : undefined;
+
+  const showGuestFab =
+    orisoEnabled &&
+    showControls &&
+    orisoGuests.inPlay &&
+    (orisoInviteRequest !== null || orisoKnock.setKnock !== null);
+
   // The call menu's contents, in the bar's ⋮ or the phone header's (S9).
   const callMenu: CallMenuProps = {
+    roomTitle: orisoTitle,
     onToggleNotes: toggleNotes,
-    waitingCount: orisoKnock.waiting,
+    waitingCount: showGuestFab ? 0 : orisoKnock.waiting,
     pointing: sharePointer.pointing,
     onPointingChange: sharePointer.onPointingChange,
     onHangup: (): void => vm.hangup(),
@@ -939,9 +971,7 @@ export const InCallView: FC<InCallViewProps> = ({
     // A phone's header has no room for the atmosphere popover (5b).
     backgroundLabel:
       atmosphereShown && !orisoMobile
-        ? atmosphereChoice === "traeger"
-          ? t("oriso.atmosphere_carrier")
-          : t(`oriso.atmosphere_${atmosphereChoice}`)
+        ? atmosphereLabel(atmosphereChoice, t)
         : null,
     onOpenBackground: atmosphereShown && !orisoMobile ? openAtmosphere : null,
     onToggleScreenShare: vm.toggleScreenSharing,
@@ -972,32 +1002,22 @@ export const InCallView: FC<InCallViewProps> = ({
   const [stageScrolled, onStageScroll] = useStageScrolled();
 
   let header: ReactNode = null;
-  if (orisoEnabled && showControls && windowMode !== "pip") {
+  if (orisoTitle !== undefined && showControls && windowMode !== "pip") {
     /*
      * The ORISO header, whatever header style the host asked for: the
      * design has one in every call (2a, 2b, 5a), and with `orisoHostChrome`
      * it is where the window buttons live — without it the call would have
      * none at all.
      */
-    /*
-     * "Einzelgespräch · Schuldnerberatung" for a 1:1 the host gave a topic
-     * (#2233 R6), "QA Moabit · Gruppengespräch" for a group chat; a room
-     * with a real name keeps it. See `stageTitle`.
-     */
-    const titleParts = stageTitle({
-      roomName: matrixInfo.roomName,
-      defaultRoomName: t("oriso_call_title"),
-      callType: orisoCallType,
-      topic: orisoTopic,
-      group: participantCount > 2,
-    });
-    const orisoTitle = stageTitleText(titleParts, t, orisoVideoCall);
     const orisoHeader = (
       <OrisoHeader
         ref={orisoMobile ? undefined : headerRef}
-        className={orisoMobile ? undefined : styles.header}
+        className={classNames(
+          orisoMobile ? undefined : styles.header,
+          followsHostAppearance && styles.hostVideoHeader,
+        )}
         compact={orisoMobile}
-        tone={orisoVideoOneOnOne ? "dark" : "light"}
+        tone={headerTone}
         logo={orisoLogo}
         title={orisoTitle}
         encrypted={matrixInfo.e2eeSystem.kind !== E2eeType.NONE}
@@ -1031,7 +1051,7 @@ export const InCallView: FC<InCallViewProps> = ({
           speakerBand === "header" ? (
             <WaveBand
               variant="header"
-              tone={orisoVideoOneOnOne ? "dark" : "light"}
+              tone={headerTone}
               speaker={orisoSpeaker}
             />
           ) : undefined
@@ -1052,7 +1072,7 @@ export const InCallView: FC<InCallViewProps> = ({
                 icon, the active one with its word. */}
             {orisoGroupChrome && orisoOffer.length > 1 && !orisoMobile && (
               <ViewSwitcher
-                tone={orisoVideoOneOnOne ? "dark" : "light"}
+                tone={headerTone}
                 active={stageView}
                 offer={orisoOffer}
                 onChange={setStageView}
@@ -1434,6 +1454,7 @@ export const InCallView: FC<InCallViewProps> = ({
       onClose={closeNotes}
       layout={notesDocked ? "docked" : "sheet"}
       compact={!notesDocked && notesCompact}
+      personalContrast={followsHostAppearance ? contrast : undefined}
       style={
         {
           "--oriso-notes-top": `${headerBounds.height + (orisoVideoOneOnOne && notesDocked ? 0 : 16)}px`,
@@ -1457,24 +1478,17 @@ export const InCallView: FC<InCallViewProps> = ({
    * whoever can do something there (the counsellor: the link or Anklopfen).
    * Not in a call of the counsellor and logged-in people alone.
    */
-  const guestFab = orisoEnabled &&
-    showControls &&
-    orisoGuests.inPlay &&
-    (orisoInviteRequest !== null || orisoKnock.setKnock !== null) && (
-      <OrisoGuestFab
-        inviteRequest={orisoInviteRequest}
-        knock={orisoKnock.knock}
-        onKnockChange={orisoKnock.setKnock}
-        waitingCount={orisoKnock.waiting}
-        compact={orisoMobile}
-        onTouchEnd={onControlsTouchEnd}
-        style={
-          {
-            "--oriso-footer-h": `${footerBounds.height}px`,
-          } as CSSProperties
-        }
-      />
-    );
+  const guestFab = showGuestFab && (
+    <OrisoGuestFab
+      inviteRequest={orisoInviteRequest}
+      knock={orisoKnock.knock}
+      onKnockChange={orisoKnock.setKnock}
+      waitingCount={orisoKnock.waiting}
+      compact={orisoMobile}
+      followCallAppearance={followsHostAppearance}
+      onTouchEnd={onControlsTouchEnd}
+    />
+  );
 
   const footer = (
     <div
@@ -1558,13 +1572,18 @@ export const InCallView: FC<InCallViewProps> = ({
                 orisoEnabled && stageScrolled ? "true" : undefined
               }
               data-oriso={orisoEnabled ? "true" : undefined}
+              data-oriso-follow-host={followsHostAppearance || undefined}
               data-oriso-video-stage={orisoVideoOneOnOne ? "true" : undefined}
               style={
-                orisoVideoOneOnOne
+                orisoEnabled
                   ? ({
-                      "--oriso-stage-gutter": `${videoStageGutter}px`,
-                      "--oriso-video-notes-width": `${VIDEO_NOTES_WIDTH}px`,
-                      "--oriso-video-notes-inset": `${dockInset}px`,
+                      "--oriso-header-h": `${headerBounds.height}px`,
+                      "--oriso-footer-h": `${footerBounds.height}px`,
+                      ...(orisoVideoOneOnOne && {
+                        "--oriso-stage-gutter": `${videoStageGutter}px`,
+                        "--oriso-video-notes-width": `${VIDEO_NOTES_WIDTH}px`,
+                        "--oriso-video-notes-inset": `${dockInset}px`,
+                      }),
                     } as CSSProperties)
                   : undefined
               }

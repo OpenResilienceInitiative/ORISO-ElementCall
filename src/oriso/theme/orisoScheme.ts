@@ -11,7 +11,7 @@ Please see LICENSE in the repository root for full details.
  * branding", decision of 2026-11-10).
  *
  * Source:  OpenResilienceInitiative/ORISO-Frontend, src/utils/theme/orisoScheme.ts
- * Commit:  4632215d4e96019988e2aeab3a2c10d76ea50557 (origin/dev, 2026-11-10)
+ * Source revision: Frontend dev 19204bb (2026-11-19) with the personal contrast change.
  * Changes: formatting only (this repo's prettier); logic unchanged.
  *
  * To update: copy the file again from the app, change the commit above, copy
@@ -61,8 +61,10 @@ import {
   TOO_PALE_CHROMA,
 } from "./orisoTuning";
 import { wcagContrast } from "./wcagContrast";
+import { enhanceOrisoContrast } from "./enhanceOrisoContrast";
 
 export type OrisoSchemeName = "light" | "dark" | "inverted";
+export type ContrastLevel = "standard" | "medium" | "high";
 
 export interface OrisoSeeds {
   /** Required Träger brand colour; drives the whole palette. */
@@ -82,7 +84,8 @@ export interface OrisoPaletteResult {
 
 const HEX_PATTERN = /^#[0-9a-f]{6}$/;
 
-const normalizeHex = (value: string, label: string): string => {
+/** Trimmed, lower-case `#rrggbb`; `#rgb` is expanded. Throws on anything else. */
+export const normalizeHex = (value: string, label: string): string => {
   const hex = value.trim().toLowerCase();
   const withHash = hex.startsWith("#") ? hex : `#${hex}`;
   // Expand #rgb shorthand for robustness.
@@ -134,14 +137,18 @@ const MAX_LEGIBLE_TEXT_TONE = Math.floor(
  * just above it. Contrast of the on-colours is guaranteed by
  * construction (white only when it reaches AA, dark text otherwise).
  */
-const lightBrandFamily = (seedHex: string): BrandFamily => {
-  const argb = argbFromHex(seedHex);
-  const hct = Hct.fromInt(argb);
-  const palette = TonalPalette.fromInt(argb);
-  const boosted = TonalPalette.fromHueAndChroma(
-    hct.hue,
-    hct.chroma * CONTAINER_CHROMA_FACTOR,
+const containerPalette = (palette: TonalPalette): TonalPalette =>
+  TonalPalette.fromHueAndChroma(
+    palette.hue,
+    palette.chroma * CONTAINER_CHROMA_FACTOR,
   );
+
+const lightBrandFamily = (
+  seedHex: string,
+  palette: TonalPalette,
+  boosted: TonalPalette,
+): BrandFamily => {
+  const hct = Hct.fromInt(argbFromHex(seedHex));
 
   const onRole =
     Contrast.ratioOfTones(100, hct.tone) >= CONTRAST_AA
@@ -227,9 +234,7 @@ const topicTagTokens = (brand: BrandFamily): Record<string, string> => {
   };
 };
 
-const darkBrandFamily = (seedHex: string): BrandFamily => {
-  const argb = argbFromHex(seedHex);
-  const palette = TonalPalette.fromInt(argb);
+const darkBrandFamily = (palette: TonalPalette): BrandFamily => {
   return {
     role: hex(palette.tone(DARK_BRAND_TONES.role)),
     onRole: hex(palette.tone(DARK_BRAND_TONES.onRole)),
@@ -290,7 +295,9 @@ const accentFamilyFromPalette = (
  */
 const signalFamily = (
   scheme: OrisoSchemeName,
-  signalSeed?: string,
+  signalSeed: string | undefined,
+  palette: TonalPalette,
+  container: TonalPalette,
 ): {
   error: string;
   onError: string;
@@ -300,8 +307,8 @@ const signalFamily = (
   if (signalSeed) {
     const family =
       scheme === "light"
-        ? lightBrandFamily(signalSeed)
-        : darkBrandFamily(signalSeed);
+        ? lightBrandFamily(signalSeed, palette, container)
+        : darkBrandFamily(palette);
     return {
       error: family.role,
       onError: family.onRole,
@@ -312,7 +319,6 @@ const signalFamily = (
   if (scheme === "light") {
     return DEFAULT_SIGNAL.light;
   }
-  const palette = TonalPalette.fromInt(argbFromHex(DEFAULT_SIGNAL.anchorSeed));
   return {
     error: hex(palette.tone(DARK_BRAND_TONES.role)),
     onError: hex(palette.tone(DARK_BRAND_TONES.onRole)),
@@ -349,6 +355,7 @@ const harmonizedAccentPalette = (
 export const computeOrisoPalette = (
   seeds: OrisoSeeds,
   scheme: OrisoSchemeName,
+  contrast: ContrastLevel = "standard",
 ): OrisoPaletteResult => {
   const primarySeed = normalizeHex(seeds.primary, "primary");
   const accentSeed =
@@ -367,10 +374,13 @@ export const computeOrisoPalette = (
   );
   const slate = TonalPalette.fromHueAndChroma(SLATE.hue, SLATE.chroma);
 
+  const primaryPalette = TonalPalette.fromInt(argbFromHex(primarySeed));
+  const primaryContainer =
+    scheme === "light" ? containerPalette(primaryPalette) : primaryPalette;
   const brand =
     scheme === "light"
-      ? lightBrandFamily(primarySeed)
-      : darkBrandFamily(primarySeed);
+      ? lightBrandFamily(primarySeed, primaryPalette, primaryContainer)
+      : darkBrandFamily(primaryPalette);
 
   const secondaryPalette = accentSeed
     ? harmonizedAccentPalette(accentSeed, primarySeed)
@@ -381,7 +391,23 @@ export const computeOrisoPalette = (
     scheme,
   );
   const tertiary = accentFamilyFromPalette(slate, TERTIARY_TONES, scheme);
-  const signal = signalFamily(scheme, signalSeed);
+  const signalPalette = TonalPalette.fromInt(
+    argbFromHex(signalSeed ?? DEFAULT_SIGNAL.anchorSeed),
+  );
+  const signalContainer =
+    scheme !== "light"
+      ? signalPalette
+      : signalSeed
+        ? containerPalette(signalPalette)
+        : TonalPalette.fromInt(
+            argbFromHex(DEFAULT_SIGNAL.light.errorContainer),
+          );
+  const signal = signalFamily(
+    scheme,
+    signalSeed,
+    signalPalette,
+    signalContainer,
+  );
 
   const neutralTones =
     scheme === "light"
@@ -471,26 +497,53 @@ export const computeOrisoPalette = (
 
     "--m3-shadow": "#000000",
     "--m3-scrim": "#000000",
-
-    "--oriso-primary-fixed": brand.fixed,
-    "--oriso-primary-fixed-dim": brand.fixedDim,
-    "--oriso-on-primary-fixed": brand.onFixed,
-    "--oriso-on-primary-fixed-variant": brand.onFixedVariant,
-    ...topicTagTokens(brand),
-    "--oriso-app-action": brand.role,
-    "--oriso-lottie-accent-color": brand.fixedDim,
-    "--oriso-lottie-secondary-color": secondary.container,
-
-    "--primary": brand.role,
-    "--primary-3": brand.hover,
-    "--hover-primary": brand.hover,
-    "--skin-color-primary": brand.role,
-    "--skin-color-primary-hover": brand.hover,
-    "--skin-color-primary-contrast-safe": brand.text,
-    "--skin-color-secondary": secondary.role,
-    "--skin-color-secondary-contrast-safe": secondary.role,
-    "--skin-color-default": secondary.role,
   };
+
+  const enhanced = contrast !== "standard" && scheme !== "inverted";
+  if (enhanced) {
+    enhanceOrisoContrast(
+      tokens,
+      {
+        neutral,
+        variant,
+        primary: primaryPalette,
+        primaryContainer,
+        secondary: secondaryPalette,
+        tertiary: slate,
+        error: signalPalette,
+        errorContainer: signalContainer,
+      },
+      contrast === "high" ? 7 : 5.5,
+    );
+  }
+
+  Object.assign(tokens, {
+    "--oriso-primary-fixed": tokens["--m3-primary-fixed"],
+    "--oriso-primary-fixed-dim": tokens["--m3-primary-fixed-dim"],
+    "--oriso-on-primary-fixed": tokens["--m3-on-primary-fixed"],
+    "--oriso-on-primary-fixed-variant": tokens["--m3-on-primary-fixed-variant"],
+    ...(enhanced
+      ? {
+          "--oriso-topic-tag-bg": tokens["--m3-primary-fixed"],
+          "--oriso-topic-tag-fg": tokens["--m3-on-primary-fixed-variant"],
+          "--oriso-topic-tag-active-bg": tokens["--m3-primary-container"],
+          "--oriso-topic-tag-active-fg": tokens["--m3-on-primary-container"],
+        }
+      : topicTagTokens(brand)),
+    "--oriso-app-action": tokens["--m3-primary"],
+    "--oriso-lottie-accent-color": tokens["--m3-primary-fixed-dim"],
+    "--oriso-lottie-secondary-color": tokens["--m3-secondary-container"],
+
+    "--primary": tokens["--m3-primary"],
+    "--primary-3": tokens["--m3-primary-hover"],
+    "--hover-primary": tokens["--m3-primary-hover"],
+    "--skin-color-primary": tokens["--m3-primary"],
+    "--skin-color-primary-hover": tokens["--m3-primary-hover"],
+    "--skin-color-primary-contrast-safe": tokens["--oriso-primary-text"],
+    "--skin-color-secondary": tokens["--m3-secondary"],
+    "--skin-color-secondary-contrast-safe": tokens["--m3-secondary"],
+    "--skin-color-default": tokens["--m3-secondary"],
+  });
 
   const tooPale =
     Hct.fromInt(argbFromHex(primarySeed)).chroma < TOO_PALE_CHROMA;

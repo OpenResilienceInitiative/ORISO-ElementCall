@@ -39,6 +39,8 @@ interface Props {
   waitingCount: number;
   /** A phone: the icon alone, the word its name. */
   compact?: boolean;
+  /** The 1:1 video stage shares the host's palette. */
+  followCallAppearance?: boolean;
   onTouchEnd?: (e: TouchEvent) => void;
   className?: string;
   /** Where the bar ends: `--oriso-footer-h`. */
@@ -64,6 +66,7 @@ export const OrisoGuestFab: FC<Props> = ({
   onKnockChange,
   waitingCount,
   compact = false,
+  followCallAppearance = false,
   onTouchEnd,
   className,
   style,
@@ -73,6 +76,7 @@ export const OrisoGuestFab: FC<Props> = ({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const linkRef = useRef<HTMLDivElement>(null);
   const invite = useInviteLink(inviteRequest ?? noRequest);
   const { close: closeInvite } = invite;
 
@@ -103,7 +107,11 @@ export const OrisoGuestFab: FC<Props> = ({
 
   return (
     <div
-      className={classNames(styles.guests, "cpd-theme-light", className)}
+      className={classNames(
+        styles.guests,
+        { "cpd-theme-light": !followCallAppearance },
+        className,
+      )}
       data-compact={compact || undefined}
       style={style}
       onTouchEnd={onTouchEnd}
@@ -137,25 +145,35 @@ export const OrisoGuestFab: FC<Props> = ({
               {waiting}
             </p>
           )}
-          {inviteRequest !== null &&
-            (invite.state.kind === "closed" ? (
-              <button
-                type="button"
-                className={styles.linkButton}
-                onClick={invite.start}
-                data-testid="oriso-guest-link"
-              >
-                <LinkIcon aria-hidden width={20} height={20} />
-                {t("oriso.invite_button")}
-              </button>
-            ) : (
-              <div className={styles.link}>
+          {inviteRequest !== null && (
+            <div
+              ref={linkRef}
+              className={styles.link}
+              role="group"
+              aria-label={t("oriso.invite_title")}
+              tabIndex={-1}
+            >
+              {invite.state.kind === "closed" ? (
+                <button
+                  type="button"
+                  className={styles.linkButton}
+                  onClick={() => {
+                    linkRef.current?.focus();
+                    invite.start();
+                  }}
+                  data-testid="oriso-guest-link"
+                >
+                  <LinkIcon aria-hidden width={20} height={20} />
+                  {t("oriso.invite_button")}
+                </button>
+              ) : (
                 <InviteLinkBody
                   state={invite.state}
                   onCopy={invite.copyAgain}
                 />
-              </div>
-            ))}
+              )}
+            </div>
+          )}
           {knock !== null && onKnockChange !== null && (
             <div className={styles.row}>
               <span className={styles.rowLabel}>
@@ -164,7 +182,7 @@ export const OrisoGuestFab: FC<Props> = ({
                   id={`${id}-knock-state`}
                   className={styles.rowDescription}
                 >
-                  {t(knock ? "oriso.knock_on" : "oriso.knock_off")}
+                  {knock ? t("oriso.knock_on") : t("oriso.knock_off")}
                 </span>
               </span>
               <button

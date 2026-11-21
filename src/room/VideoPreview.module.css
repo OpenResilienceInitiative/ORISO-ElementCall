@@ -79,3 +79,26 @@ video.mirror {
     padding-inline: var(--inline-content-inset);
   }
 }
+
+.personalAppearance .buttonBar {
+  background: var(--cpd-color-bg-canvas-default);
+  box-sizing: border-box;
+  height: auto;
+  min-block-size: calc(30 * var(--cpd-space-1x));
+  padding: var(--cpd-space-4x);
+}
+
+/* Keep the video itself unchanged and pair the status text with a surface
+   from the selected mode, where the preview can be black or moving video. */
+.preview.personalAppearance .cameraStarting {
+  inset-inline: var(--cpd-space-4x);
+  inset-block-end: auto;
+  justify-self: center;
+  padding: var(--cpd-space-2x) var(--cpd-space-4x);
+  border-radius: var(--cpd-radius-pill-effect);
+  background: var(--cpd-color-bg-canvas-default);
+  color: var(--cpd-color-text-secondary);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+  text-align: center;
+}

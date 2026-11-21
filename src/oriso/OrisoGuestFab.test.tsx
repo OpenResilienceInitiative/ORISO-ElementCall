@@ -90,9 +90,18 @@ describe("the guest button (call UX round #170)", () => {
     render(<OrisoGuestFab {...props({ inviteRequest })} />);
     await user.click(screen.getByRole("button", { name: "Guests" }));
     expect(inviteRequest).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Share link" }));
+    const dialog = screen.getByRole("dialog", { name: "Guests" });
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Share link" })).toHaveFocus();
+    await user.keyboard("{Enter}");
     expect(inviteRequest).toHaveBeenCalledOnce();
-    expect(await screen.findByTestId("oriso-invite-url")).toHaveValue(URL_);
+    const url = await screen.findByTestId("oriso-invite-url");
+    expect(url).toHaveValue(URL_);
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    await user.tab();
+    expect(url).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("button", { name: "Guests" })).toHaveFocus();
     expect(writeText).toHaveBeenCalledWith(URL_);
   });
 

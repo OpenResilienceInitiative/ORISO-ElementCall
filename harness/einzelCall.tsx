@@ -28,7 +28,7 @@ Please see LICENSE in the repository root for full details.
  *                                 corner, as ORISO-Frontend draws it for a
  *                                 counsellor (`orisoInvite`, #2233)
  *   ?chrome=call|host             call: the header's own window buttons;
- *                                 host: the host's four corner buttons drawn
+ *                                 host: the host's corner buttons drawn
  *                                 over the iframe, as ORISO-Frontend does
  *   ?invite=1                     the counsellor may hand out the call's link
  *                                 (`orisoInvite`); the host answers with a
@@ -270,10 +270,11 @@ function Footer({
   const [audioMuted, setAudioMuted] = useState(muted === "second");
   const [videoMuted, setVideoMuted] = useState(true);
   const [hand, setHand] = useState(false);
+  const title = useHarnessTitle();
   return (
     <OrisoToolbar
       compact={mobile}
-      waitingCount={Number(waiting ?? 0)}
+      roomTitle={title}
       inviteRequest={inviteRequest}
       participants={invite ? harnessParticipants : undefined}
       className={styles.orisoToolbar}
@@ -327,6 +328,7 @@ function GuestFab(): React.ReactNode {
       onKnockChange={waiting === null ? null : setKnock}
       waitingCount={waitingCount}
       compact={mobile}
+      followCallAppearance={video}
       style={{ "--oriso-footer-h": `${FOOTER_BLOCK}px` } as CSSProperties}
     />
   );
@@ -352,7 +354,6 @@ const speaker =
       }
     : null;
 
-/** The four buttons ORISO-Frontend draws over the iframe without `orisoHostChrome`. */
 /** ORISO-Frontend's share button (`.element-call-share`): 32px, 2px in. */
 function HostShareButton(): React.ReactNode {
   return (
@@ -373,10 +374,22 @@ function HostShareButton(): React.ReactNode {
   );
 }
 
+/** Legacy host controls: close and minimise on phones, four on desktop. */
 function HostCornerButtons(): React.ReactNode {
+  const corners: [number, string][] = mobile
+    ? [
+        [10, "×"],
+        [50, "–"],
+      ]
+    : [
+        [10, "×"],
+        [50, "⤢"],
+        [90, "⛶"],
+        [130, "–"],
+      ];
   return (
     <>
-      {[10, 50, 90, 130].map((right) => (
+      {corners.map(([right, label]) => (
         <span
           key={right}
           aria-hidden="true"
@@ -389,9 +402,14 @@ function HostCornerButtons(): React.ReactNode {
             height: 32,
             borderRadius: "50%",
             background: "rgb(0 0 0 / 60%)",
+            color: "#fff",
+            display: "grid",
+            placeItems: "center",
             zIndex: 100,
           }}
-        />
+        >
+          {label}
+        </span>
       ))}
     </>
   );
@@ -439,10 +457,10 @@ function Header(): React.ReactNode {
         mobile ? (
           <>
             <OrisoMobileMenu
+              roomTitle={title}
               participantCount={2}
               inviteRequest={inviteRequest}
               participants={invite ? harnessParticipants : undefined}
-              waitingCount={Number(waiting ?? 0)}
               onToggleNotes={() => {}}
               onHangup={() => {}}
               onToggleScreenShare={() => {}}
@@ -539,13 +557,15 @@ function Call(): React.ReactNode {
           data-oriso-video-stage={videoStage ? "true" : undefined}
           data-notes-docked={docked ? "true" : undefined}
           style={
-            videoStage
-              ? ({
-                  "--oriso-stage-gutter": `${gutter}px`,
-                  "--oriso-video-notes-width": "312px",
-                  "--oriso-video-notes-inset": `${312 + 16}px`,
-                } as CSSProperties)
-              : undefined
+            {
+              "--oriso-header-h": `${HEADER_BLOCK}px`,
+              "--oriso-footer-h": `${FOOTER_BLOCK}px`,
+              ...(videoStage && {
+                "--oriso-stage-gutter": `${gutter}px`,
+                "--oriso-video-notes-width": "312px",
+                "--oriso-video-notes-inset": `${312 + 16}px`,
+              }),
+            } as CSSProperties
           }
         >
           {chrome === "host" && <HostCornerButtons />}
@@ -603,7 +623,11 @@ void animated;
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider>
-      <div className="cpd-theme-dark" style={{ height: "100vh" }}>
+      <div
+        className="cpd-theme-dark"
+        data-oriso-follow-host={video || undefined}
+        style={{ height: "100vh" }}
+      >
         <Call />
         {shareFailed !== null && (
           <Toast open onDismiss={() => {}} modal={false}>

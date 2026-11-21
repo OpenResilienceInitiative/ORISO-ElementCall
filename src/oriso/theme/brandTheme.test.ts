@@ -14,7 +14,18 @@ import {
   buildBrandThemeCss,
   resolveBrandSeeds,
 } from "./brandTheme";
-import { DARK, LIGHT, ROOT, themeBlocks } from "./themeCss.testUtils";
+import {
+  CALL_THEME_SELECTORS,
+  DARK,
+  DARK_HIGH,
+  DARK_MEDIUM,
+  LIGHT,
+  LIGHT_HIGH,
+  LIGHT_MEDIUM,
+  ROOT,
+  themeBlocks,
+} from "./themeCss.testUtils";
+import { wcagContrast } from "./wcagContrast";
 
 const hue = (hex: string): number => Hct.fromInt(argbFromHex(hex)).hue;
 const chroma = (hex: string): number => Hct.fromInt(argbFromHex(hex)).chroma;
@@ -86,11 +97,58 @@ describe("resolveBrandSeeds", () => {
 });
 
 describe("buildBrandThemeCss", () => {
-  it("puts both schemes into the layer Compound reserves for overrides", () => {
+  it("puts all six schemes into the layer Compound reserves for overrides", () => {
     const css = buildBrandThemeCss({ primary: "#0a7a3c" });
     expect(css.startsWith("@layer compound.custom {")).toBe(true);
     const blocks = themeBlocks(css);
-    expect(Object.keys(blocks).sort()).toEqual([DARK, LIGHT, ROOT].sort());
+    expect(Object.keys(blocks).sort()).toEqual(
+      [...CALL_THEME_SELECTORS, ROOT].sort(),
+    );
+  });
+
+  it.each([
+    [LIGHT_MEDIUM, 5.5],
+    [DARK_MEDIUM, 5.5],
+    [LIGHT_HIGH, 7],
+    [DARK_HIGH, 7],
+  ] as const)("keeps rendered text roles legible at %s", (selector, target) => {
+    const blocks = themeBlocks(
+      buildBrandThemeCss({
+        primary: "#f8e71c",
+        accent: "#1c4f8f",
+        signal: "#cc3300",
+      }),
+    );
+    const theme = blocks[selector];
+    const canvas = "--cpd-color-bg-canvas-default";
+    for (const [ink, fill, threshold] of [
+      ["--cpd-color-text-primary", canvas, target],
+      ["--cpd-color-text-secondary", "--cpd-color-bg-subtle-primary", target],
+      ["--cpd-color-text-placeholder", canvas, target],
+      ["--cpd-color-text-action-accent", canvas, target],
+      ["--cpd-color-text-link-external", canvas, target],
+      ["--cpd-color-text-critical-primary", canvas, target],
+      [
+        "--cpd-color-text-critical-primary",
+        "--cpd-color-bg-subtle-primary",
+        target,
+      ],
+      [
+        "--cpd-color-text-on-solid-primary",
+        "--cpd-color-bg-action-primary-rest",
+        target,
+      ],
+      [
+        "--cpd-color-text-on-solid-primary",
+        "--cpd-color-bg-action-primary-hovered",
+        target,
+      ],
+      ["--cpd-color-border-focused", canvas, 3],
+    ] as const) {
+      expect(wcagContrast(theme[ink], theme[fill]), ink).toBeGreaterThanOrEqual(
+        threshold,
+      );
+    }
   });
 
   it("makes a green seed green in the primary action and the accent text", () => {

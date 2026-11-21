@@ -5,9 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-/* The numbers are section 2b's (white bar, round hang-up) and 1c's (the
-   call menu). The call is themed dark, but this bar stands on the light
-   stage, so its colours are the handoff's own rather than Compound's. */
+/* Calls without personal appearance keep the colours of the light stage. */
 
 /* The toolbar carries the z-index itself, and the menu lives inside it: the
    stacking order puts the toolbar AND its menu at z 20, and a menu in its
@@ -164,14 +162,32 @@ Please see LICENSE in the repository root for full details.
   inset-block-end: calc(100% + 12px);
   inset-inline-end: 0;
   inline-size: min(304px, calc(100vw - 32px));
-  max-block-size: calc(100vh - 140px);
+  max-block-size: max(
+    0px,
+    calc(
+      100dvh - var(--oriso-header-h, 64px) - var(--oriso-footer-h, 60px) - 16px
+    )
+  );
   overflow: auto;
+  overscroll-behavior: contain;
   border-radius: 28px;
   background: rgb(250 249 249);
   color: rgb(45 44 40);
   box-shadow:
     inset 0 0 0 2px var(--oriso-primary, #a5000a),
     0 14px 32px rgb(0 0 0 / 20%);
+}
+
+.roomTitle {
+  margin: 12px 16px;
+  font-size: calc(17px * var(--font-scale, 1));
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .section {
@@ -320,7 +336,8 @@ Please see LICENSE in the repository root for full details.
   }
 }
 
-.entry:focus-visible {
+.entry:focus-visible,
+.roomTitle:focus-visible {
   outline: 2px solid var(--oriso-primary, #a5000a);
   outline-offset: -4px;
 }
@@ -394,13 +411,20 @@ Please see LICENSE in the repository root for full details.
 
 /* The call menu under the header's ⋮ on a phone (S9). */
 .menu[data-placement="header"] {
-  inset-block-start: calc(100% + 8px);
+  inset-block-start: calc(100% + var(--oriso-menu-block-gap, 0px) + 8px);
   inset-block-end: auto;
-  inset-inline-end: 0;
+  inset-inline-end: var(--oriso-menu-inline-offset, 0px);
   inset-inline-start: auto;
   translate: none;
   z-index: 30;
-  max-block-size: calc(100dvh - 96px);
+  inline-size: calc(100dvw - 32px);
+  max-block-size: max(
+    0px,
+    calc(
+      100dvh - var(--oriso-menu-anchor-bottom, 80px) -
+        var(--oriso-footer-h, 0px) - 16px
+    )
+  );
 }
 
 .menuSection {
@@ -438,4 +462,131 @@ Please see LICENSE in the repository root for full details.
 .mobileTrigger:focus-visible {
   outline: 2px solid var(--oriso-primary, #a5000a);
   outline-offset: 2px;
+}
+
+[data-oriso-follow-host] :is(.bar, .mobileTrigger) {
+  background: var(--cpd-color-bg-canvas-default);
+  color: var(--cpd-color-icon-primary);
+}
+
+[data-oriso-follow-host] .bar {
+  box-shadow: inset 0 0 0 1px var(--cpd-color-border-interactive-secondary);
+}
+
+[data-oriso-follow-host] .mobileTrigger {
+  border-color: var(--cpd-color-border-interactive-primary);
+}
+
+[data-oriso-follow-host] .mobileTrigger[aria-expanded="true"] {
+  background: var(--cpd-color-bg-action-tertiary-selected);
+  border-color: var(--cpd-color-border-focused);
+}
+
+[data-oriso-follow-host] .button {
+  color: var(--cpd-color-icon-primary);
+}
+
+[data-oriso-follow-host]
+  .button:is([data-state="live"], [data-state="open"])
+  .fill {
+  background: var(--cpd-color-bg-action-tertiary-selected);
+  color: var(--cpd-color-icon-primary);
+}
+
+[data-oriso-follow-host] .button[data-state="raised"] .fill {
+  background: var(--cpd-color-bg-badge-info);
+  color: var(--cpd-color-text-badge-info);
+}
+
+[data-oriso-follow-host] :is(.button, .hangup, .mobileTrigger):focus-visible {
+  outline-color: var(--cpd-color-border-focused);
+}
+
+[data-oriso-follow-host] .badge {
+  background: var(--cpd-color-bg-action-primary-rest);
+  border-color: var(--cpd-color-bg-canvas-default);
+  color: var(--cpd-color-text-on-solid-primary);
+}
+
+@media (hover) {
+  [data-oriso-follow-host] .button[data-state="off"]:not(:disabled):hover .fill,
+  [data-oriso-follow-host]
+    .button:is([data-state="live"], [data-state="open"]):not(:disabled):hover
+    .fill {
+    background: var(--cpd-color-bg-action-secondary-pressed);
+  }
+
+  [data-oriso-follow-host]
+    .button[data-state="raised"]:not(:disabled):hover
+    .fill {
+    background: var(--cpd-color-bg-badge-info);
+  }
+
+  [data-oriso-follow-host] .entry:hover {
+    background: var(--cpd-color-bg-action-secondary-hovered);
+  }
+}
+
+[data-oriso-follow-host] .menu {
+  background: var(--cpd-color-bg-canvas-default);
+  color: var(--cpd-color-text-primary);
+  box-shadow:
+    inset 0 0 0 1px var(--cpd-color-border-interactive-primary),
+    0 14px 32px rgb(0 0 0 / 20%);
+}
+
+[data-oriso-follow-host] .menu .section + .section {
+  border-block-start-color: var(--cpd-color-border-interactive-secondary);
+}
+
+[data-oriso-follow-host] .menu .row {
+  color: var(--cpd-color-text-primary);
+}
+
+[data-oriso-follow-host] .menu .danger {
+  color: var(--cpd-color-text-critical-primary);
+}
+
+[data-oriso-follow-host] .menu .rowLabel {
+  font-size: calc(17px * var(--font-scale, 1));
+  line-height: calc(22px * var(--font-scale, 1));
+}
+
+[data-oriso-follow-host] .menu :is(.sectionTitle, .rowHint, .rowDescription) {
+  color: var(--cpd-color-text-secondary);
+}
+
+[data-oriso-follow-host] .switch[data-state="off"] {
+  border-color: var(--cpd-color-border-interactive-primary);
+  background: var(--cpd-color-bg-subtle-secondary);
+}
+
+[data-oriso-follow-host] .switch[data-state="off"] .switchThumb {
+  background: var(--cpd-color-icon-secondary);
+}
+
+[data-oriso-follow-host] .switch[data-state="on"] {
+  border-color: var(--cpd-color-bg-action-primary-rest);
+  background: var(--cpd-color-bg-action-primary-rest);
+}
+
+[data-oriso-follow-host] .switch[data-state="on"] .switchThumb {
+  background: var(--cpd-color-icon-on-solid-primary);
+}
+
+[data-oriso-follow-host] .switch:focus-visible {
+  outline-color: var(--cpd-color-border-focused);
+}
+
+/* The menu follows the call canvas. Its ink is readable even when the
+   standard brand colour is pale yellow or the canvas is dark. */
+[data-oriso-follow-host] .menu :is(.entry, .switch, .roomTitle):focus-visible {
+  outline-color: var(--cpd-color-text-primary, currentColor);
+}
+
+body[data-oriso-contrast-level]
+  [data-oriso-follow-host]
+  .menu
+  :is(.entry, .switch, .roomTitle):focus-visible {
+  outline-color: var(--cpd-color-border-focused, currentColor);
 }
