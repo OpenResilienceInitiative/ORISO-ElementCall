@@ -413,7 +413,9 @@ export const MediaView: FC<Props> = ({
           <RaisedHandIndicator
             raisedHandTime={handInCapsule ? undefined : raisedHandTime}
             miniature={avatarSize < 96}
-            showTimer={handRaiseTimerVisible}
+            // An ORISO form always shows how long the hand has been up, as
+            // the capsule does (#173); upstream keeps its setting.
+            showTimer={handRaiseTimerVisible || orisoIdentity !== undefined}
             onClick={raisedHandOnClick}
             tabIndex={focusable ? undefined : -1}
           />
