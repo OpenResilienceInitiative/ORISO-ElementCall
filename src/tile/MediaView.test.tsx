@@ -183,4 +183,41 @@ describe("MediaView in the ORISO design (S6)", () => {
     );
     expect(hand.getAttribute("aria-label")).toContain("1:40");
   });
+
+  it("shows the hand's duration on a half of the 1:1 circle, setting or not (#173)", () => {
+    // The Einzelgespräch's halves keep upstream's hand badge, whose timer
+    // is a setting that is off by default: Frank saw a bare, small hand and
+    // no "1:40". In an ORISO call the duration is always shown, as it is in
+    // the capsule of every other form.
+    render(
+      <TooltipProvider>
+        <MediaView
+          displayName="Beratung"
+          videoEnabled={false}
+          videoFit="cover"
+          targetWidth={300}
+          targetHeight={300}
+          encryptionStatus={EncryptionStatus.Okay}
+          mirror={false}
+          unencryptedWarning={false}
+          video={undefined}
+          userId="@counsellor:oriso.test"
+          mxcAvatarUrl={undefined}
+          focusable
+          orisoIdentity={{
+            kind: "initials",
+            bg: "#165E83",
+            ink: "#fff",
+            initials: "B",
+          }}
+          orisoShape={{ radius: "50%", tilt: 0, square: true, focusX: 0.75 }}
+          raisedHandTime={new Date(Date.now() - 100_000)}
+        />
+      </TooltipProvider>,
+    );
+    // Not the capsule: the half keeps its badge.
+    expect(screen.queryByTestId("oriso-hand")).toBeNull();
+    // The badge rounds up, so a test that takes a moment reads 1:41.
+    expect(screen.getByText(/^0?1:4[01]$/)).toBeTruthy();
+  });
 });

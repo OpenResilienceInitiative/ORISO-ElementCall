@@ -137,6 +137,9 @@ const noArtwork = params.get("artwork") === "none";
 const mobile = params.get("mobile") === "1";
 /** `?shareFailed=system|blocked|failed`: the notice a failed share shows. */
 const shareFailed = params.get("shareFailed");
+/** `?hand=first|second`: that person's hand is up, raised 1:40 ago. */
+const hand = params.get("hand");
+const handRaisedAt = new Date(Date.now() - 100_000);
 
 const PEOPLE: Record<
   string,
@@ -244,6 +247,11 @@ function Tile({
       }
       orisoParentUrl={window.location.origin}
       orisoOwn={tile.id === "local"}
+      raisedHandTime={
+        hand === (tile.id === "remote" ? "first" : "second")
+          ? handRaisedAt
+          : undefined
+      }
     />
   );
 }

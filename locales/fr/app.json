@@ -69,6 +69,7 @@
   "microphone_on": "Microphone allumé",
   "mute_microphone_button_label": "Couper le microphone",
   "oriso": {
+    "notes_choose": "Choisir : {{kind}}",
     "notes_close": "Fermer",
     "notes_copied": "Copié",
     "notes_copy": "Copier en texte",
@@ -105,6 +106,7 @@
     "notes_send_as": "Envoyer comme {{kind}}",
     "notes_send_group": "Envoyer directement comme",
     "notes_title": "Brouillon",
+    "notes_type_group": "Type de note",
     "notes_up": "Monter"
   },
   "rageshake_button_error_caption": "Réessayer d’envoyer les journaux",

@@ -13,56 +13,58 @@ const readSource = (relativePath: string): string =>
 
 describe("Matryoshka-only embedding boundary", () => {
   it("publishes immutable multi-platform images with supply-chain evidence", () => {
-    const imageAction = readSource(
-      "../.github/actions/scanned-image/action.yml",
+    // The build, scan and push live in one composite action since the scan
+    // gate moved before publication (93aa95c3): it builds an OCI archive,
+    // scans every platform in it and pushes that same archive by digest.
+    const action = readSource("../.github/actions/scanned-image/action.yml");
+    expect(action).toMatch(
+      /platforms:\n\s+description: .*\n\s+required: false\n\s+default: linux\/amd64,linux\/arm64/,
     );
-    const defaultPlatforms = imageAction.match(
-      /^ {2}platforms:\n(?: {4}[^\n]+\n)*? {4}default: ([^\n]+)$/m,
-    )?.[1];
-    expect(imageAction).toContain("platforms: ${{ inputs.platforms }}");
-    expect(imageAction).toContain("IMAGE_PLATFORMS: ${{ inputs.platforms }}");
-    expect(imageAction).toContain("outputs: type=oci,dest=");
-    expect(imageAction).toContain("push: false");
-    expect(imageAction).toContain("provenance: mode=max");
-    expect(imageAction).toContain("sbom: true");
-    expect(imageAction).toContain(
+    expect(action).toContain("platforms: ${{ inputs.platforms }}");
+    expect(action).toContain("push: false");
+    expect(action).toContain("provenance: mode=max");
+    expect(action).toContain("sbom: true");
+    expect(action).toContain(
       "aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514",
     );
-    const scan = imageAction.indexOf(
+    expect(action).toContain(
+      'scripts/ci/scan-image-archive.sh "$IMAGE_ARCHIVE" "$IMAGE_PLATFORMS" "$EXPECTED_DIGEST"',
+    );
+    expect(action).toContain("Publish the scanned archive without rebuilding");
+
+    const scanStep = action.indexOf(
       "run: bash scripts/ci/scan-image-archive.sh",
     );
-    const login = imageAction.indexOf("uses: docker/login-action");
-    const publish = imageAction.indexOf(
+    const registryLoginStep = action.indexOf("uses: docker/login-action");
+    const publishStep = action.indexOf(
       "run: bash scripts/ci/publish-image-archive.sh",
     );
-    expect(scan).toBeGreaterThanOrEqual(0);
-    expect(login).toBeGreaterThan(scan);
-    expect(publish).toBeGreaterThan(login);
-    expect(imageAction).toContain(
+    expect(scanStep).toBeGreaterThanOrEqual(0);
+    expect(registryLoginStep).toBeGreaterThan(scanStep);
+    expect(publishStep).toBeGreaterThan(registryLoginStep);
+    expect(action).toContain(
       "EXPECTED_ARCHIVE_SHA256: ${{ steps.scan.outputs.archive_sha256 }}",
     );
-    expect(imageAction).toContain("value: ${{ steps.publish.outputs.digest }}");
+    expect(action).toContain("value: ${{ steps.publish.outputs.digest }}");
 
     for (const workflow of [
       readSource("../.github/workflows/ci-main.yml"),
       readSource("../.github/workflows/build-and-publish-docker.yaml"),
     ]) {
-      const publisherInputs = workflow.match(
-        /^ {8}id: image\n {8}uses: \.\/\.github\/actions\/scanned-image\n {8}with:\n((?: {10}[^\n]+\n)+)/m,
-      )?.[1];
-      expect(publisherInputs).toContain("publish: true");
-      const platforms = publisherInputs?.match(/^ +platforms: (.+)$/m)?.[1];
-      expect(platforms ?? defaultPlatforms).toBe("linux/amd64,linux/arm64");
+      expect(workflow).toContain("uses: ./.github/actions/scanned-image");
+      expect(workflow).toContain("publish: true");
+      // The published dev images stay multi-platform: no platform override.
+      expect(workflow).not.toMatch(/^\s+platforms:/m);
       expect(workflow).toContain("id-token: write");
       expect(workflow).toContain("attestations: write");
       expect(workflow).toContain(
         "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6",
       );
-      expect(workflow).toMatch(
-        /gh attestation verify\s+"oci:\/\/[^"\n]+@\$\{\{ steps\.image\.outputs\.digest \}\}"/,
-      );
       expect(workflow).toContain(
         "subject-digest: ${{ steps.image.outputs.digest }}",
+      );
+      expect(workflow).toMatch(
+        /gh attestation verify\s+"oci:\/\/[^"\n]+@\$\{\{ steps\.image\.outputs\.digest \}\}"/,
       );
       expect(workflow).toContain(
         '--predicate-type "https://slsa.dev/provenance/v1"',
