@@ -68,6 +68,7 @@ import { useInitial } from "../useInitial";
 import { SpotlightTile } from "../tile/SpotlightTile";
 import { type EncryptionSystem } from "../e2ee/sharedKeyManagement";
 import { E2eeType } from "../e2ee/e2eeType";
+import { LocalMediaEncryptionError } from "../utils/errors";
 import { useSharePointer } from "../oriso/pointer/useSharePointer";
 import { makeGridLayout } from "../grid/GridLayout";
 import {
@@ -1000,7 +1001,10 @@ export const InCallView: FC<InCallViewProps> = ({
         tone={orisoVideoOneOnOne ? "dark" : "light"}
         logo={orisoLogo}
         title={orisoTitle}
-        encrypted={matrixInfo.e2eeSystem.kind !== E2eeType.NONE}
+        encrypted={
+          matrixInfo.e2eeSystem.kind !== E2eeType.NONE &&
+          !(mediaError instanceof LocalMediaEncryptionError)
+        }
         meta={
           callDuration !== null ? (
             <span

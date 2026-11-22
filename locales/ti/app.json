@@ -1,5 +1,6 @@
 {
   "oriso": {
+    "notes_choose": "{{kind}} ምረጽ",
     "notes_close": "ዕጸው",
     "notes_copied": "ተቐዲሑ",
     "notes_copy": "ከም ጽሑፍ ቅዳሕ",
@@ -36,6 +37,7 @@
     "notes_send_as": "ከም {{kind}} ስደድ",
     "notes_send_group": "ብቕጽበት ከም ስደድ",
     "notes_title": "ግዜያዊ ወረቐት",
+    "notes_type_group": "ዓይነት መዘኻኸሪ",
     "notes_up": "ናብ ላዕሊ"
   }
 }

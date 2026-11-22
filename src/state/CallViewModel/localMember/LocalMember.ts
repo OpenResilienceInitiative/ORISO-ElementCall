@@ -28,8 +28,10 @@ import {
   type Observable,
   of,
   pairwise,
+  startWith,
   switchMap,
   tap,
+  timer,
 } from "rxjs";
 import { type Logger } from "matrix-js-sdk/lib/logger";
 import { deepCompare } from "matrix-js-sdk/lib/utils";
@@ -42,6 +44,7 @@ import { type MuteStates } from "../../MuteStates.ts";
 import {
   ElementCallError,
   FailToStartLivekitConnection,
+  LocalMediaEncryptionError,
   MembershipManagerError,
   MediaPermissionDeniedError,
   isBrowserMediaPermissionDenied,
@@ -62,7 +65,10 @@ import {
   type ScreenShareFailure,
   screenShareFailure,
 } from "../../../oriso/screenShareFailure.ts";
+import { type LocalMediaEncryptionState } from "../../../e2ee/matrixKeyProvider.ts";
 import { and$ } from "../../../utils/observable.ts";
+
+const MEDIA_ENCRYPTION_WAIT_MS = 15_000;
 
 export enum TransportState {
   /** Not even a transport is available to the LocalMembership */
@@ -121,6 +127,7 @@ interface Props {
   ownMembershipPresent$: Observable<boolean>;
   connectionManager: IConnectionManager;
   createPublisherFactory: (connection: Connection) => Publisher;
+  requiresMediaEncryption?: boolean;
   joinMatrixRTC: (transport: LivekitTransport) => void;
   homeserverConnected: HomeserverConnected;
   localTransport$: Behavior<LivekitTransport | null>;
@@ -150,6 +157,7 @@ export const createLocalMembership$ = ({
   localTransport$: localTransportCanThrow$,
   homeserverConnected,
   createPublisherFactory,
+  requiresMediaEncryption = false,
   joinMatrixRTC,
   logger: parentLogger,
   muteStates,
@@ -167,8 +175,9 @@ export const createLocalMembership$ = ({
   requestJoinAndPublish: () => void;
   requestDisconnect: () => void;
   localMemberState$: Behavior<LocalMemberState>;
-  /** A non-fatal media capture or publishing error. */
+  /** A non-fatal media capture, encryption, or publishing error. */
   mediaError$: Behavior<ElementCallError | null>;
+  retryMedia: () => void;
   sharingScreen$: Behavior<boolean>;
   /**
    * Callback to toggle screen sharing. If null, screen sharing is not possible.
@@ -242,11 +251,67 @@ export const createLocalMembership$ = ({
   // This should be used in a combineLatest with publisher$ to connect.
   // to make it possible to call startTracks before the preferredTransport$ has resolved.
   const joinAndPublishRequested$ = new BehaviorSubject(false);
+  // Started by the Matrix join side effect, independent of media readiness.
+  const encryptionWaitAttempt$ = new BehaviorSubject<symbol | null>(null);
 
   /**
    * The publisher is stored in here an abstracts creating and publishing tracks.
    */
-  const publisher$ = new BehaviorSubject<Publisher | null>(null);
+  const createdPublisher$ = new BehaviorSubject<{
+    connection: Connection;
+    publisher: Publisher;
+  } | null>(null);
+  const publisher$ = scope.behavior(
+    combineLatest([createdPublisher$, localConnection$]).pipe(
+      map(([created, connection]) =>
+        created && created.connection === connection ? created.publisher : null,
+      ),
+    ),
+  );
+  const publisherEncryptionState$ = scope.behavior(
+    publisher$.pipe(
+      switchMap(
+        (publisher) =>
+          publisher?.encryptionState$ ??
+          constant<LocalMediaEncryptionState>(
+            requiresMediaEncryption ? "pending" : "ready",
+          ),
+      ),
+    ),
+  );
+  const encryptionWaitError$ = scope.behavior(
+    combineLatest([
+      publisher$,
+      publisherEncryptionState$,
+      joinAndPublishRequested$,
+      encryptionWaitAttempt$,
+    ]).pipe(
+      switchMap(([publisher, state, joined, attempt]) =>
+        publisher && state === "pending" && joined && attempt
+          ? timer(MEDIA_ENCRYPTION_WAIT_MS).pipe(
+              map(
+                () =>
+                  new LocalMediaEncryptionError(
+                    new Error("Local media encryption readiness timed out"),
+                  ),
+              ),
+              startWith(null),
+            )
+          : of(null),
+      ),
+    ),
+  );
+  const suspensionError$ =
+    new BehaviorSubject<LocalMediaEncryptionError | null>(null);
+  const encryptionState$ = scope.behavior(
+    combineLatest([
+      publisherEncryptionState$,
+      encryptionWaitError$,
+      suspensionError$,
+    ]).pipe(
+      map(([state, timeout, suspension]) => suspension ?? timeout ?? state),
+    ),
+  );
   /**
    * Extract the tracks from the published. Also reacts to changing publishers.
    */
@@ -269,9 +334,49 @@ export const createLocalMembership$ = ({
 
   const clearPublishError = (): void => publishError$.next(null);
 
+  const mediaError$ = scope.behavior(
+    combineLatest([publishError$, encryptionState$]).pipe(
+      map(([publishError, encryption]) =>
+        encryption instanceof LocalMediaEncryptionError
+          ? encryption
+          : publishError,
+      ),
+    ),
+  );
+
   const startTracks = (): Behavior<LocalTrack[]> => {
     trackStartRequest$.next(trackStartRequest$.value + 1);
     return tracks$;
+  };
+
+  let recoveringSuspension: Publisher | null = null;
+  const retryMedia = (): void => {
+    const publisher = publisher$.value;
+    if (publisher && suspensionError$.value) {
+      if (recoveringSuspension === publisher) return;
+      recoveringSuspension = publisher;
+      void publisher
+        .stopPublishing()
+        .then(() => {
+          if (publisher$.value !== publisher) return;
+          publisher.stopTracks();
+          suspensionError$.next(null);
+          publisher.retryEncryption(encryptionWaitError$.value !== null);
+          encryptionWaitAttempt$.next(Symbol());
+          startTracks();
+        })
+        .catch((error: unknown) => {
+          logger.error("Failed to restore suspended local media", error);
+        })
+        .finally(() => {
+          if (recoveringSuspension === publisher) recoveringSuspension = null;
+        });
+    } else if (encryptionState$.value instanceof LocalMediaEncryptionError) {
+      publisher?.retryEncryption(encryptionWaitError$.value !== null);
+      encryptionWaitAttempt$.next(Symbol());
+    } else {
+      startTracks();
+    }
   };
 
   const requestJoinAndPublish = (): void => {
@@ -291,15 +396,22 @@ export const createLocalMembership$ = ({
   //  - destruct all current streams
   //  - overwrite current publisher
   scope.reconcile(localConnection$, async (connection) => {
-    if (connection !== null) {
-      const publisher = createPublisherFactory(connection);
-      publisher$.next(publisher);
-      // Clean-up callback
-      return Promise.resolve(async (): Promise<void> => {
+    if (connection === null) return;
+    const publisher = createPublisherFactory(connection);
+    clearPublishError();
+    suspensionError$.next(null);
+    createdPublisher$.next({ connection, publisher });
+    return Promise.resolve(async (): Promise<void> => {
+      publisher.retire();
+      createdPublisher$.next(null);
+      try {
         await publisher.stopPublishing();
+      } catch (error) {
+        logger.error("Failed to unpublish retired connection", error);
+      } finally {
         publisher.stopTracks();
-      });
-    }
+      }
+    });
   });
 
   // Use reconcile here to not run concurrent createAndSetupTracks calls
@@ -310,7 +422,7 @@ export const createLocalMembership$ = ({
       if (publisher && tracks.length === 0 && requestCount > 0) {
         try {
           await publisher.createAndSetupTracks();
-          clearPublishError();
+          if (publisher$.value === publisher) clearPublishError();
         } catch (error) {
           const cause =
             error instanceof Error ? error : new Error(String(error));
@@ -318,6 +430,7 @@ export const createLocalMembership$ = ({
             MediaDeviceFailure.getFailure(error) ===
               MediaDeviceFailure.PermissionDenied ||
             (await isBrowserMediaPermissionDenied(error));
+          if (publisher$.value !== publisher) return;
           if (permissionDenied) {
             setPublishError(new MediaPermissionDeniedError(cause));
           } else {
@@ -328,7 +441,7 @@ export const createLocalMembership$ = ({
     },
   );
 
-  // Based on `connectRequested$` we start publishing tracks. (once they are there!)
+  // Keep Matrix join independent: the local sender key can arrive only after joining.
   scope.reconcile(
     scope.behavior(
       combineLatest([
@@ -336,25 +449,29 @@ export const createLocalMembership$ = ({
         tracks$,
         joinAndPublishRequested$,
         trackStartRequest$,
+        encryptionState$,
       ]),
     ),
-    async ([publisher, tracks, shouldJoinAndPublish]) => {
-      if (shouldJoinAndPublish === publisher?.publishing$.value) return;
-      if (tracks.length !== 0 && shouldJoinAndPublish) {
-        try {
-          await publisher?.startPublishing();
-          clearPublishError();
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          setPublishError(new FailToStartLivekitConnection(message));
+    async ([publisher, tracks, shouldJoinAndPublish, , encryption]) => {
+      if (!publisher || shouldJoinAndPublish === publisher.publishing$.value)
+        return;
+      if (tracks.length === 0) return;
+      try {
+        if (shouldJoinAndPublish) {
+          if (encryption !== "ready") return;
+          await publisher.startPublishing();
+          if (publisher$.value === publisher) clearPublishError();
+        } else {
+          await publisher.stopPublishing();
         }
-      } else if (tracks.length !== 0 && !shouldJoinAndPublish) {
-        try {
-          await publisher?.stopPublishing();
-        } catch (error) {
-          setPublishError(new UnknownCallError(error as Error));
-        }
+      } catch (error) {
+        if (publisher$.value !== publisher) return;
+        const cause = error instanceof Error ? error : new Error(String(error));
+        setPublishError(
+          shouldJoinAndPublish
+            ? new FailToStartLivekitConnection(cause.message)
+            : new UnknownCallError(cause),
+        );
       }
     },
   );
@@ -384,6 +501,7 @@ export const createLocalMembership$ = ({
       tracks$,
       publishing$,
       joinAndPublishRequested$,
+      encryptionState$,
       trackStartRequest$.pipe(map((requestCount) => requestCount > 0)),
     ]).pipe(
       map(
@@ -393,6 +511,7 @@ export const createLocalMembership$ = ({
           tracks,
           publishing,
           shouldPublish,
+          encryption,
           shouldStartTracks,
         ]) => {
           if (!localTransport) return null;
@@ -410,7 +529,8 @@ export const createLocalMembership$ = ({
               tracks: trackState,
             };
           if (!shouldPublish) return PublishState.WaitingForUser;
-          if (!publishing) return PublishState.Starting;
+          if (!publishing || encryption !== "ready")
+            return PublishState.Starting;
           return PublishState.Publishing;
         },
       ),
@@ -432,7 +552,7 @@ export const createLocalMembership$ = ({
       homeserverConnected.rtsSession$,
       fatalMatrixError$,
       fatalTransportError$,
-      publishError$,
+      mediaError$,
     ]).pipe(
       map(
         ([
@@ -440,14 +560,14 @@ export const createLocalMembership$ = ({
           rtcSessionStatus,
           fatalMatrixError,
           fatalTransportError,
-          publishError,
+          mediaError,
         ]) => {
           if (fatalTransportError !== null) return fatalTransportError;
           // `mediaState` will be 'null' until the transport/connection appears.
           if (mediaState && rtcSessionStatus)
             return {
               matrix: fatalMatrixError ?? rtcSessionStatus,
-              media: publishError ?? mediaState,
+              media: mediaError ?? mediaState,
             };
           return TransportState.Waiting;
         },
@@ -544,6 +664,7 @@ export const createLocalMembership$ = ({
 
       try {
         joinMatrixRTC(transport);
+        encryptionWaitAttempt$.next(Symbol());
       } catch (error) {
         logger.error("Error entering RTC session", error);
         if (error instanceof Error)
@@ -551,6 +672,7 @@ export const createLocalMembership$ = ({
       }
 
       return Promise.resolve(async (): Promise<void> => {
+        encryptionWaitAttempt$.next(null);
         try {
           // TODO Update matrixRTCSession to allow udpating the transport without leaving the session!
           await matrixRTCSession.leaveRoomSession(1000);
@@ -565,52 +687,53 @@ export const createLocalMembership$ = ({
     localConnection$.pipe(map((c) => c?.livekitRoom?.localParticipant ?? null)),
   );
 
-  // Pause upstream of all local media tracks when we're disconnected from
-  // MatrixRTC, because it can be an unpleasant surprise for the app to say
-  // 'reconnecting' and yet still be transmitting your media to others.
-  // We use matrixConnected$ rather than reconnecting$ because we want to
-  // pause tracks during the initial joining sequence too until we're sure
-  // that our own media is displayed on screen.
-  // TODO refactor this based no livekitState$
-  combineLatest([participant$, homeserverConnected.combined$])
+  // A new publication, including screen share, can finish after the gate closes.
+  const publicationChanges$ = participant$.pipe(
+    switchMap((participant) =>
+      participant === null
+        ? of(null)
+        : observeParticipantEvents(
+            participant,
+            ParticipantEvent.LocalTrackPublished,
+            ParticipantEvent.LocalTrackUnpublished,
+          ).pipe(map(() => participant)),
+    ),
+  );
+  const canSendMedia$ = combineLatest([
+    homeserverConnected.combined$,
+    encryptionState$,
+  ]).pipe(
+    map(([connected, encryption]) => connected && encryption === "ready"),
+    distinctUntilChanged(),
+  );
+  combineLatest([publicationChanges$, canSendMedia$])
     .pipe(scope.bind())
-    .subscribe(([participant, connected]) => {
+    .subscribe(([participant, canSend]) => {
       if (!participant) return;
-      const publications = participant.trackPublications.values();
-      if (connected) {
-        for (const p of publications) {
-          if (p.track?.isUpstreamPaused === true) {
-            const kind = p.track.kind;
-            logger.info(
-              `Resuming ${kind} track (MatrixRTC connection present)`,
-            );
-            p.track
-              .resumeUpstream()
-              .catch((e) =>
-                logger.error(
-                  `Failed to resume ${kind} track after MatrixRTC reconnection`,
-                  e,
-                ),
-              );
+      for (const { track } of participant.trackPublications.values()) {
+        if (!track) continue;
+        // LiveKit serializes both operations. Reading isUpstreamPaused here
+        // can miss a pause that has already been requested but not yet applied.
+        const publisher = publisher$.value;
+        const update = canSend ? track.resumeUpstream() : track.pauseUpstream();
+        void update.catch((error: unknown) => {
+          logger.error("Failed to update local media upstream", error);
+          if (canSend || !requiresMediaEncryption) return;
+          // LiveKit sets its paused flag before replacing the sender track.
+          // A rejected pause can leave that sender active despite the flag.
+          if (publisher && publisher$.value === publisher) {
+            suspensionError$.next(new LocalMediaEncryptionError(error));
           }
-        }
-      } else {
-        for (const p of publications) {
-          if (p.track?.isUpstreamPaused === false) {
-            const kind = p.track.kind;
-            logger.info(
-              `Pausing ${kind} track (uncertain MatrixRTC connection)`,
-            );
-            p.track
-              .pauseUpstream()
-              .catch((e) =>
-                logger.error(
-                  `Failed to pause ${kind} track after entering uncertain MatrixRTC connection`,
-                  e,
-                ),
+          track.stop();
+          void participant
+            .unpublishTrack(track)
+            .catch((unpublishError: unknown) => {
+              logger.error(
+                "Failed to unpublish the stopped local track",
+                unpublishError,
               );
-          }
-        }
+            });
+        });
       }
     });
 
@@ -626,6 +749,10 @@ export const createLocalMembership$ = ({
   const screenShareFailure$ = new BehaviorSubject<ScreenShareFailure | null>(
     null,
   );
+  let screenSharingActive = true;
+  scope.onEnd(() => {
+    screenSharingActive = false;
+  });
   let toggleScreenSharing: (() => void) | null = null;
   if (
     "getDisplayMedia" in (navigator.mediaDevices ?? {}) &&
@@ -644,23 +771,36 @@ export const createLocalMembership$ = ({
           targetScreenshareState ? "On" : "Off"
         }`,
       );
-      // If a connection is ready, toggle screen sharing.
-      // We deliberately do nothing in the case of a null connection because
-      // it looks nice for the call control buttons to all become available
-      // at once upon joining the call, rather than introducing a disabled
-      // state. The user can just click again.
-      // We also allow screen sharing to be toggled even if the connection
-      // is still initializing or publishing tracks, because there's no
-      // technical reason to disallow this. LiveKit will publish if it can.
+      // The browser picker needs the click's transient activation.
+      // Block a start synchronously and always allow stopping a running share.
+      if (targetScreenshareState && encryptionState$.value !== "ready") return;
+      const participant = participant$.value;
+      if (!screenSharingActive || !participant) return;
       screenShareFailure$.next(null);
-      participant$.value
-        ?.setScreenShareEnabled(targetScreenshareState, screenshareSettings)
-        .catch((e: unknown) => {
-          logger.error("Failed to toggle screen sharing", e);
-          // ORISO (#2233, R8): a share that did not start used to say
-          // nothing. Tell the person why, unless they closed the picker.
-          if (targetScreenshareState)
-            screenShareFailure$.next(screenShareFailure(e));
+      void participant
+        .setScreenShareEnabled(targetScreenshareState, screenshareSettings)
+        .then(async () => {
+          // A screen picker may outlive the transport or encryption state.
+          if (
+            targetScreenshareState &&
+            (!screenSharingActive ||
+              participant$.value !== participant ||
+              encryptionState$.value !== "ready")
+          ) {
+            await participant.setScreenShareEnabled(false);
+          }
+        })
+        .catch((error: unknown) => {
+          logger.error("Failed to toggle screen sharing", error);
+          // ORISO (#2233, R8): tell the person why the share did not start,
+          // unless the picker was dismissed or belonged to an old connection.
+          if (
+            targetScreenshareState &&
+            screenSharingActive &&
+            participant$.value === participant
+          ) {
+            screenShareFailure$.next(screenShareFailure(error));
+          }
         });
     };
   }
@@ -670,7 +810,8 @@ export const createLocalMembership$ = ({
     requestJoinAndPublish,
     requestDisconnect,
     localMemberState$,
-    mediaError$: publishError$,
+    mediaError$,
+    retryMedia,
     tracks$,
     participant$,
     reconnecting$,

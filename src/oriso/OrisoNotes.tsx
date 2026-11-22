@@ -108,6 +108,7 @@ export const OrisoNotes: FC<Props> = ({
   const notesRef = useRef(notes);
   notesRef.current = notes;
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
@@ -172,6 +173,21 @@ export const OrisoNotes: FC<Props> = ({
     setLast(kind);
     // A note the filter would hide is a note that seems to have vanished.
     setFilter((f) => (f === "alle" || f === kind ? f : "alle"));
+  };
+
+  /*
+   * A type button sends with text in the field, and only chooses the type
+   * without (#172): "this will be a task" is often decided before the words
+   * are, and a disabled row left Frage fixed until a first letter was typed.
+   * Choosing is the step before writing, so the field takes the focus.
+   */
+  const pickType = (kind: NoteKind): void => {
+    if (hasText) {
+      send(kind);
+      return;
+    }
+    setLast(kind);
+    inputRef.current?.focus();
   };
 
   const onDraftKey = (e: KeyboardEvent<HTMLInputElement>): void => {
@@ -311,6 +327,11 @@ export const OrisoNotes: FC<Props> = ({
 
   if (!open) return null;
 
+  // What a type button does says its name: send with text, choose without.
+  const typeName = (k: NoteKind): string =>
+    hasText
+      ? t("oriso.notes_send_as", { kind: kindLabels[k] })
+      : t("oriso.notes_choose", { kind: kindLabels[k] });
   const copyName = t("oriso.notes_copy");
   const lastName = kindLabels[last];
   const filtered = filter !== "alle";
@@ -482,6 +503,7 @@ export const OrisoNotes: FC<Props> = ({
       <div className={styles.field}>
         <div className={styles.inputRow}>
           <input
+            ref={inputRef}
             type="text"
             className={styles.input}
             value={draft}
@@ -557,7 +579,11 @@ export const OrisoNotes: FC<Props> = ({
         <div className={styles.sendRow}>
           <div
             role="group"
-            aria-label={t("oriso.notes_send_group")}
+            aria-label={
+              hasText
+                ? t("oriso.notes_send_group")
+                : t("oriso.notes_type_group")
+            }
             className={styles.types}
           >
             {NOTE_KINDS.map((k) => (
@@ -567,10 +593,10 @@ export const OrisoNotes: FC<Props> = ({
                 className={classNames(styles.pill, {
                   [styles.pillLast]: last === k,
                 })}
-                disabled={!hasText}
-                onClick={() => send(k)}
-                aria-label={t("oriso.notes_send_as", { kind: kindLabels[k] })}
-                title={t("oriso.notes_send_as", { kind: kindLabels[k] })}
+                onClick={() => pickType(k)}
+                aria-pressed={last === k}
+                aria-label={typeName(k)}
+                title={typeName(k)}
               >
                 <NoteTypeIcon kind={k} />
                 {last === k && (
