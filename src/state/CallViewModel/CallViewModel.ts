@@ -15,6 +15,7 @@ import {
 } from "livekit-client";
 import { type Room as MatrixRoom } from "matrix-js-sdk";
 import {
+  BehaviorSubject,
   catchError,
   combineLatest,
   distinctUntilChanged,
@@ -45,6 +46,7 @@ import {
   type MatrixRTCSession,
 } from "matrix-js-sdk/lib/matrixrtc";
 import { type IWidgetApiRequest } from "matrix-widget-api";
+import { getParticipantId } from "matrix-js-sdk/lib/matrixrtc/utils";
 
 import {
   LocalUserMediaViewModel,
@@ -82,7 +84,11 @@ import { shallowEquals } from "../../utils/array";
 import { type MediaDevices } from "../MediaDevices";
 import { type Behavior } from "../Behavior";
 import { E2eeType } from "../../e2ee/e2eeType";
-import { MatrixKeyProvider } from "../../e2ee/matrixKeyProvider";
+import {
+  MatrixKeyProvider,
+  type LocalMediaEncryptionState,
+  type LocalMediaKey,
+} from "../../e2ee/matrixKeyProvider";
 import { type MuteStates } from "../MuteStates";
 import { getUrlParams } from "../../UrlParams";
 import { type ProcessorState } from "../../livekit/TrackProcessorContext";
@@ -99,7 +105,10 @@ import {
   type SpotlightLandscapeLayoutMedia,
   type SpotlightPortraitLayoutMedia,
 } from "../layout-types.ts";
-import { ElementCallError } from "../../utils/errors.ts";
+import {
+  ElementCallError,
+  LocalMediaEncryptionError,
+} from "../../utils/errors.ts";
 import { type ObservableScope } from "../ObservableScope.ts";
 import { createHomeserverConnected$ } from "./localMember/HomeserverConnected.ts";
 import {
@@ -464,10 +473,13 @@ export function createCallViewModel$(
   const client = matrixRoom.client;
   const userId = client.getUserId()!;
   const deviceId = client.getDeviceId()!;
-  const livekitKeyProvider = getE2eeKeyProvider(
+  const encryption = getE2eeKeyProvider(
     options.encryptionSystem,
     matrixRTCSession,
+    getParticipantId(userId, deviceId),
+    scope,
   );
+  const livekitKeyProvider = encryption?.provider;
 
   // Each hbar seperates a block of input variables required for the CallViewModel to function.
   // The outputs of this block is written under the hbar.
@@ -582,6 +594,7 @@ export function createCallViewModel$(
     ),
     muteStates: muteStates,
     ownMembershipPresent$: localRtcMembership$.pipe(map(Boolean)),
+    requiresMediaEncryption: encryption !== undefined,
     joinMatrixRTC: (transport: LivekitTransport) => {
       return enterRTCSession(
         matrixRTCSession,
@@ -599,6 +612,7 @@ export function createCallViewModel$(
         logger.getChild(
           "[Publisher" + connection.transport.livekit_service_url + "]",
         ),
+        encryption?.localKey,
       );
     },
     connectionManager: connectionManager,
@@ -1746,9 +1760,7 @@ export function createCallViewModel$(
       null,
     ),
     mediaError$: localMembership.mediaError$,
-    retryMedia: (): void => {
-      localMembership.startTracks();
-    },
+    retryMedia: localMembership.retryMedia,
 
     participantCount$: participantCount$,
     participantUserIds$,
@@ -1829,18 +1841,55 @@ export function createCallViewModel$(
 function getE2eeKeyProvider(
   e2eeSystem: EncryptionSystem,
   rtcSession: MatrixRTCSession,
-): BaseKeyProvider | undefined {
+  localParticipantId: string,
+  scope: ObservableScope,
+): { provider: BaseKeyProvider; localKey: LocalMediaKey } | undefined {
   if (e2eeSystem.kind === E2eeType.NONE) return undefined;
 
   if (e2eeSystem.kind === E2eeType.PER_PARTICIPANT) {
-    const keyProvider = new MatrixKeyProvider();
-    keyProvider.setRTCSession(rtcSession);
-    return keyProvider;
-  } else if (e2eeSystem.kind === E2eeType.SHARED_KEY && e2eeSystem.secret) {
-    const keyProvider = new ExternalE2EEKeyProvider();
-    keyProvider
-      .setKey(e2eeSystem.secret)
-      .catch((e) => logger.error("Failed to set shared key for E2EE", e));
-    return keyProvider;
+    const provider = new MatrixKeyProvider(localParticipantId);
+    provider.setRTCSession(rtcSession);
+    scope.onEnd(() => provider.setRTCSession());
+    return { provider, localKey: provider };
   }
+
+  const provider = new ExternalE2EEKeyProvider();
+  const localKeyState$ = new BehaviorSubject<LocalMediaEncryptionState>(
+    "pending",
+  );
+  let active = true;
+  let revision = 0;
+  scope.onEnd(() => {
+    active = false;
+  });
+  const importSharedKey = async (): Promise<void> => {
+    const attempt = ++revision;
+    localKeyState$.next("pending");
+    try {
+      if (!e2eeSystem.secret) throw new Error("Call key is missing");
+      await provider.setKey(e2eeSystem.secret);
+      if (active && attempt === revision) localKeyState$.next("ready");
+    } catch (error) {
+      if (!active || attempt !== revision) return;
+      logger.error("Failed to set shared key for E2EE", error);
+      localKeyState$.next(new LocalMediaEncryptionError(error));
+    }
+  };
+  void importSharedKey();
+  return {
+    provider,
+    localKey: {
+      localKeyState$,
+      retryLocalKey: (retryPending = false): void => {
+        const state = localKeyState$.value;
+        if (
+          active &&
+          (state instanceof LocalMediaEncryptionError ||
+            (retryPending && state === "pending"))
+        ) {
+          void importSharedKey();
+        }
+      },
+    },
+  };
 }

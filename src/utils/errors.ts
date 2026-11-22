@@ -23,6 +23,7 @@ export enum ErrorCode {
    * stack — so an encrypted room's media keys cannot be exchanged.
    */
   E2EE_UNAVAILABLE = "E2EE_UNAVAILABLE",
+  LOCAL_MEDIA_ENCRYPTION_FAILED = "LOCAL_MEDIA_ENCRYPTION_FAILED",
   MEDIA_PERMISSION_DENIED = "MEDIA_PERMISSION_DENIED",
   OPEN_ID_ERROR = "OPEN_ID_ERROR",
   SFU_ERROR = "SFU_ERROR",
@@ -155,6 +156,18 @@ export class E2EEUnavailableError extends ElementCallError {
       ErrorCode.E2EE_UNAVAILABLE,
       ErrorCategory.CLIENT_CONFIGURATION,
       t("error.e2ee_unavailable_description"),
+    );
+  }
+}
+
+export class LocalMediaEncryptionError extends ElementCallError {
+  public constructor(cause: unknown) {
+    super(
+      t("error.local_media_encryption"),
+      ErrorCode.LOCAL_MEDIA_ENCRYPTION_FAILED,
+      ErrorCategory.CLIENT_CONFIGURATION,
+      t("error.local_media_encryption_description"),
+      cause instanceof Error ? cause : undefined,
     );
   }
 }

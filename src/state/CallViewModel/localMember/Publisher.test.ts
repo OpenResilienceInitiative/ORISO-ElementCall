@@ -21,10 +21,12 @@ import { logger } from "matrix-js-sdk/lib/logger";
 import { ObservableScope } from "../../ObservableScope";
 import { constant } from "../../Behavior";
 import {
+  flushPromises,
   mockLivekitRoom,
   mockLocalParticipant,
   mockMediaDevices,
 } from "../../../utils/test";
+import { LocalMediaEncryptionError } from "../../../utils/errors";
 import { Publisher } from "./Publisher";
 import { type Connection } from "../remoteMembers/Connection";
 import { type MuteStates } from "../../MuteStates";
@@ -79,6 +81,170 @@ describe("Publisher", () => {
 
     expect(livekitRoom.setE2EEEnabled).toHaveBeenCalledOnce();
     expect(livekitRoom.setE2EEEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("withholds local publication until the room acknowledges encryption", async () => {
+    const activation = Promise.withResolvers<void>();
+    const localParticipant = mockLocalParticipant({
+      createTracks: vi
+        .fn()
+        .mockResolvedValue([{ kind: "audio", mute: vi.fn() }]),
+      publishTrack: vi.fn().mockResolvedValue(undefined),
+    });
+    const livekitRoom = mockLivekitRoom({
+      hasE2EESetup: true,
+      localParticipant,
+      setE2EEEnabled: vi.fn().mockReturnValue(activation.promise),
+    });
+    const publisher = new Publisher(
+      scope,
+      { livekitRoom, state$: connection.state$ },
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+    await publisher.createAndSetupTracks();
+    await publisher.startPublishing();
+    expect(localParticipant.publishTrack).not.toHaveBeenCalled();
+
+    activation.resolve();
+    await flushPromises();
+    await publisher.startPublishing();
+    expect(localParticipant.publishTrack).toHaveBeenCalledOnce();
+  });
+
+  it("blocks the mic and camera from starting before encryption but still allows muting", async () => {
+    const activation = Promise.withResolvers<void>();
+    const setMicrophoneEnabled = vi.fn().mockResolvedValue(undefined);
+    const setCameraEnabled = vi.fn().mockResolvedValue(undefined);
+    const localParticipant = mockLocalParticipant({
+      createTracks: vi.fn().mockResolvedValue([]),
+      setMicrophoneEnabled,
+      setCameraEnabled,
+    });
+    const livekitRoom = mockLivekitRoom({
+      hasE2EESetup: true,
+      localParticipant,
+      setE2EEEnabled: vi.fn().mockReturnValue(activation.promise),
+    });
+    const publisher = new Publisher(
+      scope,
+      { livekitRoom, state$: connection.state$ },
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+    await publisher.createAndSetupTracks();
+    const [updateMic] = vi.mocked(muteStates.audio.setHandler).mock.calls[0];
+    const [updateCamera] = vi.mocked(muteStates.video.setHandler).mock.calls[0];
+    await updateMic(true);
+    await updateCamera(true);
+    await updateMic(false);
+    await updateCamera(false);
+    expect(setMicrophoneEnabled.mock.calls).toEqual([[false]]);
+    expect(setCameraEnabled.mock.calls).toEqual([[false]]);
+
+    activation.resolve();
+    await flushPromises();
+    await updateMic(true);
+    await updateCamera(true);
+    expect(setMicrophoneEnabled.mock.calls).toEqual([[false], [true]]);
+    expect(setCameraEnabled.mock.calls).toEqual([[false], [true]]);
+
+    const lateMic = Promise.withResolvers<undefined>();
+    const lateCamera = Promise.withResolvers<undefined>();
+    setMicrophoneEnabled.mockReturnValueOnce(lateMic.promise);
+    setCameraEnabled.mockReturnValueOnce(lateCamera.promise);
+    const enablingMic = updateMic(true);
+    const enablingCamera = updateCamera(true);
+    publisher.retire();
+    lateMic.resolve(undefined);
+    lateCamera.resolve(undefined);
+    await Promise.all([enablingMic, enablingCamera]);
+    expect(setMicrophoneEnabled).toHaveBeenLastCalledWith(false);
+    expect(setCameraEnabled).toHaveBeenLastCalledWith(false);
+  });
+
+  it("exposes activation failure and retries without turning encryption off", async () => {
+    const activation = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("enable failed"))
+      .mockResolvedValueOnce(undefined);
+    const livekitRoom = mockLivekitRoom({
+      hasE2EESetup: true,
+      localParticipant: mockLocalParticipant({}),
+      setE2EEEnabled: activation,
+    });
+    const publisher = new Publisher(
+      scope,
+      { livekitRoom, state$: connection.state$ },
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+    await flushPromises();
+    expect(publisher.encryptionState$.value).toBeInstanceOf(
+      LocalMediaEncryptionError,
+    );
+
+    publisher.retryEncryption();
+    await flushPromises();
+    expect(publisher.encryptionState$.value).toBe("ready");
+    expect(activation.mock.calls).toEqual([[true], [true]]);
+  });
+
+  it("retries pending SDK activation and ignores rejection from the timed-out attempt", async () => {
+    const earlier = Promise.withResolvers<void>();
+    const activation = vi
+      .fn()
+      .mockReturnValueOnce(earlier.promise)
+      .mockResolvedValueOnce(undefined);
+    const livekitRoom = mockLivekitRoom({
+      hasE2EESetup: true,
+      localParticipant: mockLocalParticipant({}),
+      setE2EEEnabled: activation,
+    });
+    const publisher = new Publisher(
+      scope,
+      { livekitRoom, state$: connection.state$ },
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+    publisher.retryEncryption(true);
+    await flushPromises();
+    earlier.reject(new Error("older setup"));
+    await flushPromises();
+    expect(publisher.encryptionState$.value).toBe("ready");
+    expect(activation.mock.calls).toEqual([[true], [true]]);
+  });
+
+  it("ignores delayed activation completion after retiring the publisher", async () => {
+    const activation = Promise.withResolvers<void>();
+    const localParticipant = mockLocalParticipant({});
+    const livekitRoom = mockLivekitRoom({
+      hasE2EESetup: true,
+      localParticipant,
+      setE2EEEnabled: vi.fn().mockReturnValue(activation.promise),
+    });
+    const publisher = new Publisher(
+      scope,
+      { livekitRoom, state$: connection.state$ },
+      mockMediaDevices({}),
+      muteStates,
+      constant({ supported: false, processor: undefined }),
+      logger,
+    );
+    publisher.retire();
+    activation.reject(new Error("old connection"));
+    await flushPromises();
+    expect(publisher.encryptionState$.value).toBe("pending");
+    publisher.retryEncryption();
+    expect(livekitRoom.setE2EEEnabled).toHaveBeenCalledOnce();
   });
 
   it("does not toggle E2EE when the LiveKit room has no E2EE setup", () => {
