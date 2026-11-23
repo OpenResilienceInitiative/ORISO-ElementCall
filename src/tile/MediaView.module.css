@@ -302,6 +302,62 @@ unconditionally select the container so we can use cqmin units */
   object-fit: contain;
 }
 
+/*
+ * The selection ring (#171).
+ *
+ * Upstream outlines the tile's square box on hover, which around a round
+ * form is a rectangle (GridTile.module.css now leaves an ORISO box alone).
+ * The ring is a layer of the FORM instead, the face's `::after`, like the
+ * speaking rim: it takes the circle's or the Hain blob's radius, leans with
+ * the form, and the 1:1 halves' clip path cuts it along the seam. Inside the
+ * edge rather than outside it, because the Hain packs forms until they abut
+ * and the grid clips at its edge, so an outer ring would lie on a neighbour
+ * or be cut off.
+ *
+ * Colour: the focus role, which the ORISO theme maps to the M3 primary role
+ * per scheme (`oriso-theme.css`: light #a5000a, dark #ffb4aa, 3:1 or better
+ * on the canvas in both). A hairline of the canvas inside it keeps the ring
+ * readable on any camera picture or artwork (WCAG 2.2 focus appearance).
+ */
+.media.oriso {
+  --oriso-ring-width: 3px;
+}
+
+.media.oriso > .bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 var(--oriso-ring-width) transparent;
+  transition: box-shadow 0.15s ease;
+}
+
+@media (hover: hover) {
+  .media.oriso:hover > .bg::after {
+    box-shadow:
+      inset 0 0 0 var(--oriso-ring-width) var(--cpd-color-border-focused),
+      inset 0 0 0 calc(var(--oriso-ring-width) + 1px)
+        var(--cpd-color-bg-canvas-default);
+  }
+}
+
+/* The keyboard's ring (focus inside: the `⋯`), and the form whose menu is
+   open, which is the one being acted on. */
+.media.oriso:has(:focus-visible) > .bg::after,
+.media.oriso:has([data-state="open"]) > .bg::after {
+  box-shadow:
+    inset 0 0 0 var(--oriso-ring-width) var(--cpd-color-border-focused),
+    inset 0 0 0 calc(var(--oriso-ring-width) + 1px)
+      var(--cpd-color-bg-canvas-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media.oriso > .bg::after {
+    transition: none;
+  }
+}
+
 /* The name capsule, to the handoff's one specification: "the single answer to
    how do we label a person. There is exactly one spec, used on every screen
    and in every state." The numbers are its numbers. */
