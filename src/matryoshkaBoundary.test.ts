@@ -32,6 +32,21 @@ describe("Matryoshka-only embedding boundary", () => {
     );
     expect(action).toContain("Publish the scanned archive without rebuilding");
 
+    const scanStep = action.indexOf(
+      "run: bash scripts/ci/scan-image-archive.sh",
+    );
+    const registryLoginStep = action.indexOf("uses: docker/login-action");
+    const publishStep = action.indexOf(
+      "run: bash scripts/ci/publish-image-archive.sh",
+    );
+    expect(scanStep).toBeGreaterThanOrEqual(0);
+    expect(registryLoginStep).toBeGreaterThan(scanStep);
+    expect(publishStep).toBeGreaterThan(registryLoginStep);
+    expect(action).toContain(
+      "EXPECTED_ARCHIVE_SHA256: ${{ steps.scan.outputs.archive_sha256 }}",
+    );
+    expect(action).toContain("value: ${{ steps.publish.outputs.digest }}");
+
     for (const workflow of [
       readSource("../.github/workflows/ci-main.yml"),
       readSource("../.github/workflows/build-and-publish-docker.yaml"),
@@ -47,6 +62,9 @@ describe("Matryoshka-only embedding boundary", () => {
       );
       expect(workflow).toContain(
         "subject-digest: ${{ steps.image.outputs.digest }}",
+      );
+      expect(workflow).toMatch(
+        /gh attestation verify\s+"oci:\/\/[^"\n]+@\$\{\{ steps\.image\.outputs\.digest \}\}"/,
       );
       expect(workflow).toContain(
         '--predicate-type "https://slsa.dev/provenance/v1"',
