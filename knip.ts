@@ -23,6 +23,7 @@ export default {
     "harness/settings.tsx",
     "harness/videoSpike.ts",
     "harness/spotlight.tsx",
+    "harness/selectionRing.tsx",
     "harness/pointer.tsx",
     "harness/pointer.shots.mjs",
     "harness/pointerLive.ts",
