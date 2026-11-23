@@ -1,4 +1,4 @@
-FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS builder
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS builder
 
 COPY ./dist /dist
 
@@ -6,7 +6,7 @@ COPY ./dist /dist
 WORKDIR /dist/assets
 RUN gzip -k ../index.html *.js *.map *.css *.wasm *-app-*.json 
 
-FROM nginxinc/nginx-unprivileged:1.29.5-alpine-slim@sha256:08c2bc93448bc00d2a2e86cd2f8f729220f1d48b56bbf7f211e117fcfe0c4cb6
+FROM nginxinc/nginx-unprivileged:1.31.7-alpine-slim@sha256:a8cb0f33d51fa107c96fd2bd3a71aaf564ec131e9d2bdf8700944f0ed8b170d7
 
 # Patch fixable HIGH CVEs in Alpine packages until the pinned base image
 # ships them: CVE-2026-45447 (libcrypto3/libssl3), CVE-2026-40200
