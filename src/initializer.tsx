@@ -146,7 +146,8 @@ export class Initializer {
       .use(languageDetector)
       .use(initReactI18next)
       .init({
-        fallbackLng: "en",
+        // The informal German keeps German for what it does not translate.
+        fallbackLng: { "de@informal": ["de", "en"], default: ["en"] },
         defaultNS: "app",
         keySeparator: ".",
         nsSeparator: false,

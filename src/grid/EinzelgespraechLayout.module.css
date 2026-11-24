@@ -17,6 +17,14 @@ Please see LICENSE in the repository root for full details.
   overflow: hidden;
 }
 
+/* The seam's clip paths only. Out of the flow: as a grid item the 0x0 svg
+   still took a row of its own, the stretched rows split the free height
+   between it and the circle, and the circle sat 31px below the stage's
+   middle — its names under the notes card when that was open. */
+.defs {
+  position: absolute;
+}
+
 /* Both halves occupy this same box, each clipped to its own side, so the two
    reassemble into one circle rather than sitting beside each other. */
 .circle {

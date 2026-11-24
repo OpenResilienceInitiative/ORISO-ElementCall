@@ -7,6 +7,7 @@ Please see LICENSE in the repository root for full details.
 
 import { type ReactNode, useCallback, useMemo } from "react";
 import { useObservableEagerState } from "observable-hooks";
+import { useTranslation } from "react-i18next";
 import { combineLatest, distinctUntilChanged, map, of, switchMap } from "rxjs";
 
 import { type GridLayout as GridLayoutModel } from "../state/layout-types.ts";
@@ -23,14 +24,27 @@ import {
 import {
   groveBox,
   haloRoomFor,
+  ownShape,
   packShapes,
   pairShapes,
   splitCells,
 } from "../oriso/layout";
 import { orderForFelder, splitsInto } from "../oriso/felder";
 import { usePublishOrisoShapes } from "../oriso/useOrisoShape";
-import { useOrisoView } from "../oriso/useOrisoView";
-import { FIELD_RADIUS, type TileShape } from "../oriso/shape";
+import { useOrisoPins, useOrisoView } from "../oriso/useOrisoView";
+import { kreisNames, kreisPlan } from "../oriso/kreis";
+import { shownNameOnStage, useOrisoStage } from "../oriso/useOrisoIdentities";
+import { trioShapes } from "../oriso/trio";
+import { useMediaQuery } from "../useMediaQuery";
+import { kachelSize, orderForKacheln } from "../oriso/kacheln";
+import { KreisCentre } from "../oriso/KreisCentre";
+import {
+  FIELD_RADIUS,
+  NAME_MAX,
+  NAME_MAX_PHONE,
+  nameSideFor,
+  type TileShape,
+} from "../oriso/shape";
 import {
   type SpotlightSide,
   stageBesideSpotlight,
@@ -100,6 +114,17 @@ interface Seat {
    */
   seed: string;
   speaking: boolean;
+  /** For the Kreis's centre, which names whoever is speaking. */
+  userId: string;
+  displayName: string;
+  /**
+   * What the name's capsule carries beside the name: a raised hand, a muted
+   * microphone (`kreisNames` leaves room for it).
+   */
+  handRaised: boolean;
+  muted: boolean;
+  /** "Anheften — bleibt groß", this person's own choice. */
+  pinned: boolean;
 }
 
 /**
@@ -166,6 +191,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     useVisibleTiles(model.setVisibleTiles);
     const { width, height } = useObservableEagerState(minBounds$);
     const view = useOrisoView();
+    const { pinned } = useOrisoPins();
 
     /*
      * The shared screen gets its band, and the people get the rest.
@@ -217,13 +243,32 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               tiles.map((tile) =>
                 tile.media$.pipe(
                   switchMap((media) =>
-                    combineLatest([media.displayName$, media.speaking$]).pipe(
+                    combineLatest([
+                      media.displayName$,
+                      media.speaking$,
+                      media.handRaised$,
+                      media.audioEnabled$,
+                      "locallyMuted$" in media
+                        ? media.locallyMuted$
+                        : of(false),
+                    ]).pipe(
                       map(
-                        ([displayName, speaking]): Seat => ({
+                        ([
+                          displayName,
+                          speaking,
+                          handRaised,
+                          audioEnabled,
+                          locallyMuted,
+                        ]): Omit<Seat, "pinned"> => ({
                           model: tile,
                           mediaId: media.id,
                           seed: displayName || media.userId,
                           speaking,
+                          userId: media.userId,
+                          displayName,
+                          handRaised: handRaised !== null,
+                          // GridTile's `data-muted`: the icon the capsule shows.
+                          muted: locallyMuted || !audioEnabled,
                         }),
                       ),
                     ),
@@ -233,9 +278,21 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
             ),
       [tiles],
     );
-    const seats = useObservableEagerState(seats$);
+    const unpinned = useObservableEagerState(seats$);
+    const seats: Seat[] = useMemo(
+      () =>
+        unpinned.map((seat) => ({
+          ...seat,
+          pinned: pinned.has(seat.mediaId),
+        })),
+      [unpinned, pinned],
+    );
+    // Somebody speaking or pinned stays big.
+    const weightOf = (seat: Seat): number =>
+      seat.speaking || seat.pinned ? SPEAKING_WEIGHT : 1;
 
-    const scrolls = view === "felder" && !splitsInto(seats.length);
+    const scrolls =
+      view === "kacheln" || (view === "felder" && !splitsInto(seats.length));
 
     // What the arrangement actually depends on, as one value. `seats` is
     // rebuilt on every render, so it cannot be a dependency itself; this is
@@ -243,11 +300,41 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     const signature = `${view}:${stage.width}x${stage.height}+${
       stage.offsetY
     }:${seats
-      .map((s) => `${s.mediaId}|${s.seed}|${s.speaking ? 1 : 0}`)
+      .map(
+        (s) =>
+          `${s.mediaId}|${s.seed}|${s.speaking ? 1 : 0}|${s.pinned ? 1 : 0}`,
+      )
       .join(",")}`;
 
     const placed: Placed[] = useMemo(() => {
       if (seats.length === 0) return [];
+
+      if (view === "kreis") {
+        // S6, design 2a: the room's sound in the middle, everybody around it.
+        const plan = kreisPlan(
+          seats.length,
+          stage,
+          new Set(
+            seats.flatMap((seat, i) =>
+              seat.speaking || seat.pinned ? [i] : [],
+            ),
+          ),
+        );
+        return plan.seats.map((spot, i) => {
+          const shape = ownShape(seats[i].seed);
+          return {
+            id: seats[i].model.id,
+            mediaId: seats[i].mediaId,
+            model: seats[i].model,
+            x: spot.x,
+            y: spot.y,
+            width: spot.size,
+            height: spot.size,
+            shape: { radius: shape.blob, tilt: Number(shape.tilt) },
+            speaking: seats[i].speaking,
+          };
+        });
+      }
 
       if (view === "hain") {
         /*
@@ -260,8 +347,9 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
          *
          * So the positions come from the fields' own division, with the
          * grove's forms inscribed in them. Design decided this on
-         * 2026-10-17; three, five and six still overlap and are left to the
-         * prototype's packing until that has its own answer.
+         * 2026-10-17. Three have their own placement below (T4); five and
+         * six still overlap and are left to the prototype's packing until
+         * that has its own answer.
          */
         if (seats.length === 2) {
           const room = Math.round(haloRoomFor(stage.width, stage.height));
@@ -273,7 +361,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               w: Math.max(0, stage.width - 2 * room),
               h: Math.max(0, stage.height - 2 * room),
             },
-            seats.map((s) => (s.speaking ? SPEAKING_WEIGHT : 1)),
+            seats.map(weightOf),
           ).map((spot, i) => ({
             id: seats[i].model.id,
             mediaId: seats[i].mediaId,
@@ -293,10 +381,13 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         // organic form into an ellipse. Inset by the room a speaking halo
         // needs — see `groveBox`.
         const { box, offsetX, offsetY } = groveBox(stage.width, stage.height);
-        return packShapes(
+        // Three, the smallest group, stand together rather than burying one
+        // another in the packing (T4, see `trioShapes`).
+        const arrange = seats.length === 3 ? trioShapes : packShapes;
+        return arrange(
           seats.map((s) => s.seed),
           box,
-          seats.map((s) => (s.speaking ? SPEAKING_WEIGHT : 1)),
+          seats.map(weightOf),
         ).map((spot, i) => ({
           id: seats[i].model.id,
           mediaId: seats[i].mediaId,
@@ -319,7 +410,9 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
        * first and left the others at a listener's size.
        */
       const speakers = new Set(
-        seats.flatMap((seat, index) => (seat.speaking ? [index] : [])),
+        seats.flatMap((seat, index) =>
+          seat.speaking || seat.pinned ? [index] : [],
+        ),
       );
       /*
        * The fields divide an INSET rectangle, for the grove's reason.
@@ -366,16 +459,36 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
     // of twenty unreadable. See `felder.ts`.
     const sheet = useMemo(
       () =>
-        scrolls
-          ? orderForFelder(
-              seats,
-              seats.filter((s) => s.speaking),
-            )
-          : [],
+        !scrolls
+          ? []
+          : view === "kacheln"
+            ? orderForKacheln(seats, (s) => s.pinned)
+            : orderForFelder(
+                seats,
+                seats.filter((s) => s.speaking || s.pinned),
+              ),
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [scrolls, signature],
     );
+    // The Kacheln's one tile size, fitted to the width; the Felder's sheet
+    // keeps its fixed field.
+    const room = Math.round(haloRoomFor(width, height));
+    const kachel =
+      view === "kacheln"
+        ? kachelSize(seats.length, width - 2 * room, FIELD_GUTTER)
+        : null;
+    const sheetTile = kachel ?? {
+      width: FIELD_MIN_WIDTH,
+      height: Math.round(FIELD_MIN_WIDTH / FIELD_ASPECT),
+    };
 
+    // The same breakpoint as the capsule's phone cap in `MediaView.module.css`.
+    const phone = useMediaQuery("(max-width: 550px)");
+    // The names the capsules show, for `kreisNames`: a published identity
+    // arriving re-runs the name layout.
+    const { identities, enabled } = useOrisoStage();
+    const { t } = useTranslation();
+    const neutralName = t("oriso.participant_neutral");
     const shapes = useMemo(() => {
       const map = new Map<string, TileShape>();
       if (scrolls)
@@ -386,9 +499,68 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
             body: false,
             contentShare: FIELD_FACE_SHARE,
           });
-      else for (const p of placed) map.set(p.mediaId, p.shape);
+      else if (view === "kreis") {
+        // The circle's names, laid out together so neighbours on a crowded
+        // ring do not cover each other (#2233, 18 people). See `kreisNames`.
+        // Measured as the capsule shows them: the published name rather than
+        // a pseudonym's Matrix id, and the hand and microphone beside it.
+        const seatOf = new Map(seats.map((s) => [s.mediaId, s]));
+        const names = kreisNames(
+          placed.map((p) => ({ x: p.x, y: p.y, size: p.width })),
+          placed.map((p) => {
+            const s = seatOf.get(p.mediaId);
+            return s === undefined
+              ? ""
+              : shownNameOnStage(
+                  { identities, enabled },
+                  s.userId,
+                  s.displayName,
+                  neutralName,
+                );
+          }),
+          stage.width,
+          phone ? NAME_MAX_PHONE : NAME_MAX,
+          (x, w) => nameSideFor(x, w, stage.width, phone),
+          placed.map((p) => {
+            const s = seatOf.get(p.mediaId);
+            return s && { hand: s.handRaised, muted: s.muted };
+          }),
+        );
+        placed.forEach((p, i) =>
+          map.set(p.mediaId, {
+            ...p.shape,
+            nameSide: names[i].side,
+            ...(names[i].max < (phone ? NAME_MAX_PHONE : NAME_MAX)
+              ? { nameMax: names[i].max }
+              : {}),
+          }),
+        );
+      } else
+        for (const p of placed)
+          map.set(
+            p.mediaId,
+            // The grove's forms are small, and their capsules may be wider
+            // than they are: centred, or hung inward near the stage's edge.
+            view === "hain"
+              ? {
+                  ...p.shape,
+                  nameSide: nameSideFor(p.x, p.width, stage.width, phone),
+                }
+              : p.shape,
+          );
       return map;
-    }, [scrolls, sheet, placed]);
+    }, [
+      scrolls,
+      sheet,
+      placed,
+      seats,
+      view,
+      stage.width,
+      phone,
+      identities,
+      enabled,
+      neutralName,
+    ]);
     usePublishOrisoShapes(shapes);
 
     if (scrolls)
@@ -397,7 +569,7 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
           ref={ref}
           className={styles.sheet}
           data-testid="oriso-grove"
-          data-view="felder"
+          data-view={view}
           data-mode="scroll"
           style={
             {
@@ -429,14 +601,29 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
               model={seat.model}
               layer={seat.speaking ? SPEAKING_LAYER : undefined}
               style={{
-                inlineSize: FIELD_MIN_WIDTH,
-                blockSize: Math.round(FIELD_MIN_WIDTH / FIELD_ASPECT),
+                inlineSize: sheetTile.width,
+                blockSize: sheetTile.height,
               }}
             />
           ))}
         </div>
       );
 
+    // Left out where the stage is too small for it (`KREIS_CENTRE_MIN`).
+    // With the same emphasis as the seats: a small group is centred as a
+    // whole, so where the disc sits depends on how big the speaker is.
+    const kreis =
+      view === "kreis"
+        ? kreisPlan(
+            seats.length,
+            stage,
+            new Set(
+              seats.flatMap((seat, i) =>
+                seat.speaking || seat.pinned ? [i] : [],
+              ),
+            ),
+          )
+        : null;
     return (
       <div
         ref={ref}
@@ -446,7 +633,24 @@ export const makeOrisoGroveLayout: CallLayout<GridLayoutModel> = ({
         data-mode="split"
         style={{ width, height }}
       >
-        {placed.map((p) => (
+        {kreis?.indicator && (
+          <KreisCentre
+            plan={kreis.centre}
+            speaker={seats.find((s) => s.speaking)}
+          />
+        )}
+        {/*
+         * Top to bottom, so that a form further down paints later. A name
+         * capsule sits at its form's top and may be wider than the form; a
+         * neighbour BELOW does not reach up there, a neighbour beside it
+         * used to — and painted over the name ("Susanne P. · Berateri").
+         * Each tile is its own stacking context, so the capsule cannot be
+         * lifted out of it; the order is what decides.
+         */}
+        {(view === "hain" || view === "kreis"
+          ? [...placed].sort((a, b) => a.y - b.y)
+          : placed
+        ).map((p) => (
           <Slot
             key={p.id}
             className={styles.slot}

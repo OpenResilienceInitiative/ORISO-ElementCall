@@ -207,7 +207,7 @@ export const makeEinzelgespraechLayout: CallLayout<OneOnOneLayoutModel> = ({
             swallowed almost the whole circle: the quiet half became a sliver
             and its animal vanished. A quadratic curve says exactly what the
             design describes. */}
-        <svg width="0" height="0" aria-hidden="true">
+        <svg className={styles.defs} width="0" height="0" aria-hidden="true">
           <defs>
             <clipPath id={seamId} clipPathUnits="objectBoundingBox">
               {/* `animated.path` so react-spring writes `d` straight onto the

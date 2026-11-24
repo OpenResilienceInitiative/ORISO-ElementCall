@@ -8,7 +8,7 @@ Please see LICENSE in the repository root for full details.
 /*
  * Visual proof for the call settings dialog (#110), opened as the ⋮ menu
  * opens it. `?oriso=0` shows Element Call's own dialog for the comparison,
- * `?tab=video` the camera tab. A touch device gets the bottom sheet.
+ * `?tab=video` the camera tab, `?tab=preferences` "Namen & Symbole" (#2233). A touch device gets the bottom sheet.
  */
 
 import { StrictMode } from "react";
@@ -41,7 +41,10 @@ void i18n.use(initReactI18next).init({
 
 const params = new URLSearchParams(window.location.search);
 const oriso = params.get("oriso") !== "0";
-const tab = params.get("tab") === "video" ? "video" : "audio";
+const tab =
+  (["video", "preferences"] as const).find(
+    (name) => name === params.get("tab"),
+  ) ?? "audio";
 
 const device = (names: [string, string][]): MediaDevices["audioInput"] =>
   ({

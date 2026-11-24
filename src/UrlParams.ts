@@ -18,6 +18,7 @@ import { Config } from "./config/Config";
 import { type EncryptionSystem } from "./e2ee/sharedKeyManagement";
 import { E2eeType } from "./e2ee/e2eeType";
 import { parseBrandLogo } from "./oriso/brandLogo";
+import { readTopic } from "./oriso/stageTitle";
 import { platform } from "./Platform";
 import { parseBrandHex } from "./oriso/theme/brandParams";
 
@@ -84,6 +85,41 @@ export interface UrlProperties {
    * this flag; nobody else does, and without it the call is upstream's.
    */
   orisoDesign: boolean;
+  /**
+   * Whether the ORISO host leaves the window controls to the call.
+   *
+   * Set by ORISO-Frontend (`orisoHostChrome=1`) when it draws no window
+   * buttons of its own over the iframe. The call's header then carries
+   * "Verkleinern" and "Vollbild" and asks the host to act on them through
+   * the `org.oriso.call.window` widget action. Without it the host still has
+   * its own corner buttons, and the header keeps their corner free.
+   */
+  orisoHostChrome: boolean;
+  /**
+   * What kind of counselling conversation this call belongs to, set by
+   * ORISO-Frontend from the conversation type: `group` or `single`.
+   *
+   * It decides the view a call starts in, not the head count: a group
+   * conversation starts in the "Kreis" even when only two people are in it,
+   * a single conversation in the "Einzelgespräch". Without it (an older
+   * host) the head count decides as before. Anything else is ignored.
+   */
+  orisoCallType: "group" | "circle" | "single" | null;
+  /**
+   * What the conversation is called, for the call's header: a 1:1's topic
+   * (#2233 R6, "Einzelgespräch · Schuldnerberatung") or a group chat's own
+   * name ("QA Moabit · Brieftriage zu viert 08.11"). Plain text, trimmed and
+   * cut to one line (`readTopic`); null without one. See `stageTitle`.
+   */
+  orisoTopic: string | null;
+  /**
+   * Whether this person may hand out a link to the running call.
+   *
+   * Set by ORISO-Frontend (`orisoInvite=1`) when it can create one. The
+   * header then shows "Link teilen", which asks the host for the link with
+   * the `org.oriso.call.invite_link` widget action.
+   */
+  orisoInvite: boolean;
   /**
    * The Träger's brand colours, written into the call address by ORISO-Frontend
    * when the call starts (epic ORISO-Frontend#2187, "Call branding").
@@ -450,6 +486,15 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const orisoLogo = parseBrandLogo(parser.getParam("orisoLogo"));
   const orisoAtmosphere = parser.getParam("orisoAtmosphere");
   const orisoDesign = parser.getFlagParam("orisoDesign");
+  const orisoHostChrome = parser.getFlagParam("orisoHostChrome");
+  const orisoInvite = parser.getFlagParam("orisoInvite");
+  const orisoCallType =
+    parser.getEnumParam("orisoCallType", [
+      "group",
+      "circle",
+      "single",
+    ] as const) ?? null;
+  const orisoTopic = readTopic(parser.getParam("orisoTopic"));
   const orisoPrimary = parseBrandHex(parser.getParam("orisoPrimary"));
   const orisoAccent = parseBrandHex(parser.getParam("orisoAccent"));
   const orisoSignal = parseBrandHex(parser.getParam("orisoSignal"));
@@ -572,6 +617,10 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     orisoLogo,
     orisoAtmosphere,
     orisoDesign,
+    orisoHostChrome,
+    orisoCallType,
+    orisoTopic,
+    orisoInvite,
     orisoPrimary,
     orisoAccent,
     orisoSignal,

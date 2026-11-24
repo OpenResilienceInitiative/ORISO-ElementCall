@@ -662,6 +662,332 @@ describe.each([
     });
   });
 
+  it("gives a group conversation of two the 1:1 until a third arrives (#2233 D7)", () => {
+    /*
+     * The head count decides first: two people in a group conversation get
+     * the 1:1 (no view rail, no atmosphere), and the group's arrangement
+     * comes with the third person.
+     */
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: behavior("ab", {
+            a: [aliceParticipant],
+            b: [aliceParticipant, bobParticipant],
+          }),
+          rtcMembers$: behavior("ab", {
+            a: [localRtcMember, aliceRtcMember],
+            b: [localRtcMember, aliceRtcMember, bobRtcMember],
+          }),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("ab", { a: "one-on-one", b: "grid" });
+          expectObservable(vm.orisoOneOnOne$).toBe("ab", { a: true, b: false });
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
+          ).toBe("ab", { a: "einzelgespraech", b: "felder" });
+        },
+        { orisoDesign: true, orisoCallType: "group" },
+      );
+    });
+  });
+
+  /*
+   * Live test, 16 Nov (#2233): a screen share in a 1:1 is not a third
+   * person. It used to make a third media tile, so the sharer got the Felder
+   * and the viewer the Fokus, both with the view rail and the atmosphere.
+   */
+  it("keeps two people with a shared screen under the 1:1's rules (#2233)", () => {
+    withTestScheduler(({ behavior, schedule, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          // What InCallView does for two people: back to grid mode.
+          schedule("-g", { g: () => vm.setGridMode("grid") });
+          expectObservable(summarizeLayout$(vm.layout$)).toBe("a", {
+            a: {
+              type: "spotlight-landscape",
+              spotlight: [`${aliceId}:0:screen-share`],
+              grid: [`${localId}:0`, `${aliceId}:0`],
+            },
+          });
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: true });
+          expectObservable(
+            vm.orisoPlan$.pipe(
+              map((plan) => `${plan.fallback}:${plan.offer.length}`),
+            ),
+          ).toBe("a", { a: "einzelgespraech:2" });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("leaves a non-ORISO 1:1 with a shared screen on upstream's grid", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          vm.setGridMode("grid");
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("a", { a: "grid" });
+        },
+      );
+    });
+  });
+
+  it("lets the viewer expand a 1:1's shared screen (#2233)", () => {
+    withTestScheduler(({ behavior, schedule, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          vm.setGridMode("grid");
+          schedule("-a-b", {
+            a: () => vm.toggleSpotlightExpanded$.value!(),
+            b: () => vm.toggleSpotlightExpanded$.value!(),
+          });
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("ab-a", {
+            a: "spotlight-landscape",
+            b: "spotlight-expanded",
+          });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("gives a phone's 1:1 with a shared screen the portrait stage (#2233)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 360, height: 780 } }),
+        },
+        (vm) => {
+          vm.setGridMode("grid");
+          expectObservable(
+            summarizeLayout$(vm.layout$).pipe(map((l) => l.type)),
+          ).toBe("a", { a: "spotlight-portrait" });
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: true });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("gives three people with a shared screen the group's rules (#2233)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceSharingScreen, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: false });
+          expectObservable(
+            vm.orisoPlan$.pipe(
+              map((plan) => `${plan.fallback}:${plan.offer.length}`),
+            ),
+          ).toBe("a", { a: "felder:5" });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("has no camera on in a 1:1 where nobody published one (#2233 D5)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(vm.orisoCameraOn$).toBe("a", { a: false });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("still gives a single conversation of two the Einzelgespräch (S6b)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(summarizeLayout$(vm.layout$)).toBe("a", {
+            a: {
+              type: "one-on-one",
+              local: `${localId}:0`,
+              remote: `${aliceId}:0`,
+            },
+          });
+          expectObservable(vm.orisoOneOnOne$).toBe("a", { a: true });
+        },
+        { orisoDesign: true, orisoCallType: "single" },
+      );
+    });
+  });
+
+  it("plans a video group with all five views, the Kreis too (#2233)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.offer.join(","))),
+          ).toBe("a", { a: "kreis,hain,felder,kacheln,spotlight" });
+        },
+        { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "video" },
+      );
+    });
+  });
+
+  it("plans an audio Gesprächskreis of three in the Kreis (S6b, S7, #2233 D9)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
+          ).toBe("a", { a: "kreis" });
+        },
+        {
+          orisoDesign: true,
+          orisoCallType: "circle",
+          orisoCallIntent: "audio",
+        },
+      );
+    });
+  });
+
+  it("plans an internal group of three in the Felder (#2233 D9)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoPlan$.pipe(map((plan) => plan.fallback)),
+          ).toBe("a", { a: "felder" });
+        },
+        { orisoDesign: true, orisoCallType: "group", orisoCallIntent: "audio" },
+      );
+    });
+  });
+
+  /*
+   * S8: a 1:1 that somebody joins through the shared link. At three people
+   * the rail offers the group views and the stage leaves the Einzelgespräch
+   * for the group default; when they leave, it is a 1:1 again.
+   */
+  it.each([
+    ["single", "felder"],
+    [null, "hain"],
+  ] as const)(
+    "turns a %s call of two into a group at three and back at two (S8)",
+    (callType, groupDefault) => {
+      withTestScheduler(({ behavior, expectObservable }) => {
+        withCallViewModel(
+          {
+            remoteParticipants$: behavior("abc", {
+              a: [aliceParticipant],
+              b: [aliceParticipant, bobParticipant],
+              c: [aliceParticipant],
+            }),
+            rtcMembers$: behavior("abc", {
+              a: [localRtcMember, aliceRtcMember],
+              b: [localRtcMember, aliceRtcMember, bobRtcMember],
+              c: [localRtcMember, aliceRtcMember],
+            }),
+            windowSize$: behavior("a", { a: { width: 1200, height: 800 } }),
+          },
+          (vm) => {
+            expectObservable(
+              vm.orisoPlan$.pipe(
+                map((plan) => `${plan.fallback}:${plan.offer.length}`),
+              ),
+            ).toBe("abc", {
+              a: "einzelgespraech:2",
+              b: `${groupDefault}:5`,
+              c: "einzelgespraech:2",
+            });
+            expectObservable(vm.orisoOneOnOne$).toBe("abc", {
+              a: true,
+              b: false,
+              c: true,
+            });
+          },
+          { orisoDesign: true, orisoCallType: callType },
+        );
+      });
+    },
+  );
+
+  it("names whoever speaks for the phone's wave band (S9)", () => {
+    withTestScheduler(({ behavior, expectObservable }) => {
+      withCallViewModel(
+        {
+          remoteParticipants$: constant([aliceParticipant, bobParticipant]),
+          rtcMembers$: constant([localRtcMember, aliceRtcMember, bobRtcMember]),
+          speaking: new Map([
+            // Bob starts speaking; Alice joins in and the band names the
+            // first in the call; when she stops it is Bob again.
+            [aliceParticipant, behavior("n-yn", yesNo)],
+            [bobParticipant, behavior("ny", yesNo)],
+          ]),
+        },
+        (vm) => {
+          expectObservable(
+            vm.orisoSpeaker$.pipe(map((s) => s?.userId ?? "none")),
+          ).toBe("abcd", {
+            a: "none",
+            b: bobRtcMember.userId,
+            c: aliceRtcMember.userId,
+            d: bobRtcMember.userId,
+          });
+        },
+        { orisoDesign: true },
+      );
+    });
+  });
+
   test("spotlight speakers swap places", () => {
     withTestScheduler(({ behavior, schedule, expectObservable }) => {
       // Go immediately into spotlight mode for the test

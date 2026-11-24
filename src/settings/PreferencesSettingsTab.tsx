@@ -17,9 +17,12 @@ import {
   developerMode as developerModeSetting,
   useSetting,
 } from "./settings";
+import { useUrlParams } from "../UrlParams";
+import { OrisoNameStyleSetting } from "../oriso/OrisoNameStyleSetting";
 
 export const PreferencesSettingsTab: FC = () => {
   const { t } = useTranslation();
+  const { orisoDesign } = useUrlParams();
   const [showHandRaisedTimer, setShowHandRaisedTimer] = useSetting(
     showHandRaisedTimerSetting,
   );
@@ -43,6 +46,8 @@ export const PreferencesSettingsTab: FC = () => {
   return (
     <div>
       <Text>{t("settings.preferences_tab.introduction")}</Text>
+      {/* Moved here from the call menu (#2233). */}
+      {orisoDesign && <OrisoNameStyleSetting />}
       <FieldRow>
         <InputField
           id="showHandRaisedTimer"
