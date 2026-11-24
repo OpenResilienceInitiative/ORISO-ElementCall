@@ -49,24 +49,3 @@ jobs:
         with:
           dockerfile: Dockerfile.prod
           platforms: linux/amd64
-
-  two-party-media:
-    name: Two-party media and rejoin (Chromium)
-    # The locked Playwright build provides the Chromium shell for Ubuntu 24.04.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - run: corepack enable
-      - uses: actions/setup-node@v4
-        with:
-          cache: yarn
-          node-version-file: .node-version
-      - run: yarn install --immutable
-      - run: yarn playwright install --with-deps chromium --only-shell
-      - name: Check version 12 call, two-way media and rejoin
-        run: bash scripts/ci/run-two-party-media.sh

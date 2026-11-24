@@ -8,7 +8,7 @@ project="oriso-media-$(printf '%s' "${ORISO_MEDIA_RUN##*.}" | tr '[:upper:]' '[:
 mkdir "$ORISO_MEDIA_RUN/primary" "$ORISO_MEDIA_RUN/secondary"
 printf 'Testing Element Call %s\nLocal diagnostics: %s\n' "$revision" "$ORISO_MEDIA_RUN"
 
-phase="prepare isolated fixture"
+phase="check out the GitHub candidate"
 stack=(docker compose -p "$project" -f dev-backend-docker-compose.yml
   -f playwright-backend-docker-compose.override.yml -f backend/ci-two-party.override.yml)
 started=false
@@ -17,7 +17,13 @@ finish() {
   local status=$?
   if [[ "$started" == true ]] && ! "${stack[@]}" down --timeout 15 > "$ORISO_MEDIA_RUN/cleanup.log" 2>&1; then
     printf 'Could not stop test Compose project %s\n' "$project" >&2
-    [[ "$status" != 0 ]] || status=1
+    if [[ "$status" == 0 ]]; then
+      phase="clean up test stack"
+      status=1
+    fi
+  fi
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    printf 'revision=%s\nphase=%s\n' "$revision" "$phase" >> "$GITHUB_OUTPUT" || status=1
   fi
   if [[ "$status" != 0 ]]; then
     printf 'Two-browser media failed at %s for %s\n' "$phase" "$revision" >&2
@@ -25,6 +31,12 @@ finish() {
   exit "$status"
 }
 trap finish EXIT
+
+if [[ -n "${GITHUB_SHA:-}" && "$revision" != "$GITHUB_SHA" ]]; then
+  printf 'Expected checkout %s, found %s\n' "$GITHUB_SHA" "$revision" >&2
+  exit 1
+fi
+phase="prepare isolated fixture"
 
 node --input-type=module <<'JS'
 import assert from 'node:assert/strict';
@@ -63,5 +75,21 @@ curl --fail --silent --show-error --max-time 10 --cacert backend/dev_tls_local-c
 
 phase="run the two-browser call and rejoin in Chromium"
 unset USE_DOCKER
-corepack yarn playwright test playwright/two-party-media.spec.ts \
-  --project=chromium --workers=1 --retries=0 --trace=off --reporter=line
+PLAYWRIGHT_JSON_OUTPUT_FILE="$ORISO_MEDIA_RUN/playwright-result.json" \
+  corepack yarn playwright test playwright/two-party-media.spec.ts \
+  --project=chromium --workers=1 --retries=0 --trace=off --reporter=line,json
+
+phase="verify the Chromium result"
+node --input-type=module <<'JS'
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const { stats, errors } = JSON.parse(
+  readFileSync(`${process.env.ORISO_MEDIA_RUN}/playwright-result.json`, 'utf8')
+);
+assert.deepEqual(
+  { expected: stats.expected, skipped: stats.skipped, unexpected: stats.unexpected, flaky: stats.flaky, errors: errors.length },
+  { expected: 1, skipped: 0, unexpected: 0, flaky: 0, errors: 0 },
+  'The required Chromium call must execute and pass'
+);
+JS
+phase=complete
