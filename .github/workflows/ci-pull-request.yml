@@ -52,7 +52,8 @@ jobs:
 
   two-party-media:
     name: Two-party media and rejoin (Chromium)
-    runs-on: ubuntu-latest
+    # The locked Playwright build provides the Chromium shell for Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     permissions:
       contents: read
