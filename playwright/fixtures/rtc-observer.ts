@@ -61,13 +61,27 @@ async function sample(page: Page): Promise<TrackSample[]> {
             bytes += entry.bytesReceived;
           }
         }
-        const element = elements.find(
-          (media) =>
-            media.localName === kind &&
-            !media.paused &&
-            media.srcObject instanceof MediaStream &&
-            media.srcObject.getTracks().includes(track),
-        );
+        const element = elements.find((media) => {
+          if (
+            media.localName !== kind ||
+            media.paused ||
+            media.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+            !(media.srcObject instanceof MediaStream) ||
+            !media.srcObject.getTracks().includes(track)
+          ) {
+            return false;
+          }
+          if (kind === "audio") return !media.muted && media.volume > 0;
+          const { width, height } = media.getBoundingClientRect();
+          return (
+            width > 0 &&
+            height > 0 &&
+            media.checkVisibility({
+              opacityProperty: true,
+              visibilityProperty: true,
+            })
+          );
+        });
         const quality =
           element instanceof HTMLVideoElement
             ? element.getVideoPlaybackQuality()

@@ -129,6 +129,36 @@ test("two standalone callers exchange audio and video and rejoin a version 12 ro
       await guest.getByTestId("lobby_joinCall").click();
       await expectTwoWayPlayback(creator, guest);
     });
+
+    await test.step("Reject muted audio and hidden video while packets still arrive", async () => {
+      const original = await guest.evaluate(() => ({
+        audio: [...document.querySelectorAll("audio")].map((element) => {
+          const muted = element.muted;
+          element.muted = true;
+          return muted;
+        }),
+        video: [...document.querySelectorAll("video")].map((element) => {
+          const visibility = element.style.visibility;
+          element.style.visibility = "hidden";
+          return visibility;
+        }),
+      }));
+      await expect
+        .poll(async () => observeMedia(guest), { timeout: 5_000 })
+        .toEqual({
+          received: playing,
+          played: silent,
+        });
+      await guest.evaluate(({ audio, video }) => {
+        document.querySelectorAll("audio").forEach((element, index) => {
+          element.muted = audio[index] ?? element.muted;
+        });
+        document.querySelectorAll("video").forEach((element, index) => {
+          element.style.visibility = video[index] ?? element.style.visibility;
+        });
+      }, original);
+      await expectTwoWayPlayback(creator, guest);
+    });
     const joined = guestSession();
     expect(new Set(joined.subjects).size).toBe(1);
     expect(new Set(joined.devices).size).toBe(1);
