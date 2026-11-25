@@ -47,7 +47,23 @@ Please see LICENSE in the repository root for full details.
 }
 
 :global(.oriso-settings) .tabList button[aria-selected="true"] {
-  background: rgb(240 237 238);
-  box-shadow: inset 0 0 0 2px var(--oriso-primary, #a5000a);
+  background: var(--oriso-settings-selected-fill, rgb(240 237 238));
+  box-shadow: inset 0 0 0 2px
+    var(--oriso-settings-ring, var(--oriso-primary, #a5000a));
   color: rgb(45 44 40);
+}
+
+:global(.oriso-settings[data-oriso-personal-settings]) .tabList ul {
+  flex-wrap: wrap;
+}
+
+:global(.oriso-settings[data-oriso-personal-settings]) .tabList button {
+  font-size: calc(15px * var(--font-scale, 1));
+  line-height: 1.33;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+:global(.oriso-settings[data-oriso-contrast-level]) .tabList button {
+  color: var(--cpd-color-text-primary);
 }

@@ -239,3 +239,39 @@ Please see LICENSE in the repository root for full details.
 .header[data-compact] .meta {
   font-size: 0.8125rem;
 }
+
+[data-oriso-follow-host] .header[data-tone] {
+  background: var(--cpd-color-bg-canvas-default);
+  color: var(--cpd-color-text-primary);
+}
+
+[data-oriso-follow-host] .header .meta {
+  color: var(--cpd-color-text-secondary);
+}
+
+[data-oriso-follow-host] .header[data-compact] .actions {
+  align-self: flex-start;
+}
+
+[data-oriso-follow-host] .header[data-tone] .windowButton {
+  background: var(--cpd-color-bg-action-secondary-rest);
+  color: var(--cpd-color-icon-primary);
+}
+
+[data-oriso-follow-host] .windowButton:focus-visible {
+  outline-color: var(--cpd-color-border-focused);
+}
+
+@media (hover) {
+  [data-oriso-follow-host] .header[data-tone] .windowButton:hover {
+    background: var(--cpd-color-bg-action-secondary-hovered);
+  }
+}
+
+[data-oriso-follow-host] .header .title {
+  font-size: calc(1.0625rem * var(--font-scale, 1));
+}
+
+[data-oriso-follow-host] .header[data-compact] .title {
+  font-size: calc(1.25rem * var(--font-scale, 1));
+}

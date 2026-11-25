@@ -5,7 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-import { type FC, type ReactNode, useEffect, useState } from "react";
+import {
+  type FC,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import classNames from "classnames";
 import { type MatrixClient } from "matrix-js-sdk";
@@ -35,6 +41,7 @@ import { FieldRow, InputField } from "../input/Input";
 import { useSubmitRageshake } from "./submit-rageshake";
 import { useUrlParams } from "../UrlParams";
 import { useBehavior } from "../useBehavior";
+import { CallAppearanceContext } from "../useTheme";
 
 /*
  * Hidden by requirement. Constants rather than a literal `false &&`, so the
@@ -69,6 +76,33 @@ interface Props {
 
 export const defaultSettingsTab: SettingsTab = "audio";
 
+const BlurCheckbox: FC = (): ReactNode => {
+  const { t } = useTranslation();
+  const { supported } = useTrackProcessor();
+
+  const [blurActive, setBlurActive] = useSetting(backgroundBlurSetting);
+
+  return (
+    <>
+      <h4>{t("settings.background_blur_header")}</h4>
+
+      <FieldRow>
+        <InputField
+          id="activateBackgroundBlur"
+          label={t("settings.background_blur_label")}
+          description={
+            supported ? "" : t("settings.blur_not_supported_by_browser")
+          }
+          type="checkbox"
+          checked={!!blurActive}
+          onChange={(b): void => setBlurActive(b.target.checked)}
+          disabled={!supported}
+        />
+      </FieldRow>
+    </>
+  );
+};
+
 export const SettingsModal: FC<Props> = ({
   open,
   onDismiss,
@@ -79,33 +113,6 @@ export const SettingsModal: FC<Props> = ({
   livekitRooms,
 }) => {
   const { t } = useTranslation();
-
-  // Generate a `Checkbox` input to turn blur on or off.
-  const BlurCheckbox: React.FC = (): ReactNode => {
-    const { supported } = useTrackProcessor();
-
-    const [blurActive, setBlurActive] = useSetting(backgroundBlurSetting);
-
-    return (
-      <>
-        <h4>{t("settings.background_blur_header")}</h4>
-
-        <FieldRow>
-          <InputField
-            id="activateBackgroundBlur"
-            label={t("settings.background_blur_label")}
-            description={
-              supported ? "" : t("settings.blur_not_supported_by_browser")
-            }
-            type="checkbox"
-            checked={!!blurActive}
-            onChange={(b): void => setBlurActive(b.target.checked)}
-            disabled={!supported}
-          />
-        </FieldRow>
-      </>
-    );
-  };
 
   const devices = useMediaDevices();
   useEffect(() => {
@@ -123,7 +130,13 @@ export const SettingsModal: FC<Props> = ({
   // a single device. These are called "headset" or "speaker" (or similar) but contain both input and output.
   // On EC, we decided that it is less confusing for the user if they see those options in the output section
   // rather than the input section.
-  const { controlledAudioDevices, orisoDesign } = useUrlParams();
+  const { controlledAudioDevices, orisoDesign, orisoCallType, callIntent } =
+    useUrlParams();
+  const { contrast } = useContext(CallAppearanceContext);
+  const followsHostAppearance =
+    orisoDesign && orisoCallType === "single" && callIntent === "video";
+  const contrastLevel =
+    followsHostAppearance && contrast !== "standard" ? contrast : undefined;
   // If we are on iOS we will show a button to open the native audio device picker.
   const iosDeviceMenu = useBehavior(iosDeviceMenu$);
 
@@ -247,10 +260,17 @@ export const SettingsModal: FC<Props> = ({
         styles.settingsModal,
         // The ORISO look (#110): light tokens under the dark call, and a plain
         // class the tab bar's and the device list's ORISO rules hang on.
-        orisoDesign && [styles.oriso, "cpd-theme-light", "oriso-settings"],
+        orisoDesign && [
+          styles.oriso,
+          contrastLevel === "high" ? "cpd-theme-light-hc" : "cpd-theme-light",
+          "oriso-settings",
+        ],
       )}
+      data-oriso-personal-settings={followsHostAppearance || undefined}
+      data-oriso-contrast-level={contrastLevel}
       open={open}
       onDismiss={onDismiss}
+      restoreTriggerFocus={followsHostAppearance}
       tabbed
     >
       <TabContainer

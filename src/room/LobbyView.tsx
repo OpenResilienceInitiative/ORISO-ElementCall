@@ -52,6 +52,7 @@ import {
 import { usePageTitle } from "../usePageTitle";
 import { getValue } from "../utils/observable";
 import { useBehavior } from "../useBehavior";
+import { useUrlParams } from "../UrlParams";
 
 interface Props {
   client: MatrixClient;
@@ -86,6 +87,9 @@ export const LobbyView: FC<Props> = ({
   }, []);
 
   const { t } = useTranslation();
+  const { orisoDesign, orisoCallType, callIntent } = useUrlParams();
+  const followsHostAppearance =
+    orisoDesign && orisoCallType === "single" && callIntent === "video";
   usePageTitle(matrixInfo.roomName);
 
   const audioEnabled = useBehavior(muteStates.audio.enabled$);
@@ -187,19 +191,34 @@ export const LobbyView: FC<Props> = ({
   // animations and don't have to feel bad about reusing its CSS
   return (
     <>
-      <div className={classNames(styles.room, inCallStyles.inRoom)}>
+      <div
+        className={classNames(styles.room, inCallStyles.inRoom, {
+          [styles.personalAppearance]: followsHostAppearance,
+        })}
+      >
         {!hideHeader && (
-          <Header>
-            <LeftNav>
+          <Header
+            className={
+              followsHostAppearance ? styles.personalHeader : undefined
+            }
+          >
+            <LeftNav
+              className={followsHostAppearance ? styles.titleNav : undefined}
+            >
               <RoomHeaderInfo
                 id={matrixInfo.roomId}
                 name={matrixInfo.roomName}
                 avatarUrl={matrixInfo.roomAvatar}
                 encrypted={matrixInfo.e2eeSystem.kind !== E2eeType.NONE}
                 participantCount={participantCount}
+                scaleRoomName={followsHostAppearance}
               />
             </LeftNav>
-            <RightNav>
+            <RightNav
+              className={
+                followsHostAppearance ? styles.headerActions : undefined
+              }
+            >
               {onShareClick !== null && <InviteButton onClick={onShareClick} />}
             </RightNav>
           </Header>
@@ -209,6 +228,7 @@ export const LobbyView: FC<Props> = ({
             matrixInfo={matrixInfo}
             videoEnabled={videoEnabled}
             videoTrack={videoTrack}
+            followsHostAppearance={followsHostAppearance}
           >
             <Button
               className={classNames(styles.join, {
@@ -226,9 +246,11 @@ export const LobbyView: FC<Props> = ({
           </VideoPreview>
           {!recentsButtonInFooter && recentsButton}
         </div>
-        <div className={inCallStyles.footer}>
+        <div className={classNames(inCallStyles.footer, styles.deviceFooter)}>
           {recentsButtonInFooter && recentsButton}
-          <div className={inCallStyles.buttons}>
+          <div
+            className={classNames(inCallStyles.buttons, styles.deviceControls)}
+          >
             <MicButton
               muted={!audioEnabled}
               onClick={toggleAudio ?? undefined}

@@ -136,3 +136,48 @@ Please see LICENSE in the repository root for full details.
     background: rgb(0 0 0 / 4%);
   }
 }
+
+[data-oriso-follow-host] :is(.count, .role) {
+  color: var(--cpd-color-text-secondary);
+}
+
+[data-oriso-follow-host] .title {
+  font-size: calc(1.0625rem * var(--font-scale, 1));
+  line-height: 1.3;
+}
+
+[data-oriso-follow-host] .name {
+  font-size: calc(0.9375rem * var(--font-scale, 1));
+  line-height: 1.3;
+}
+
+[data-oriso-follow-host] .role {
+  font-size: calc(0.8125rem * var(--font-scale, 1));
+  line-height: 1.35;
+}
+
+[data-oriso-follow-host] .invite {
+  border-block-start-color: var(--cpd-color-border-interactive-secondary);
+}
+
+[data-oriso-follow-host] .inviteButton {
+  min-block-size: 44px;
+  block-size: auto;
+  padding: 8px 12px;
+  background: var(--cpd-color-bg-action-secondary-rest);
+  color: var(--cpd-color-text-primary);
+  border-color: var(--cpd-color-border-interactive-primary);
+  font-size: calc(0.9375rem * var(--font-scale, 1));
+  line-height: 1.3;
+  text-align: start;
+}
+
+[data-oriso-follow-host] :is(.close, .inviteButton):focus-visible {
+  outline-color: var(--cpd-color-border-focused);
+}
+
+@media (hover) {
+  [data-oriso-follow-host] .inviteButton:hover {
+    background: var(--cpd-color-bg-action-secondary-hovered);
+  }
+}

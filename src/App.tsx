@@ -26,7 +26,7 @@ import { ClientProvider } from "./ClientContext";
 import { ErrorPage, LoadingPage } from "./FullScreenView";
 import { Initializer } from "./initializer";
 import { widget } from "./widget";
-import { useTheme } from "./useTheme";
+import { CallAppearanceContext, useTheme } from "./useTheme";
 import { ProcessorProvider } from "./livekit/TrackProcessorContext";
 import { type AppViewModel } from "./state/AppViewModel";
 import { MediaDevicesContext } from "./MediaDevicesContext";
@@ -40,8 +40,10 @@ interface SimpleProviderProps {
 }
 
 const ThemeProvider: FC<SimpleProviderProps> = ({ children }) => {
-  useTheme();
-  return children;
+  const appearance = useTheme();
+  return (
+    <CallAppearanceContext value={appearance}>{children}</CallAppearanceContext>
+  );
 };
 
 interface Props {
