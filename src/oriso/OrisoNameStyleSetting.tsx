@@ -49,7 +49,11 @@ export const OrisoNameStyleSetting: FC = () => {
             <span className={styles.sample} aria-hidden="true">
               {t("oriso.names_sample")}
             </span>
-            <span>{t(`oriso.names_${style}`)}</span>
+            <span>
+              {style === "popout"
+                ? t("oriso.names_popout")
+                : t("oriso.names_dezent")}
+            </span>
           </button>
         ))}
       </div>

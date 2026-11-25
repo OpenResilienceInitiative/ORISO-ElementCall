@@ -52,6 +52,14 @@ borders don't support gradients */
   }
 }
 
+/* An ORISO form is not its square box (#171): the outline above drew a
+   light-grey rectangle around a round form. Its ring is drawn on the form
+   itself, in MediaView.module.css. Specific enough to beat `.tile:hover`. */
+.tile[data-oriso="true"],
+.tile[data-oriso="true"]:hover {
+  outline: none;
+}
+
 .muteIcon[data-muted="true"] {
   color: var(--cpd-color-icon-secondary);
 }

@@ -39,3 +39,64 @@ Please see LICENSE in the repository root for full details.
     gap: var(--cpd-space-10x);
   }
 }
+
+.personalAppearance .join {
+  font-size: calc(var(--cpd-font-size-body-md) * var(--font-scale, 1));
+  line-height: var(--cpd-font-line-height-regular);
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.personalAppearance .join:focus-visible,
+.personalAppearance .deviceControls button:focus-visible {
+  outline: 2px solid var(--cpd-color-text-primary, currentColor);
+  outline-offset: 2px;
+}
+
+.personalHeader {
+  align-items: flex-start;
+  gap: var(--cpd-space-2x);
+  padding-block: var(--cpd-space-2x);
+}
+
+.personalHeader .titleNav,
+.personalHeader .headerActions {
+  min-inline-size: 0;
+  height: auto;
+}
+
+.personalHeader .titleNav > * {
+  inline-size: 100%;
+}
+
+.personalHeader .headerActions {
+  flex: none;
+}
+
+.personalHeader .headerActions:empty {
+  display: none;
+}
+
+/* In a scrolling lobby the footer should not cover the focused header
+   actions or the join button. All controls follow their existing DOM order. */
+.personalAppearance .deviceFooter {
+  position: static;
+}
+
+/* Keep room for the camera at larger text sizes and short viewports. */
+.personalAppearance .content {
+  min-block-size: 50vh;
+}
+
+@media (max-width: 550px) {
+  .personalHeader {
+    flex-wrap: wrap;
+  }
+
+  .personalHeader .titleNav,
+  .personalHeader .headerActions {
+    flex-basis: 100%;
+  }
+}

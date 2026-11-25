@@ -52,6 +52,8 @@ import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@vector-im/compound-web";
 import { RoomContext, useLocalParticipant } from "@livekit/components-react";
 
+import { forgetGuestsInPlay } from "../oriso/useOrisoGuestsInPlay";
+import { CallAppearanceContext } from "../useTheme";
 import { InCallView } from "./InCallView";
 import {
   mockLivekitRoom,
@@ -81,7 +83,11 @@ import { LivekitRoomAudioRenderer } from "../livekit/MatrixAudioRenderer";
 import { MediaDevicesContext } from "../MediaDevicesContext";
 import { HeaderStyle } from "../UrlParams";
 import { setLocalStorageItemReactive } from "../useLocalStorage";
-import { type ElementCallError } from "../utils/errors";
+import {
+  type ElementCallError,
+  LocalMediaEncryptionError,
+  MediaPermissionDeniedError,
+} from "../utils/errors";
 import { type ScreenShareFailure } from "../oriso/screenShareFailure";
 
 vi.hoisted(
@@ -108,6 +114,33 @@ const hostWindow = vi.hoisted(() => ({
 vi.mock("../oriso/useOrisoWindow", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useOrisoWindow: (): typeof hostWindow => hostWindow,
+}));
+/*
+ * The host's side of guests (#170): who knocks and "Anklopfen" (#108), and
+ * the call's link. No widget in this file, so both are stood in for.
+ */
+const hostGuests = vi.hoisted(() => ({
+  waiting: 0,
+  knock: null as boolean | null,
+  linkRequested: 0,
+}));
+vi.mock("../oriso/useOrisoKnock", () => ({
+  useOrisoKnock: (): {
+    waiting: number;
+    knock: boolean | null;
+    setKnock: ((knock: boolean) => void) | null;
+  } => ({
+    waiting: hostGuests.waiting,
+    knock: hostGuests.knock,
+    setKnock: hostGuests.knock === null ? null : (): void => {},
+  }),
+}));
+vi.mock("../oriso/inviteLink", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  inviteLinkRequester: () => async (): Promise<{ url: string }> => {
+    hostGuests.linkRequested++;
+    return Promise.resolve({ url: "https://oriso.test/call/j/abc" });
+  },
 }));
 /*
  * The grid asks how big it is and lays nothing out if the answer is nothing.
@@ -216,6 +249,10 @@ beforeEach(() => {
   view.height = 760;
   hostWindow.send = null;
   hostWindow.fullscreen = true;
+  hostGuests.waiting = 0;
+  hostGuests.knock = null;
+  hostGuests.linkRequested = 0;
+  forgetGuestsInPlay();
   // Views, atmosphere and name style are remembered per person (S5, S6);
   // one test's choice must not become the next test's start.
   localStorage.clear();
@@ -248,6 +285,7 @@ function createInCallView({
   crowd = false,
   callIntent,
   callType,
+  scheme = "dark",
   encrypted = false,
   orisoLogo,
   cameraOn = false,
@@ -256,6 +294,7 @@ function createInCallView({
   shareFailure = null,
   roomName = "Schuldnerberatung",
   topic,
+  invite = false,
 }: {
   mediaError?: ElementCallError | null;
   published?: Record<string, Record<string, string>>;
@@ -268,6 +307,7 @@ function createInCallView({
   callIntent?: "audio" | "video";
   /** `orisoCallType` on the URL, and in the view model as InCallView passes it. */
   callType?: "group" | "circle" | "single";
+  scheme?: "light" | "dark";
   encrypted?: boolean;
   /** The Träger's logo, as the app puts it into the call address. */
   orisoLogo?: string;
@@ -283,6 +323,8 @@ function createInCallView({
   roomName?: string;
   /** `orisoTopic` on the URL (#2233 R6). */
   topic?: string;
+  /** `orisoInvite=1`: the counsellor may hand out the call's link. */
+  invite?: boolean;
 } = {}): RenderResult & {
   rtcSession: MockRTCSession;
   retryMedia: ReturnType<typeof vi.fn>;
@@ -387,7 +429,8 @@ function createInCallView({
               : `&orisoTopic=${encodeURIComponent(topic)}`) +
             (orisoLogo === undefined
               ? ""
-              : `&orisoLogo=${encodeURIComponent(orisoLogo)}`)
+              : `&orisoLogo=${encodeURIComponent(orisoLogo)}`) +
+            (invite ? "&orisoInvite=1" : "")
           : "/room/",
       ]}
     >
@@ -428,6 +471,13 @@ function createInCallView({
         </ReactionsSenderProvider>
       </MediaDevicesContext>
     </MemoryRouter>,
+    {
+      wrapper: ({ children }) => (
+        <CallAppearanceContext value={{ scheme, contrast: "standard" }}>
+          {children}
+        </CallAppearanceContext>
+      ),
+    },
   );
   return {
     ...renderResult,
@@ -517,6 +567,31 @@ describe("the call, in the ORISO design", () => {
     );
   });
 
+  it("hides the call encryption badge while local encryption is unavailable", async () => {
+    createInCallView({
+      callIntent: "audio",
+      published: {},
+      encrypted: true,
+      mediaError: new LocalMediaEncryptionError(new Error("key import failed")),
+    });
+    const header = await screen.findByTestId("oriso-header");
+    expect(within(header).queryByTestId("oriso-header-e2ee")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Call encryption is unavailable",
+    );
+  });
+
+  it("keeps the call encryption badge for a microphone permission error", async () => {
+    createInCallView({
+      callIntent: "audio",
+      published: {},
+      encrypted: true,
+      mediaError: new MediaPermissionDeniedError(),
+    });
+    const header = await screen.findByTestId("oriso-header");
+    expect(within(header).getByTestId("oriso-header-e2ee")).toBeInTheDocument();
+  });
+
   it("keeps the split circle in a video call while both cameras are off (#2233 D5)", async () => {
     createInCallView({ callIntent: "video", published: {} });
     expect(await screen.findByTestId("einzelgespraech")).toBeInTheDocument();
@@ -546,6 +621,22 @@ describe("the call, in the ORISO design", () => {
       );
     },
   );
+
+  it("uses the host's light header in a video 1:1 while the camera is on", () => {
+    createInCallView({
+      callIntent: "video",
+      callType: "single",
+      scheme: "light",
+      cameraOn: true,
+      published: {},
+    });
+    const header = screen.getByTestId("oriso-header");
+    expect(header.dataset.tone).toBe("light");
+    expect(
+      within(header).getByTestId("incall_video_header_notes"),
+    ).toBeVisible();
+    expect(screen.getByTestId("incall_videomute")).toBeVisible();
+  });
 
   it("opens docked notes from the header of an embedded video call", () => {
     const { container } = createInCallView({
@@ -1364,3 +1455,65 @@ async function openViewRail(): Promise<HTMLElement> {
   const header = await screen.findByTestId("oriso-header");
   return within(header).getByTestId("view-switcher");
 }
+
+describe("guest settings only when guests are part of the call (#170)", () => {
+  it("shows no share link in the header and no guest button with only logged-in people", () => {
+    hostGuests.knock = true;
+    createInCallView({ callIntent: "audio", invite: true });
+    const header = screen.getByTestId("oriso-header");
+    expect(within(header).queryByTestId("oriso-invite-button")).toBeNull();
+    expect(within(header).queryByText("Share link")).toBeNull();
+    expect(screen.queryByTestId("oriso-guest-fab")).toBeNull();
+    // Inviting stays one entry away, and Anklopfen is not in the menu.
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    const menu = screen.getByTestId("oriso-call-menu");
+    expect(within(menu).getByText("Send invite link")).toBeInTheDocument();
+    expect(
+      within(menu).queryByRole("switch", { name: "Knock first" }),
+    ).toBeNull();
+  });
+
+  it("brings the guest button with Anklopfen once somebody knocks", () => {
+    hostGuests.knock = true;
+    hostGuests.waiting = 1;
+    createInCallView({ callIntent: "audio", invite: true });
+    const fab = screen.getByRole("button", { name: "Guests, 1 waiting" });
+    expect(screen.queryByTestId("oriso-waiting-badge")).not.toBeInTheDocument();
+    expect(fab.closest(".cpd-theme-light")).not.toBeNull();
+    fireEvent.click(fab);
+    expect(
+      within(screen.getByTestId("oriso-guest-panel")).getByRole("switch", {
+        name: "Knock first",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("inherits the call appearance only in 1:1 video calls", () => {
+    hostGuests.knock = true;
+    hostGuests.waiting = 1;
+    createInCallView({
+      callIntent: "video",
+      callType: "single",
+      cameraOn: true,
+      published: {},
+      invite: true,
+    });
+    const fab = screen.getByRole("button", { name: "Guests, 1 waiting" });
+    expect(Boolean(fab.closest(".cpd-theme-light"))).toBe(false);
+  });
+
+  it("brings the guest button once the counsellor sends the invite link", async () => {
+    createInCallView({ callIntent: "audio", invite: true });
+    expect(screen.queryByTestId("oriso-guest-fab")).toBeNull();
+    fireEvent.click(screen.getByTestId("incall_menu"));
+    fireEvent.click(screen.getByText("Send invite link"));
+    await waitFor(() => expect(hostGuests.linkRequested).toBe(1));
+    expect(await screen.findByTestId("oriso-guest-fab")).toBeInTheDocument();
+  });
+
+  it("offers nothing to somebody who can neither share nor admit", () => {
+    hostGuests.waiting = 1;
+    createInCallView({ callIntent: "audio" });
+    expect(screen.queryByTestId("oriso-guest-fab")).toBeNull();
+  });
+});

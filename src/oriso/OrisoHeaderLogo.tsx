@@ -56,8 +56,8 @@ const operatorLogo = (): string | null => {
  *
  * No logo, no image, no gap: without an address nothing is rendered, and an
  * image that fails to load is dropped for good instead of leaving a broken
- * icon. Until it has loaded it is `hidden`, so its slot does not take a gap
- * in the header's flex row.
+ * icon. Until it has loaded its plate is `hidden`, so its slot does not take
+ * a gap in the header's flex row.
  *
  * Decorative (`alt=""`): the title beside it already says where the call is.
  * `no-referrer` keeps the call's origin from the logo's host.
@@ -72,21 +72,27 @@ const OrisoHeaderLogoImage: FC<{ src: string; onFail?: () => void }> = ({
   if (state === "failed") {
     return null;
   }
+  // The plate rounds and the image sits inside it unclipped (see the CSS).
   return (
-    <img
-      className={styles.logo}
-      data-testid="oriso_header_logo"
-      src={src}
-      alt=""
-      draggable={false}
-      referrerPolicy="no-referrer"
+    <span
+      className={styles.plate}
+      data-testid="oriso_header_logo_plate"
       hidden={state === "loading"}
-      onLoad={() => setState("loaded")}
-      onError={() => {
-        setState("failed");
-        onFail?.();
-      }}
-    />
+    >
+      <img
+        className={styles.logo}
+        data-testid="oriso_header_logo"
+        src={src}
+        alt=""
+        draggable={false}
+        referrerPolicy="no-referrer"
+        onLoad={() => setState("loaded")}
+        onError={() => {
+          setState("failed");
+          onFail?.();
+        }}
+      />
+    </span>
   );
 };
 

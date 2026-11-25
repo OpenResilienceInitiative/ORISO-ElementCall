@@ -13,7 +13,7 @@ Please see LICENSE in the repository root for full details.
 export type ThemeBlocks = Record<string, Record<string, string>>;
 
 const BLOCK =
-  /(\.cpd-theme-(?:light|dark)\.cpd-theme-(?:light|dark)|:root)\s*\{([^{}]*)\}/g;
+  /(\.cpd-theme-(?:light|dark)(?:-hc)?(?:\.cpd-theme-(?:light|dark)(?:-hc)?|\[data-oriso-contrast-level="medium"\])|:root)\s*\{([^{}]*)\}/g;
 
 export const themeBlocks = (css: string): ThemeBlocks => {
   const stripped = css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -35,3 +35,18 @@ export const themeBlocks = (css: string): ThemeBlocks => {
 export const ROOT = ":root";
 export const LIGHT = ".cpd-theme-light.cpd-theme-light";
 export const DARK = ".cpd-theme-dark.cpd-theme-dark";
+
+export const LIGHT_MEDIUM =
+  '.cpd-theme-light[data-oriso-contrast-level="medium"]';
+export const DARK_MEDIUM =
+  '.cpd-theme-dark[data-oriso-contrast-level="medium"]';
+export const LIGHT_HIGH = ".cpd-theme-light-hc.cpd-theme-light-hc";
+export const DARK_HIGH = ".cpd-theme-dark-hc.cpd-theme-dark-hc";
+export const CALL_THEME_SELECTORS = [
+  LIGHT,
+  DARK,
+  LIGHT_MEDIUM,
+  DARK_MEDIUM,
+  LIGHT_HIGH,
+  DARK_HIGH,
+];

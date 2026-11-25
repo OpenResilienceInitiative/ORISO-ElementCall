@@ -38,6 +38,16 @@ Please see LICENSE in the repository root for full details.
    the call menu's values (1c): light surface, 28px corners, the primary ring,
    Inter. Compound reads its colours from these tokens. */
 .oriso {
+  --oriso-ink: var(--cpd-color-text-primary);
+
+  color-scheme: light;
+  color: var(--oriso-ink);
+  font-family: Inter, sans-serif;
+}
+
+/* Retain the approved standard surface and markup in the unmodified mode.
+   Medium and high take their paint from the generated light Compound roles. */
+.oriso:not([data-oriso-contrast-level]) {
   --oriso-ink: rgb(45 44 40);
   --cpd-color-bg-canvas-default: rgb(250 249 249);
   --cpd-color-text-primary: var(--oriso-ink);
@@ -48,10 +58,32 @@ Please see LICENSE in the repository root for full details.
   --cpd-color-bg-accent-rest: var(--oriso-primary, #a5000a);
   --cpd-color-bg-accent-hovered: var(--oriso-primary-hover, #820006);
   --cpd-color-border-focused: var(--oriso-primary, #a5000a);
+}
 
-  color-scheme: light;
-  color: var(--oriso-ink);
-  font-family: Inter, sans-serif;
+.oriso[data-oriso-personal-settings]:not([data-oriso-contrast-level]) {
+  --oriso-settings-ring: var(--oriso-ink);
+  --cpd-color-border-focused: var(--oriso-settings-ring);
+}
+
+.oriso[data-oriso-contrast-level] {
+  --oriso-settings-ring: var(--cpd-color-border-focused);
+  --oriso-settings-selected-fill: var(--cpd-color-bg-subtle-primary);
+}
+
+.oriso[data-oriso-personal-settings] h2 {
+  font-size: calc(var(--cpd-font-size-heading-md) * var(--font-scale, 1));
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.oriso[data-oriso-personal-settings]
+  :is(
+    input[type="checkbox"] + label,
+    .volumeSlider > label,
+    .volumeSlider > p
+  ) {
+  font-size: var(--font-size-body);
+  line-height: 1.5;
 }
 
 /* On a desk the dialog sits in Compound's glass frame; the menu has none,

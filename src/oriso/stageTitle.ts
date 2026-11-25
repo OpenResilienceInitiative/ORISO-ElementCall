@@ -91,7 +91,7 @@ export function stageTitleText(
     case "room":
       return (
         title.name ||
-        t(video ? "oriso.video_stage_title" : "oriso.audio_stage_title")
+        (video ? t("oriso.video_stage_title") : t("oriso.audio_stage_title"))
       );
   }
 }

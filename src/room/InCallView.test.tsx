@@ -50,6 +50,7 @@ import { MediaDevicesContext } from "../MediaDevicesContext";
 import { HeaderStyle } from "../UrlParams";
 import {
   type ElementCallError,
+  LocalMediaEncryptionError,
   MediaPermissionDeniedError,
 } from "../utils/errors";
 
@@ -212,6 +213,21 @@ describe("InCallView", () => {
     it("renders", () => {
       const { container } = createInCallView();
       expect(container).toMatchSnapshot();
+    });
+
+    it("shows the actionable in-call encryption error and uses the existing Retry action", () => {
+      const { retryMedia } = createInCallView(
+        new LocalMediaEncryptionError(new Error("key import failed")),
+      );
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Call encryption is unavailable",
+      );
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Your audio, video and screen sharing are paused until encryption is ready. Try again to restore it.",
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(retryMedia).toHaveBeenCalledOnce();
     });
 
     it("explains denied media permissions, reflects muted media, and retries", () => {

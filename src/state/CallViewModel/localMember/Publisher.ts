@@ -15,6 +15,7 @@ import {
 } from "livekit-client";
 import {
   BehaviorSubject,
+  combineLatest,
   map,
   NEVER,
   type Observable,
@@ -23,7 +24,7 @@ import {
 } from "rxjs";
 import { type Logger } from "matrix-js-sdk/lib/logger";
 
-import type { Behavior } from "../../Behavior.ts";
+import { type Behavior, constant } from "../../Behavior.ts";
 import type { MediaDevices, SelectedDevice } from "../../MediaDevices.ts";
 import type { MuteStates } from "../../MuteStates.ts";
 import {
@@ -34,6 +35,11 @@ import { getUrlParams } from "../../../UrlParams.ts";
 import { observeTrackReference$ } from "../../MediaViewModel.ts";
 import { type Connection } from "../remoteMembers/Connection.ts";
 import { type ObservableScope } from "../../ObservableScope.ts";
+import {
+  type LocalMediaEncryptionState,
+  type LocalMediaKey,
+} from "../../../e2ee/matrixKeyProvider.ts";
+import { LocalMediaEncryptionError } from "../../../utils/errors.ts";
 
 /**
  * A wrapper for a Connection object.
@@ -42,6 +48,11 @@ import { type ObservableScope } from "../../ObservableScope.ts";
  */
 export class Publisher {
   private muteStatesObserved = false;
+  private retired = false;
+  private activationRevision = 0;
+  private readonly activationState$ =
+    new BehaviorSubject<LocalMediaEncryptionState>("pending");
+  public readonly encryptionState$: Behavior<LocalMediaEncryptionState>;
 
   /**
    * Creates a new Publisher.
@@ -49,8 +60,9 @@ export class Publisher {
    * @param connection - The connection to use for publishing.
    * @param devices - The media devices to use for audio and video input.
    * @param muteStates - The mute states for audio and video.
-   * @param e2eeLivekitOptions - The E2EE options to use for the LiveKit room. Use to share the same key provider across connections!.
    * @param trackerProcessorState$ - The processor state for the video track processor (e.g. background blur).
+   * @param logger - The logger scoped to this media connection.
+   * @param localMediaKey - The required call key, if media encryption is required.
    */
   public constructor(
     private scope: ObservableScope,
@@ -59,16 +71,29 @@ export class Publisher {
     private readonly muteStates: MuteStates,
     trackerProcessorState$: Behavior<ProcessorState>,
     private logger: Logger,
+    private readonly localMediaKey?: LocalMediaKey,
   ) {
     this.logger.info("Create LiveKit room");
     const { controlledAudioDevices } = getUrlParams();
 
     const room = connection.livekitRoom;
-    if (room.hasE2EESetup) {
-      void room.setE2EEEnabled(true).catch((error: Error) => {
-        this.logger.error("Failed to enable E2EE on LiveKit room", error);
-      });
-    }
+    this.encryptionState$ = scope.behavior(
+      combineLatest([
+        localMediaKey?.localKeyState$ ?? constant("ready" as const),
+        this.activationState$,
+      ]).pipe(
+        map(([key, activation]) => {
+          if (key instanceof LocalMediaEncryptionError) return key;
+          if (activation instanceof LocalMediaEncryptionError)
+            return activation;
+          return key === "ready" && activation === "ready"
+            ? "ready"
+            : "pending";
+        }),
+      ),
+    );
+    if (localMediaKey || room.hasE2EESetup) void this.enableEncryption();
+    else this.activationState$.next("ready");
 
     // Setup track processor syncing (blur)
     this.observeTrackProcessors(scope, room, trackerProcessorState$);
@@ -77,8 +102,11 @@ export class Publisher {
 
     this.workaroundRestartAudioInputTrackChrome(devices, scope);
     this.scope.onEnd(() => {
+      this.retire();
       this.logger.info("Scope ended -> stop publishing all tracks");
-      void this.stopPublishing();
+      void this.stopPublishing().catch((error: unknown) =>
+        this.logger.error("Failed to stop retired publisher", error),
+      );
     });
 
     // TODO move mute state handling here using reconcile (instead of inside the mute state class)
@@ -97,6 +125,41 @@ export class Publisher {
     //     }
     //   },
     // );
+  }
+
+  private async enableEncryption(): Promise<void> {
+    const revision = ++this.activationRevision;
+    this.activationState$.next("pending");
+    try {
+      await this.connection.livekitRoom.setE2EEEnabled(true);
+      if (!this.retired && revision === this.activationRevision) {
+        this.activationState$.next("ready");
+      }
+    } catch (error) {
+      if (this.retired || revision !== this.activationRevision) return;
+      this.logger.error("Failed to enable E2EE on LiveKit room", error);
+      this.activationState$.next(new LocalMediaEncryptionError(error));
+    }
+  }
+
+  public retryEncryption(retryPending = false): void {
+    if (this.retired) return;
+    this.localMediaKey?.retryLocalKey(retryPending);
+    const activation = this.activationState$.value;
+    if (
+      activation instanceof LocalMediaEncryptionError ||
+      (retryPending && activation === "pending")
+    ) {
+      void this.enableEncryption();
+    }
+  }
+
+  public retire(): void {
+    this.retired = true;
+  }
+
+  private get canPublishMedia(): boolean {
+    return !this.retired && this.encryptionState$.value === "ready";
   }
 
   private _tracks$ = new BehaviorSubject<LocalTrack<Track.Kind>[]>([]);
@@ -140,7 +203,7 @@ export class Publisher {
             "created track",
             tracks.map((t) => t.kind + ", " + t.id),
           );
-          this._tracks$.next(tracks);
+          this.setCapturedTracks(tracks);
         })
         .catch((error) => {
           this.logger.error("Failed to create tracks", error);
@@ -169,7 +232,12 @@ export class Publisher {
       "created muted track",
       tracks.map((t) => t.kind + ", " + t.id),
     );
-    this._tracks$.next(tracks);
+    this.setCapturedTracks(tracks);
+  }
+
+  private setCapturedTracks(tracks: LocalTrack[]): void {
+    if (this.retired) tracks.forEach((track) => track.stop());
+    else this._tracks$.next(tracks);
   }
 
   private _publishing$ = new BehaviorSubject<boolean>(false);
@@ -183,44 +251,22 @@ export class Publisher {
     this.logger.debug("startPublishing called");
     const lkRoom = this.connection.livekitRoom;
 
-    // we do not need to do this since lk will wait in `localParticipant.publishTrack`
-    // const { promise, resolve, reject } = Promise.withResolvers<void>();
-    // const sub = this.connection.state$.subscribe((state) => {
-    //   if (state instanceof Error) {
-    //     const error =
-    //       state instanceof ElementCallError
-    //         ? state
-    //         : new FailToStartLivekitConnection(state.message);
-    //     reject(error);
-    //   } else if (state === ConnectionState.LivekitConnected) {
-    //     resolve();
-    //   } else {
-    //     this.logger.info("waiting for connection: ", state);
-    //   }
-    // });
-    // try {
-    //   await promise;
-    // } catch (e) {
-    //   throw e;
-    // } finally {
-    //   sub.unsubscribe();
-    // }
-
     for (const track of this.tracks$.value) {
+      if (!this.canPublishMedia) return [];
       this.logger.info("publish ", this.tracks$.value.length, "tracks");
-      // TODO: handle errors? Needs the signaling connection to be up, but it has some retries internally
-      // with a timeout.
-      await lkRoom.localParticipant.publishTrack(track).catch((error) => {
-        this.logger.error("Failed to publish track", error);
-        // throw new FailToStartLivekitConnection(
-        //   error instanceof Error ? error.message : error,
-        // );
-        throw error;
-      });
+      await lkRoom.localParticipant
+        .publishTrack(track)
+        .catch((error: unknown) => {
+          this.logger.error("Failed to publish track", error);
+          throw error;
+        });
+      if (this.retired) {
+        await lkRoom.localParticipant.unpublishTrack(track);
+        return [];
+      }
       this.logger.info("published track ", track.kind, track.id);
-
-      // TODO: check if the connection is still active? and break the loop if not?
     }
+    if (!this.canPublishMedia) return [];
     this._publishing$.next(true);
     return this.tracks$.value;
   }
@@ -231,6 +277,7 @@ export class Publisher {
     // actually has the right lifetime
     this.muteStates.audio.unsetHandler();
     this.muteStates.video.unsetHandler();
+    this.muteStatesObserved = false;
 
     const localParticipant = this.connection.livekitRoom.localParticipant;
     const tracks: LocalTrack[] = [];
@@ -363,7 +410,12 @@ export class Publisher {
     const lkRoom = this.connection.livekitRoom;
     this.muteStates.audio.setHandler(async (desired) => {
       try {
-        await lkRoom.localParticipant.setMicrophoneEnabled(desired);
+        if (!desired || this.canPublishMedia) {
+          await lkRoom.localParticipant.setMicrophoneEnabled(desired);
+          if (desired && !this.canPublishMedia) {
+            await lkRoom.localParticipant.setMicrophoneEnabled(false);
+          }
+        }
       } catch (e) {
         this.logger.error("Failed to update LiveKit audio input mute state", e);
       }
@@ -371,7 +423,12 @@ export class Publisher {
     });
     this.muteStates.video.setHandler(async (desired) => {
       try {
-        await lkRoom.localParticipant.setCameraEnabled(desired);
+        if (!desired || this.canPublishMedia) {
+          await lkRoom.localParticipant.setCameraEnabled(desired);
+          if (desired && !this.canPublishMedia) {
+            await lkRoom.localParticipant.setCameraEnabled(false);
+          }
+        }
       } catch (e) {
         this.logger.error("Failed to update LiveKit video input mute state", e);
       }

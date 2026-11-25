@@ -22,7 +22,7 @@ import classNames from "classnames";
 
 import styles from "./OrisoParticipantsPanel.module.css";
 import menuStyles from "./OrisoToolbar.module.css";
-import { InviteLinkBody, useInviteLink } from "./InviteLinkButton";
+import { InviteLinkBody, useInviteLink } from "./InviteLinkBody";
 import { type InviteLinkReply } from "./inviteLink";
 import { lettersFor } from "./OrisoFace";
 import { useArtwork } from "./artwork";
@@ -140,6 +140,9 @@ export const OrisoParticipantsPanel: FC<Props> = ({
 const noRequest = async (): Promise<InviteLinkReply> =>
   Promise.resolve({ error: "no host" });
 
+// Retain the existing catalogue entries for legacy participant pin controls.
+// t("oriso.participant_pin_hint")
+// t("oriso.participant_unpin")
 const ParticipantRow: FC<CallParticipant> = ({ userId, displayName }) => {
   const { t } = useTranslation();
   const { parentUrl = null } = useOrisoStage();
@@ -152,7 +155,9 @@ const ParticipantRow: FC<CallParticipant> = ({ userId, displayName }) => {
         <span className={styles.name}>{name}</span>
         {identity?.role && (
           <span className={styles.role}>
-            {t(`oriso.participant_role_${identity.role}`)}
+            {identity.role === "asker"
+              ? t("oriso.participant_role_asker")
+              : t("oriso.participant_role_counsellor")}
           </span>
         )}
       </span>

@@ -28,8 +28,14 @@ Please see LICENSE in the repository root for full details.
  *                                 corner, as ORISO-Frontend draws it for a
  *                                 counsellor (`orisoInvite`, #2233)
  *   ?chrome=call|host             call: the header's own window buttons;
- *                                 host: the host's four corner buttons drawn
+ *                                 host: the host's corner buttons drawn
  *                                 over the iframe, as ORISO-Frontend does
+ *   ?invite=1                     the counsellor may hand out the call's link
+ *                                 (`orisoInvite`); the host answers with a
+ *                                 made-up address. "Einladelink senden" in
+ *                                 the ⋮; the guest button (#170) comes once
+ *                                 somebody knocks (?waiting=1) or the link
+ *                                 was asked for
  *   ?names=login|bare             the homeserver holds the login name; with
  *                                 "bare" nobody published a name either
  *   ?artwork=none                 the animal drawings never arrive
@@ -78,6 +84,9 @@ import { OrisoNotes } from "../src/oriso/OrisoNotes";
 import { Toast } from "../src/Toast";
 import { type OrisoIdentity, shownNameFor } from "../src/oriso/identity";
 import { OrisoHeader } from "../src/oriso/OrisoHeader";
+import { OrisoGuestFab } from "../src/oriso/OrisoGuestFab";
+import { useOrisoGuestsInPlay } from "../src/oriso/useOrisoGuestsInPlay";
+import { type InviteLinkReply } from "../src/oriso/inviteLink";
 import { readTopic, stageTitle } from "../src/oriso/stageTitle";
 import { WaveBand } from "../src/oriso/WaveBand";
 import { formatCallDuration } from "../src/oriso/useCallDuration";
@@ -122,11 +131,15 @@ const videoStage = video && params.get("camera") !== "off";
 const showHeader = params.get("header") === "1";
 const chrome = params.get("chrome");
 const hostShare = params.get("hostShare") === "1";
+const invite = params.get("invite") === "1";
 const names = params.get("names");
 const noArtwork = params.get("artwork") === "none";
 const mobile = params.get("mobile") === "1";
 /** `?shareFailed=system|blocked|failed`: the notice a failed share shows. */
 const shareFailed = params.get("shareFailed");
+/** `?hand=first|second`: that person's hand is up, raised 1:40 ago. */
+const hand = params.get("hand");
+const handRaisedAt = new Date(Date.now() - 100_000);
 
 const PEOPLE: Record<
   string,
@@ -234,6 +247,11 @@ function Tile({
       }
       orisoParentUrl={window.location.origin}
       orisoOwn={tile.id === "local"}
+      raisedHandTime={
+        hand === (tile.id === "remote" ? "first" : "second")
+          ? handRaisedAt
+          : undefined
+      }
     />
   );
 }
@@ -252,13 +270,13 @@ function Footer({
   const [audioMuted, setAudioMuted] = useState(muted === "second");
   const [videoMuted, setVideoMuted] = useState(true);
   const [hand, setHand] = useState(false);
-  const [knock, setKnock] = useState(true);
+  const title = useHarnessTitle();
   return (
     <OrisoToolbar
       compact={mobile}
-      waitingCount={Number(waiting ?? 0)}
-      knock={waiting === null ? null : knock}
-      onKnockChange={waiting === null ? null : setKnock}
+      roomTitle={title}
+      inviteRequest={inviteRequest}
+      participants={invite ? harnessParticipants : undefined}
       className={styles.orisoToolbar}
       audioMuted={audioMuted}
       onToggleAudio={() => setAudioMuted((m) => !m)}
@@ -280,6 +298,48 @@ function Footer({
   );
 }
 
+/** The host's answer to `org.oriso.call.invite_link`, without a host. */
+const INVITED = "oriso-harness-invited";
+const inviteRequest = invite
+  ? async (): Promise<InviteLinkReply> => {
+      // Asking for the link is inviting: InCallView marks guests in play.
+      window.dispatchEvent(new Event(INVITED));
+      return Promise.resolve({ url: "https://dev.oriso.org/call/j/Xk3p9Q" });
+    }
+  : null;
+
+/** The guest button, as InCallView draws it once guests are in play. */
+function GuestFab(): React.ReactNode {
+  const waitingCount = Number(waiting ?? 0);
+  const { inPlay, markInviting } = useOrisoGuestsInPlay(
+    "harness",
+    waitingCount,
+  );
+  const [knock, setKnock] = useState(true);
+  useEffect(() => {
+    window.addEventListener(INVITED, markInviting);
+    return (): void => window.removeEventListener(INVITED, markInviting);
+  }, [markInviting]);
+  if (!inPlay || (inviteRequest === null && waiting === null)) return null;
+  return (
+    <OrisoGuestFab
+      inviteRequest={inviteRequest}
+      knock={waiting === null ? null : knock}
+      onKnockChange={waiting === null ? null : setKnock}
+      waitingCount={waitingCount}
+      compact={mobile}
+      followCallAppearance={video}
+      style={{ "--oriso-footer-h": `${FOOTER_BLOCK}px` } as CSSProperties}
+    />
+  );
+}
+
+/** Who the participants panel lists. */
+const harnessParticipants = [
+  { userId: "@remote:oriso.test", displayName: "Fuchs" },
+  { userId: "@local:oriso.test", displayName: "Beratung" },
+];
+
 /** What `InCallView` subtracts for its footer before handing on the stage. */
 const FOOTER_BLOCK = mobile ? 104 : 144;
 /** The ORISO header's height, when it is shown; a phone's band under it. */
@@ -294,7 +354,6 @@ const speaker =
       }
     : null;
 
-/** The four buttons ORISO-Frontend draws over the iframe without `orisoHostChrome`. */
 /** ORISO-Frontend's share button (`.element-call-share`): 32px, 2px in. */
 function HostShareButton(): React.ReactNode {
   return (
@@ -315,10 +374,22 @@ function HostShareButton(): React.ReactNode {
   );
 }
 
+/** Legacy host controls: close and minimise on phones, four on desktop. */
 function HostCornerButtons(): React.ReactNode {
+  const corners: [number, string][] = mobile
+    ? [
+        [10, "×"],
+        [50, "–"],
+      ]
+    : [
+        [10, "×"],
+        [50, "⤢"],
+        [90, "⛶"],
+        [130, "–"],
+      ];
   return (
     <>
-      {[10, 50, 90, 130].map((right) => (
+      {corners.map(([right, label]) => (
         <span
           key={right}
           aria-hidden="true"
@@ -331,9 +402,14 @@ function HostCornerButtons(): React.ReactNode {
             height: 32,
             borderRadius: "50%",
             background: "rgb(0 0 0 / 60%)",
+            color: "#fff",
+            display: "grid",
+            placeItems: "center",
             zIndex: 100,
           }}
-        />
+        >
+          {label}
+        </span>
       ))}
     </>
   );
@@ -379,22 +455,31 @@ function Header(): React.ReactNode {
       }
       actions={
         mobile ? (
-          <OrisoMobileMenu
-            participantCount={2}
-            onToggleNotes={() => {}}
-            onHangup={() => {}}
-            onToggleScreenShare={() => {}}
-            sharingScreen={false}
-            onOpenSoundSettings={() => {}}
-            onOpenSettings={() => {}}
-            onToggleWindow={(): void => {}}
-            fullscreen
-          />
-        ) : videoStage ? (
-          <button type="button" className={styles.videoNotesButton}>
-            Notizen
-          </button>
-        ) : undefined
+          <>
+            <OrisoMobileMenu
+              roomTitle={title}
+              participantCount={2}
+              inviteRequest={inviteRequest}
+              participants={invite ? harnessParticipants : undefined}
+              onToggleNotes={() => {}}
+              onHangup={() => {}}
+              onToggleScreenShare={() => {}}
+              sharingScreen={false}
+              onOpenSoundSettings={() => {}}
+              onOpenSettings={() => {}}
+              onToggleWindow={(): void => {}}
+              fullscreen
+            />
+          </>
+        ) : (
+          <>
+            {videoStage && (
+              <button type="button" className={styles.videoNotesButton}>
+                Notizen
+              </button>
+            )}
+          </>
+        )
       }
       onWindow={chrome === "call" ? (): void => {} : null}
       hostShare={hostShare}
@@ -472,13 +557,15 @@ function Call(): React.ReactNode {
           data-oriso-video-stage={videoStage ? "true" : undefined}
           data-notes-docked={docked ? "true" : undefined}
           style={
-            videoStage
-              ? ({
-                  "--oriso-stage-gutter": `${gutter}px`,
-                  "--oriso-video-notes-width": "312px",
-                  "--oriso-video-notes-inset": `${312 + 16}px`,
-                } as CSSProperties)
-              : undefined
+            {
+              "--oriso-header-h": `${HEADER_BLOCK}px`,
+              "--oriso-footer-h": `${FOOTER_BLOCK}px`,
+              ...(videoStage && {
+                "--oriso-stage-gutter": `${gutter}px`,
+                "--oriso-video-notes-width": "312px",
+                "--oriso-video-notes-inset": `${312 + 16}px`,
+              }),
+            } as CSSProperties
           }
         >
           {chrome === "host" && <HostCornerButtons />}
@@ -501,6 +588,7 @@ function Call(): React.ReactNode {
               onToggleNotes={() => setNotesOpen((o) => !o)}
             />
           </div>
+          <GuestFab />
           <OrisoNotes
             ref={notesRef}
             open={notesOpen}
@@ -535,7 +623,11 @@ void animated;
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider>
-      <div className="cpd-theme-dark" style={{ height: "100vh" }}>
+      <div
+        className="cpd-theme-dark"
+        data-oriso-follow-host={video || undefined}
+        style={{ height: "100vh" }}
+      >
         <Call />
         {shareFailed !== null && (
           <Toast open onDismiss={() => {}} modal={false}>

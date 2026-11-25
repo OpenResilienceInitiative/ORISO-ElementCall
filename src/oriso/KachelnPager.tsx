@@ -130,9 +130,7 @@ export const KachelnPager: FC<{ count: number }> = ({ count }) => {
   // sideways), somebody is out of sight too, and the arrows matter most.
   const paged =
     state.overflow &&
-    (state.range === null ||
-      state.range.first > 1 ||
-      state.range.last < count);
+    (state.range === null || state.range.first > 1 || state.range.last < count);
   return (
     <div
       ref={ref}
@@ -158,9 +156,12 @@ export const KachelnPager: FC<{ count: number }> = ({ count }) => {
       <span className={styles.count}>
         {paged && state.range
           ? t("oriso.kacheln_range", {
-              first: state.range.first,
-              last: state.range.last,
-              count,
+              // The range interpolates a total without using plural forms.
+              replace: {
+                first: state.range.first,
+                last: state.range.last,
+                count,
+              },
             })
           : t("oriso.participants_count", { count })}
       </span>

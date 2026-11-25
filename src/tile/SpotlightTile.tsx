@@ -79,6 +79,7 @@ interface SpotlightUserMediaItemBaseProps extends SpotlightItemBaseProps {
   orisoIdentity?: OrisoIdentity;
   orisoSpeaking?: boolean;
   orisoParentUrl?: string | null;
+  raisedHandTime?: Date;
 }
 
 interface SpotlightLocalUserMediaItemProps extends SpotlightUserMediaItemBaseProps {
@@ -137,6 +138,9 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
   const { parentUrl } = useOrisoStage();
   const orisoIdentity = useOrisoIdentity(vm.userId, props.displayName);
   const speaking = useBehavior(vm.speaking$);
+  // Every grid tile passes the raised hand on; the spotlight's did not, so
+  // the one person filling the stage could raise a hand unseen (#173).
+  const handRaised = useBehavior(vm.handRaised$);
   // See `shownNameFor` — the spotlight shows the same person as the rail.
   const shownName = useShownName(props.displayName, orisoIdentity, vm.userId);
 
@@ -146,6 +150,7 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
     orisoIdentity,
     orisoSpeaking: speaking,
     orisoParentUrl: parentUrl,
+    raisedHandTime: handRaised ?? undefined,
     ...props,
     // After the spread, deliberately: it replaces the name that came in.
     displayName: shownName,

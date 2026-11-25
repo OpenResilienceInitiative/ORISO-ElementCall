@@ -135,6 +135,7 @@ interface RoomHeaderInfoProps {
   avatarUrl: string | null;
   encrypted: boolean;
   participantCount: number | null;
+  scaleRoomName?: boolean;
 }
 
 export const RoomHeaderInfo: FC<RoomHeaderInfoProps> = ({
@@ -143,12 +144,17 @@ export const RoomHeaderInfo: FC<RoomHeaderInfoProps> = ({
   avatarUrl,
   encrypted,
   participantCount,
+  scaleRoomName,
 }) => {
   const { t } = useTranslation();
   const size = useMediaQuery("(max-width: 550px)") ? "sm" : "lg";
 
   return (
-    <div className={styles.roomHeaderInfo} data-size={size}>
+    <div
+      className={styles.roomHeaderInfo}
+      data-size={size}
+      data-scale-room-name={scaleRoomName || undefined}
+    >
       <Avatar
         className={styles.roomAvatar}
         id={id}
@@ -161,6 +167,7 @@ export const RoomHeaderInfo: FC<RoomHeaderInfoProps> = ({
           type={size === "sm" ? "body" : "heading"}
           size={size === "sm" ? "lg" : "md"}
           weight="semibold"
+          title={name}
           data-testid="roomHeader_roomName"
         >
           {name}

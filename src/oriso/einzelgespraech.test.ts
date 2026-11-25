@@ -116,14 +116,14 @@ describe("the curve the seam travels on", () => {
    */
   it("is cubic-bezier(0.2, 0, 0, 1), to four decimals", () => {
     expect(SEAM_EASING).toContain("cubic-bezier(0.2, 0, 0, 1)");
-    for (const [t, expected] of [
+    for (const [progress, expected] of [
       [0, 0],
       [0.25, 0.60722],
       [0.5, 0.877834],
       [0.75, 0.97548],
       [1, 1],
     ] as const)
-      expect(SEAM_TWEEN.easing(t)).toBeCloseTo(expected, 4);
+      expect(SEAM_TWEEN.easing(progress)).toBeCloseTo(expected, 4);
   });
 
   it("holds still outside the ride, rather than overshooting", () => {

@@ -13,6 +13,7 @@ import {
   type PointerEvent,
   type TouchEvent,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -33,6 +34,7 @@ import {
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { useTranslation } from "react-i18next";
 
+import { CallAppearanceContext } from "../useTheme";
 import type { IWidgetApiRequest } from "matrix-widget-api";
 import {
   EndCallButton,
@@ -68,6 +70,7 @@ import { useInitial } from "../useInitial";
 import { SpotlightTile } from "../tile/SpotlightTile";
 import { type EncryptionSystem } from "../e2ee/sharedKeyManagement";
 import { E2eeType } from "../e2ee/e2eeType";
+import { LocalMediaEncryptionError } from "../utils/errors";
 import { useSharePointer } from "../oriso/pointer/useSharePointer";
 import { makeGridLayout } from "../grid/GridLayout";
 import {
@@ -88,6 +91,7 @@ import { AtmospherePicker } from "../oriso/AtmospherePicker";
 import {
   ATMOSPHERE_CHOICE_KEY,
   type AtmosphereChoice,
+  atmosphereLabel,
   readAtmosphereChoice,
   resolveAtmosphere,
 } from "../oriso/atmosphereChoice";
@@ -109,8 +113,9 @@ import { OrisoHeader } from "../oriso/OrisoHeader";
 import { useOrisoWindow } from "../oriso/useOrisoWindow";
 import { useOrisoInviteAvailable } from "../oriso/useOrisoInviteAvailable";
 import { useOrisoCounsellors } from "../oriso/useOrisoCounsellors";
-import { InviteLinkButton } from "../oriso/InviteLinkButton";
-import { inviteLinkRequester } from "../oriso/inviteLink";
+import { OrisoGuestFab } from "../oriso/OrisoGuestFab";
+import { useOrisoGuestsInPlay } from "../oriso/useOrisoGuestsInPlay";
+import { type InviteLinkReply, inviteLinkRequester } from "../oriso/inviteLink";
 import { useCallDuration } from "../oriso/useCallDuration";
 import { useOrisoKnock } from "../oriso/useOrisoKnock";
 import {
@@ -515,6 +520,11 @@ export const InCallView: FC<InCallViewProps> = ({
 
   // Who knocks on this call's link, and its switch: both from the host (#108).
   const orisoKnock = useOrisoKnock();
+  // Guests: from a knock or the counsellor asking for the link on (#170).
+  const orisoGuests = useOrisoGuestsInPlay(
+    matrixRoom.roomId,
+    orisoKnock.waiting,
+  );
 
   const openProfile = useMemo(
     () =>
@@ -556,6 +566,13 @@ export const InCallView: FC<InCallViewProps> = ({
   const orisoCameraOneOnOne = orisoEnabled && cameraOn && !orisoAudioOnly;
   const orisoVideoOneOnOne =
     orisoCameraOneOnOne && layout.type === "one-on-one";
+  const { scheme: callScheme, contrast } = useContext(CallAppearanceContext);
+  const followsHostAppearance = orisoVideoCall && orisoCallType === "single";
+  const headerTone = followsHostAppearance
+    ? callScheme
+    : orisoVideoOneOnOne
+      ? "dark"
+      : "light";
   /*
    * #2233 (D2): the view rail and the atmosphere come with a group
    * arrangement. That follows the plan (`orisoOneOnOne$`, which counts
@@ -567,13 +584,21 @@ export const InCallView: FC<InCallViewProps> = ({
   const orisoGroupChrome = orisoEnabled && !alone;
   // The window buttons in the header, when the host leaves them to the call.
   const orisoWindow = useOrisoWindow(orisoEnabled && orisoHostChrome);
-  // "Link teilen" (S8): only when the host said it can make a link —
+  // The call's link: only when the host said it can make one —
   // `orisoInvite` at the start, `org.oriso.call.invite_available` later.
   const orisoInviteAvailable = useOrisoInviteAvailable(orisoInvite);
-  const orisoInviteRequest = useMemo(
-    () => (orisoEnabled && orisoInviteAvailable ? inviteLinkRequester() : null),
-    [orisoEnabled, orisoInviteAvailable],
-  );
+  const { markInviting } = orisoGuests;
+  const orisoInviteRequest = useMemo(() => {
+    const request =
+      orisoEnabled && orisoInviteAvailable ? inviteLinkRequester() : null;
+    if (request === null) return null;
+    // Asking for the link is inviting somebody: guests are part of the call
+    // from now on, and the guest button comes (#170).
+    return async (): Promise<InviteLinkReply> => {
+      markInviting();
+      return request();
+    };
+  }, [orisoEnabled, orisoInviteAvailable, markInviting]);
 
   const [headerRef, headerBounds] = useMeasure();
   const [footerRef, footerBounds] = useMeasure();
@@ -911,12 +936,32 @@ export const InCallView: FC<InCallViewProps> = ({
     }));
   }, [participantUserIds, matrixRoom]);
 
+  // The header and its overflow menu display the same room or topic title.
+  const orisoTitle = orisoEnabled
+    ? stageTitleText(
+        stageTitle({
+          roomName: matrixInfo.roomName,
+          defaultRoomName: t("oriso_call_title"),
+          callType: orisoCallType,
+          topic: orisoTopic,
+          group: participantCount > 2,
+        }),
+        t,
+        orisoVideoCall,
+      )
+    : undefined;
+
+  const showGuestFab =
+    orisoEnabled &&
+    showControls &&
+    orisoGuests.inPlay &&
+    (orisoInviteRequest !== null || orisoKnock.setKnock !== null);
+
   // The call menu's contents, in the bar's ⋮ or the phone header's (S9).
   const callMenu: CallMenuProps = {
+    roomTitle: orisoTitle,
     onToggleNotes: toggleNotes,
-    waitingCount: orisoKnock.waiting,
-    knock: orisoKnock.knock,
-    onKnockChange: orisoKnock.setKnock,
+    waitingCount: showGuestFab ? 0 : orisoKnock.waiting,
     pointing: sharePointer.pointing,
     onPointingChange: sharePointer.onPointingChange,
     onHangup: (): void => vm.hangup(),
@@ -927,9 +972,7 @@ export const InCallView: FC<InCallViewProps> = ({
     // A phone's header has no room for the atmosphere popover (5b).
     backgroundLabel:
       atmosphereShown && !orisoMobile
-        ? atmosphereChoice === "traeger"
-          ? t("oriso.atmosphere_carrier")
-          : t(`oriso.atmosphere_${atmosphereChoice}`)
+        ? atmosphereLabel(atmosphereChoice, t)
         : null,
     onOpenBackground: atmosphereShown && !orisoMobile ? openAtmosphere : null,
     onToggleScreenShare: vm.toggleScreenSharing,
@@ -960,35 +1003,28 @@ export const InCallView: FC<InCallViewProps> = ({
   const [stageScrolled, onStageScroll] = useStageScrolled();
 
   let header: ReactNode = null;
-  if (orisoEnabled && showControls && windowMode !== "pip") {
+  if (orisoTitle !== undefined && showControls && windowMode !== "pip") {
     /*
      * The ORISO header, whatever header style the host asked for: the
      * design has one in every call (2a, 2b, 5a), and with `orisoHostChrome`
      * it is where the window buttons live — without it the call would have
      * none at all.
      */
-    /*
-     * "Einzelgespräch · Schuldnerberatung" for a 1:1 the host gave a topic
-     * (#2233 R6), "QA Moabit · Gruppengespräch" for a group chat; a room
-     * with a real name keeps it. See `stageTitle`.
-     */
-    const titleParts = stageTitle({
-      roomName: matrixInfo.roomName,
-      defaultRoomName: t("oriso_call_title"),
-      callType: orisoCallType,
-      topic: orisoTopic,
-      group: participantCount > 2,
-    });
-    const orisoTitle = stageTitleText(titleParts, t, orisoVideoCall);
     const orisoHeader = (
       <OrisoHeader
         ref={orisoMobile ? undefined : headerRef}
-        className={orisoMobile ? undefined : styles.header}
+        className={classNames(
+          orisoMobile ? undefined : styles.header,
+          followsHostAppearance && styles.hostVideoHeader,
+        )}
         compact={orisoMobile}
-        tone={orisoVideoOneOnOne ? "dark" : "light"}
+        tone={headerTone}
         logo={orisoLogo}
         title={orisoTitle}
-        encrypted={matrixInfo.e2eeSystem.kind !== E2eeType.NONE}
+        encrypted={
+          matrixInfo.e2eeSystem.kind !== E2eeType.NONE &&
+          !(mediaError instanceof LocalMediaEncryptionError)
+        }
         meta={
           callDuration !== null ? (
             <span
@@ -1019,7 +1055,7 @@ export const InCallView: FC<InCallViewProps> = ({
           speakerBand === "header" ? (
             <WaveBand
               variant="header"
-              tone={orisoVideoOneOnOne ? "dark" : "light"}
+              tone={headerTone}
               speaker={orisoSpeaker}
             />
           ) : undefined
@@ -1040,7 +1076,7 @@ export const InCallView: FC<InCallViewProps> = ({
                 icon, the active one with its word. */}
             {orisoGroupChrome && orisoOffer.length > 1 && !orisoMobile && (
               <ViewSwitcher
-                tone={orisoVideoOneOnOne ? "dark" : "light"}
+                tone={headerTone}
                 active={stageView}
                 offer={orisoOffer}
                 onChange={setStageView}
@@ -1059,15 +1095,6 @@ export const InCallView: FC<InCallViewProps> = ({
                 <ListBulletedIcon aria-hidden />
                 {t("oriso.video_stage_notes")}
               </button>
-            )}
-            {/* S8: the host's link to this call (`orisoInvite`). */}
-            {orisoInviteRequest !== null && (
-              <InviteLinkButton
-                request={orisoInviteRequest}
-                tone={orisoVideoOneOnOne ? "dark" : "light"}
-                compact={orisoMobile}
-                onTouchEnd={onHeaderTouchEnd}
-              />
             )}
             {/* S9: the ⋮ moves from the bar into a phone's header. */}
             {orisoMobile && (
@@ -1431,6 +1458,7 @@ export const InCallView: FC<InCallViewProps> = ({
       onClose={closeNotes}
       layout={notesDocked ? "docked" : "sheet"}
       compact={!notesDocked && notesCompact}
+      personalContrast={followsHostAppearance ? contrast : undefined}
       style={
         {
           "--oriso-notes-top": `${headerBounds.height + (orisoVideoOneOnOne && notesDocked ? 0 : 16)}px`,
@@ -1446,6 +1474,23 @@ export const InCallView: FC<InCallViewProps> = ({
               : "64px",
         } as CSSProperties
       }
+    />
+  );
+
+  /*
+   * #170: the guest button, once guests are part of the call — and only for
+   * whoever can do something there (the counsellor: the link or Anklopfen).
+   * Not in a call of the counsellor and logged-in people alone.
+   */
+  const guestFab = showGuestFab && (
+    <OrisoGuestFab
+      inviteRequest={orisoInviteRequest}
+      knock={orisoKnock.knock}
+      onKnockChange={orisoKnock.setKnock}
+      waitingCount={orisoKnock.waiting}
+      compact={orisoMobile}
+      followCallAppearance={followsHostAppearance}
+      onTouchEnd={onControlsTouchEnd}
     />
   );
 
@@ -1531,13 +1576,18 @@ export const InCallView: FC<InCallViewProps> = ({
                 orisoEnabled && stageScrolled ? "true" : undefined
               }
               data-oriso={orisoEnabled ? "true" : undefined}
+              data-oriso-follow-host={followsHostAppearance || undefined}
               data-oriso-video-stage={orisoVideoOneOnOne ? "true" : undefined}
               style={
-                orisoVideoOneOnOne
+                orisoEnabled
                   ? ({
-                      "--oriso-stage-gutter": `${videoStageGutter}px`,
-                      "--oriso-video-notes-width": `${VIDEO_NOTES_WIDTH}px`,
-                      "--oriso-video-notes-inset": `${dockInset}px`,
+                      "--oriso-header-h": `${headerBounds.height}px`,
+                      "--oriso-footer-h": `${footerBounds.height}px`,
+                      ...(orisoVideoOneOnOne && {
+                        "--oriso-stage-gutter": `${videoStageGutter}px`,
+                        "--oriso-video-notes-width": `${VIDEO_NOTES_WIDTH}px`,
+                        "--oriso-video-notes-inset": `${dockInset}px`,
+                      }),
                     } as CSSProperties)
                   : undefined
               }
@@ -1597,6 +1647,7 @@ export const InCallView: FC<InCallViewProps> = ({
               {waitingOverlay}
               {footer}
               {notes}
+              {guestFab}
               {!isPopupMode && (
                 <>
                   <RageshakeRequestModal {...rageshakeRequestModalProps} />

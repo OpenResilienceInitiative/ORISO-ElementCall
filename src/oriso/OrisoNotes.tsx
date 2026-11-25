@@ -27,6 +27,7 @@ import {
   OverflowVerticalIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
+import { type ContrastLevel } from "./theme/orisoScheme";
 import styles from "./OrisoNotes.module.css";
 import {
   ChatMenuDropdown,
@@ -71,6 +72,8 @@ interface Props {
   layout: "docked" | "sheet";
   /** The phone card: tighter insets and padding. */
   compact: boolean;
+  /** The host opts the 1:1 video notes into personal appearance. */
+  personalContrast?: ContrastLevel;
   className?: string;
   style?: CSSProperties;
 }
@@ -91,6 +94,7 @@ export const OrisoNotes: FC<Props> = ({
   onClose,
   layout,
   compact,
+  personalContrast,
   className,
   style,
 }) => {
@@ -108,6 +112,7 @@ export const OrisoNotes: FC<Props> = ({
   const notesRef = useRef(notes);
   notesRef.current = notes;
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
@@ -172,6 +177,21 @@ export const OrisoNotes: FC<Props> = ({
     setLast(kind);
     // A note the filter would hide is a note that seems to have vanished.
     setFilter((f) => (f === "alle" || f === kind ? f : "alle"));
+  };
+
+  /*
+   * A type button sends with text in the field, and only chooses the type
+   * without (#172): "this will be a task" is often decided before the words
+   * are, and a disabled row left Frage fixed until a first letter was typed.
+   * Choosing is the step before writing, so the field takes the focus.
+   */
+  const pickType = (kind: NoteKind): void => {
+    if (hasText) {
+      send(kind);
+      return;
+    }
+    setLast(kind);
+    inputRef.current?.focus();
   };
 
   const onDraftKey = (e: KeyboardEvent<HTMLInputElement>): void => {
@@ -311,6 +331,11 @@ export const OrisoNotes: FC<Props> = ({
 
   if (!open) return null;
 
+  // What a type button does says its name: send with text, choose without.
+  const typeName = (k: NoteKind): string =>
+    hasText
+      ? t("oriso.notes_send_as", { kind: kindLabels[k] })
+      : t("oriso.notes_choose", { kind: kindLabels[k] });
   const copyName = t("oriso.notes_copy");
   const lastName = kindLabels[last];
   const filtered = filter !== "alle";
@@ -318,55 +343,55 @@ export const OrisoNotes: FC<Props> = ({
     <section
       ref={ref}
       className={classNames(
-        // The card is a light surface inside the dark call: without its own
-        // light boundary the `--cpd-*` tokens it maps to are the dark ones
-        // (light text on #f5f5f5), not the design's.
-        "cpd-theme-light",
+        // The paper stays light inside a dark call and uses its own matching
+        // Compound palette at the selected contrast.
+        personalContrast === "high" ? "cpd-theme-light-hc" : "cpd-theme-light",
         styles.card,
-        // The card is a light surface in every call, the design's white
-        // sheet beside a dark video too. Its colours are Compound's roles,
-        // so it takes the light theme's: under the default dark theme the
-        // title came out #e4e2e2 on #f5f5f5 and the copy pill near-black.
-        "cpd-theme-light",
         layout === "docked" ? styles.docked : styles.sheet,
         { [styles.compact]: compact },
         className,
       )}
       style={style}
+      data-oriso-personal-notes={personalContrast !== undefined || undefined}
+      data-oriso-contrast-level={
+        personalContrast !== "standard" ? personalContrast : undefined
+      }
       aria-labelledby={titleId}
     >
       <div className={styles.head}>
         <h2 id={titleId} className={styles.title}>
           {t("oriso.notes_title")}
         </h2>
-        {/* An icon with its name as the tooltip, on the docked card too: at
+        <div className={styles.headActions}>
+          {/* An icon with its name as the tooltip, on the docked card too: at
             the dock's 352px the pill "Als Text kopieren" left the title
             "Schmierz…". Only the confirmation is spelled out, briefly. */}
-        <button
-          type="button"
-          className={styles.copy}
-          data-copied={copied}
-          onClick={copy}
-          aria-label={copyName}
-          title={copyName}
-        >
-          <CopyIcon aria-hidden />
-          <span aria-live="polite">
-            {copied ? t("oriso.notes_copied") : ""}
-          </span>
-        </button>
-        {/* The docked card closes here too: design 2a draws the × beside
+          <button
+            type="button"
+            className={styles.copy}
+            data-copied={copied}
+            onClick={copy}
+            aria-label={copyName}
+            title={copyName}
+          >
+            <CopyIcon aria-hidden />
+            <span aria-live="polite">
+              {copied ? t("oriso.notes_copied") : ""}
+            </span>
+          </button>
+          {/* The docked card closes here too: design 2a draws the × beside
             "Als Text kopieren", and with the card docked in every view (S5)
             it must not depend on finding the bar's notes button. */}
-        <button
-          type="button"
-          className={styles.close}
-          onClick={onClose}
-          aria-label={t("oriso.notes_close")}
-          title={t("oriso.notes_close")}
-        >
-          <CloseIcon aria-hidden />
-        </button>
+          <button
+            type="button"
+            className={styles.close}
+            onClick={onClose}
+            aria-label={t("oriso.notes_close")}
+            title={t("oriso.notes_close")}
+          >
+            <CloseIcon aria-hidden />
+          </button>
+        </div>
       </div>
       <div className={styles.info}>
         <LockSolidIcon aria-hidden />
@@ -482,6 +507,7 @@ export const OrisoNotes: FC<Props> = ({
       <div className={styles.field}>
         <div className={styles.inputRow}>
           <input
+            ref={inputRef}
             type="text"
             className={styles.input}
             value={draft}
@@ -557,7 +583,11 @@ export const OrisoNotes: FC<Props> = ({
         <div className={styles.sendRow}>
           <div
             role="group"
-            aria-label={t("oriso.notes_send_group")}
+            aria-label={
+              hasText
+                ? t("oriso.notes_send_group")
+                : t("oriso.notes_type_group")
+            }
             className={styles.types}
           >
             {NOTE_KINDS.map((k) => (
@@ -567,10 +597,10 @@ export const OrisoNotes: FC<Props> = ({
                 className={classNames(styles.pill, {
                   [styles.pillLast]: last === k,
                 })}
-                disabled={!hasText}
-                onClick={() => send(k)}
-                aria-label={t("oriso.notes_send_as", { kind: kindLabels[k] })}
-                title={t("oriso.notes_send_as", { kind: kindLabels[k] })}
+                onClick={() => pickType(k)}
+                aria-pressed={last === k}
+                aria-label={typeName(k)}
+                title={typeName(k)}
               >
                 <NoteTypeIcon kind={k} />
                 {last === k && (

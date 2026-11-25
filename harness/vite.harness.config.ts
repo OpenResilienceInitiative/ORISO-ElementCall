@@ -48,6 +48,7 @@ export default defineConfig({
         buehne: "harness/buehne.html",
         einzelCall: "harness/einzelCall.html",
         orisoStage: "harness/orisoStage.html",
+        selectionRing: "harness/selectionRing.html",
         settings: "harness/settings.html",
       },
     },

@@ -6,10 +6,10 @@ device pixel ratio with
 npx vite --config harness/vite.harness.config.ts` and
 `CHROMIUM_PATH=/opt/pw-browsers/chromium node scripts/shootOrisoStage.mjs`.
 
-| Plate                | What it shows                                                                                                                   |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `01-before-teilen`   | Two people in the Hain while somebody shares a screen. The shared screen's box is pinned to the corner and stands on the otter. |
-| `01-after-teilen`    | The same call with the band reserved. The forms are smaller, which is the trade, and neither is underneath the box.             |
+| Plate              | What it shows                                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `01-before-teilen` | Two people in the Hain while somebody shares a screen. The shared screen's box is pinned to the corner and stands on the otter. |
+| `01-after-teilen`  | The same call with the band reserved. The forms are smaller, which is the trade, and neither is underneath the box.             |
 
 **What these plates are not.** They are the layout's own arithmetic —
 `stageBesideSpotlight`, then `OrisoGroveLayout`'s two-person branch line for

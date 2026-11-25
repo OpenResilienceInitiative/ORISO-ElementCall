@@ -1,0 +1,218 @@
+/*
+Copyright 2026 Open Resilience Initiative
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+/* The guest button (#170): a Material-3 FAB at the stage's bottom end, above
+   the control bar, its settings opening upward from it. Colours are the
+   call's tokens only (`--cpd-*`, generated from the ORISO scheme): the FAB
+   is the primary container, the panel the canvas. */
+
+.guests {
+  position: absolute;
+  inset-block-end: calc(var(--oriso-footer-h, 96px) + 16px);
+  inset-inline-end: 24px;
+  z-index: var(--oriso-z-toolbar, 20);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  max-block-size: max(
+    0px,
+    calc(
+      100dvh - var(--oriso-header-h, 72px) - var(--oriso-footer-h, 96px) - 32px
+    )
+  );
+  font-family: Inter, sans-serif;
+}
+
+.guests[data-compact] {
+  inset-inline-end: 16px;
+}
+
+/* M3 extended FAB: 56px high, 16px corners, level-3 elevation. */
+.fab {
+  appearance: none;
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  min-block-size: 56px;
+  min-inline-size: 56px;
+  padding: 8px 20px 8px 16px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 16px;
+  background: var(--cpd-color-bg-badge-accent);
+  color: var(--cpd-color-text-badge-accent);
+  font: inherit;
+  font-size: calc(0.875rem * var(--font-scale, 1));
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 30%),
+    0 4px 8px 3px rgb(0 0 0 / 15%);
+}
+
+.guests[data-compact] .panel {
+  inline-size: calc(100dvw - 32px);
+}
+
+.guests[data-compact] .fab {
+  justify-content: center;
+  padding: 0;
+}
+
+/* The M3 state layer: the content colour at 8% hovered, 10% pressed. */
+.fab::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentcolor;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fab:hover::after {
+  opacity: 0.08;
+}
+
+.fab:active::after {
+  opacity: 0.1;
+}
+
+.fab:focus-visible,
+.close:focus-visible,
+.link:focus-visible,
+.linkButton:focus-visible {
+  outline: 3px solid var(--cpd-color-border-focused);
+  outline-offset: 2px;
+}
+
+.badge {
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-end: -4px;
+  min-inline-size: 20px;
+  min-block-size: 20px;
+  padding-inline: 5px;
+  box-sizing: border-box;
+  border: 2px solid var(--cpd-color-bg-canvas-default);
+  border-radius: 999px;
+  background: var(--cpd-color-bg-action-primary-rest);
+  color: var(--cpd-color-text-on-solid-primary);
+  font-size: calc(0.6875rem * var(--font-scale, 1));
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  inline-size: min(340px, calc(100vw - 32px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  padding: 16px 16px 12px 20px;
+  border-radius: 28px;
+  background: var(--cpd-color-bg-canvas-default);
+  color: var(--cpd-color-text-primary);
+  text-align: start;
+  box-shadow:
+    inset 0 0 0 1px var(--cpd-color-border-interactive-secondary),
+    0 14px 32px rgb(0 0 0 / 20%);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  font-size: calc(1rem * var(--font-scale, 1));
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.close {
+  appearance: none;
+  display: flex;
+  flex: none;
+  padding: 8px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--cpd-color-icon-secondary);
+  cursor: pointer;
+}
+
+.waiting {
+  margin: 0;
+  font-size: calc(0.875rem * var(--font-scale, 1));
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--cpd-color-text-action-accent);
+}
+
+/* An M3 tonal button: the link is made when the counsellor asks for it. */
+.linkButton {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  min-block-size: 40px;
+  max-inline-size: 100%;
+  padding: 8px 24px 8px 16px;
+  border: none;
+  border-radius: 20px;
+  background: var(--cpd-color-bg-subtle-secondary);
+  color: var(--cpd-color-text-primary);
+  font: inherit;
+  font-size: calc(0.875rem * var(--font-scale, 1));
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-block: 4px;
+  border-block-start: 1px solid var(--cpd-color-border-interactive-secondary);
+  padding-block-start: 12px;
+}
+
+.rowLabel {
+  flex: 1;
+  min-inline-size: 0;
+  font-size: calc(1rem * var(--font-scale, 1));
+  line-height: 1.375;
+  overflow-wrap: anywhere;
+}
+
+.rowDescription {
+  display: block;
+  font-size: calc(0.8125rem * var(--font-scale, 1));
+  color: var(--cpd-color-text-secondary);
+}

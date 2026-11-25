@@ -116,3 +116,27 @@ Please see LICENSE in the repository root for full details.
     font-size: var(--font-size-subtitle);
   }
 }
+
+.roomHeaderInfo[data-scale-room-name] {
+  grid-template-columns: auto minmax(0, 1fr);
+  min-inline-size: 0;
+}
+
+.roomHeaderInfo[data-scale-room-name] .nameLine {
+  align-items: flex-start;
+}
+
+.roomHeaderInfo[data-scale-room-name] .nameLine > h1 {
+  font-size: calc(var(--cpd-font-size-heading-md) * var(--font-scale, 1));
+  line-height: 1.2;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.roomHeaderInfo[data-scale-room-name][data-size="sm"] .nameLine > h1 {
+  font-size: calc(var(--cpd-font-size-body-lg) * var(--font-scale, 1));
+}

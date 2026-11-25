@@ -40,12 +40,15 @@ const write = (text: string): void => {
   fireEvent.keyDown(field(), { key: "Enter" });
 };
 
-/** The type buttons; the send arrow carries the last one's name as well. */
+/**
+ * The type buttons; the send arrow carries the last one's name as well.
+ * With text they send ("Send as …"); on an empty field they choose the type
+ * ("Choose …"), so the helper finds them in either state.
+ */
 const typeButton = (kind: string): HTMLElement =>
-  within(screen.getByRole("group", { name: "Send right away as" })).getByRole(
-    "button",
-    { name: `Send as ${kind}` },
-  );
+  within(
+    screen.getByRole("group", { name: /^(Send right away as|Note type)$/ }),
+  ).getByRole("button", { name: new RegExp(`^(Send as|Choose) ${kind}$`) });
 
 const sendAs = (kind: string, text: string): void => {
   type(text);
@@ -104,6 +107,23 @@ describe("the Schmierzettel's card (#112)", () => {
     } finally {
       document.body.classList.remove("cpd-theme-dark");
     }
+  });
+
+  it("keeps a light notes surface at each personal contrast level", () => {
+    const { rerender } = render(
+      <OrisoNotes {...props({ personalContrast: "high" })} />,
+    );
+    const card = screen.getByRole("region", { name: "Scratchpad" });
+    expect(card).toHaveClass("cpd-theme-light-hc");
+    expect(card).toHaveAttribute("data-oriso-contrast-level", "high");
+    type("An unsent draft");
+    rerender(<OrisoNotes {...props({ personalContrast: "medium" })} />);
+    expect(card).toHaveClass("cpd-theme-light");
+    expect(card).toHaveAttribute("data-oriso-contrast-level", "medium");
+    rerender(<OrisoNotes {...props({ personalContrast: "standard" })} />);
+    expect(card).toHaveClass("cpd-theme-light");
+    expect(card).not.toHaveAttribute("data-oriso-contrast-level");
+    expect(field()).toHaveValue("An unsent draft");
   });
 
   it("opens in the view as a card, and compact on a phone", () => {
@@ -193,14 +213,51 @@ describe("writing and sending", () => {
     expect(arrow()).toBeNull();
   });
 
-  it("disables the type buttons until there is text", () => {
+  it("chooses the type while the note is empty, and saves nothing (#172)", () => {
     render(<OrisoNotes {...props()} />);
-    for (const name of ["Question", "Task", "Note"]) {
-      expect(typeButton(name)).toBeDisabled();
-    }
-    type("x");
+    screen.getByRole("group", { name: "Note type" });
     for (const name of ["Question", "Task", "Note"]) {
       expect(typeButton(name)).toBeEnabled();
+      expect(typeButton(name)).toHaveAccessibleName(`Choose ${name}`);
+    }
+    expect(typeButton("Question")).toHaveAttribute("aria-pressed", "true");
+
+    // Question first, then switched to Task and on to Note: no text needed.
+    fireEvent.click(typeButton("Task"));
+    expect(typeButton("Task")).toHaveAttribute("aria-pressed", "true");
+    expect(typeButton("Task").textContent).toBe("Task");
+    expect(typeButton("Question")).toHaveAttribute("aria-pressed", "false");
+    expect(typeButton("Question").textContent).toBe("");
+    fireEvent.click(typeButton("Note"));
+    expect(typeButton("Note")).toHaveAttribute("aria-pressed", "true");
+    expect(cards()).toHaveLength(0);
+    // Choosing a type is the step before writing: the field takes focus.
+    expect(document.activeElement).toBe(field());
+
+    // The chosen type is the one the note is sent as.
+    write("Bring the form");
+    within(cards()[0]).getByText("Note");
+  });
+
+  it("never saves an empty note: not by a type, Enter or spaces (#172)", () => {
+    render(<OrisoNotes {...props()} />);
+    fireEvent.click(typeButton("Task"));
+    fireEvent.keyDown(field(), { key: "Enter" });
+    type("   ");
+    fireEvent.click(typeButton("Question"));
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(cards()).toHaveLength(0);
+    // Spaces count as empty: the click chose, it did not send.
+    expect(typeButton("Question")).toHaveAccessibleName("Choose Question");
+    expect(typeButton("Question")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("sends once there is text, and names the buttons for that", () => {
+    render(<OrisoNotes {...props()} />);
+    type("x");
+    screen.getByRole("group", { name: "Send right away as" });
+    for (const name of ["Question", "Task", "Note"]) {
+      expect(typeButton(name)).toHaveAccessibleName(`Send as ${name}`);
     }
   });
 
@@ -602,6 +659,7 @@ describe("accessibility", () => {
     for (const name of ["Move up", "Move down", "Delete"]) {
       expect(within(card).getByRole("button", { name }).textContent).toBe("");
     }
-    screen.getByRole("group", { name: "Send right away as" });
+    // The field is empty again after sending: the row chooses, not sends.
+    screen.getByRole("group", { name: "Note type" });
   });
 });
