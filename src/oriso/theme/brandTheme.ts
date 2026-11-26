@@ -17,6 +17,7 @@ import { logger } from "matrix-js-sdk/lib/logger";
 
 import { CALL_TOKEN_MAP, callThemeDeclaration } from "./callTheme";
 import {
+  type ContrastLevel,
   type OrisoSchemeName,
   type OrisoSeeds,
   computeOrisoPalette,
@@ -30,10 +31,15 @@ const LAYER = "compound.custom";
 
 type CallScheme = Exclude<OrisoSchemeName, "inverted">;
 
-/** The Compound theme class each scheme is emitted under. */
-const SCHEME_CLASS: Record<CallScheme, string> = {
-  light: "cpd-theme-light",
-  dark: "cpd-theme-dark",
+const SCHEMES = ["light", "dark"] as const;
+const CONTRAST_LEVELS = ["standard", "medium", "high"] as const;
+
+const contrastRoles: Record<string, string> = {
+  "--cpd-color-text-placeholder": "--m3-on-surface-variant",
+  "--cpd-color-text-action-accent": "--oriso-primary-text",
+  "--cpd-color-text-link-external": "--oriso-primary-text",
+  "--cpd-color-border-focused": "--oriso-primary-text",
+  "--cpd-color-text-critical-primary": "--oriso-error-text",
 };
 
 /**
@@ -118,16 +124,29 @@ export const resolveBrandSeeds = (input: BrandSeedInput): OrisoSeeds | null => {
   return resolved;
 };
 
-const block = (scheme: CallScheme, seeds: OrisoSeeds): string => {
-  const { tokens } = computeOrisoPalette(seeds, scheme);
+const block = (
+  scheme: CallScheme,
+  seeds: OrisoSeeds,
+  contrast: ContrastLevel,
+): string => {
+  const { tokens } = computeOrisoPalette(seeds, scheme, contrast);
   const body = Object.entries(CALL_TOKEN_MAP)
-    .map(([cpdToken, mapping]) =>
-      callThemeDeclaration(cpdToken, mapping, tokens),
-    )
+    .map(([cpdToken, standard]) => {
+      const role = contrast !== "standard" && contrastRoles[cpdToken];
+      return callThemeDeclaration(
+        cpdToken,
+        role ? { ...standard, m3: role, note: undefined } : standard,
+        tokens,
+      );
+    })
     .join("\n");
-  // The class is doubled to match the specificity Compound uses for its own
-  // per-theme blocks; the layer and the document order decide the winner.
-  const selector = `.${SCHEME_CLASS[scheme]}.${SCHEME_CLASS[scheme]}`;
+  // Match Compound's two-class specificity in its override layer. Medium
+  // keeps the normal Compound theme and uses an ORISO marker for this block.
+  const themeClass = `.cpd-theme-${scheme}${contrast === "high" ? "-hc" : ""}`;
+  const selector =
+    contrast === "medium"
+      ? `${themeClass}[data-oriso-contrast-level="medium"]`
+      : `${themeClass}${themeClass}`;
   return `${selector} {\n${body}\n}`;
 };
 
@@ -140,10 +159,15 @@ const brandBlock = (seeds: OrisoSeeds): string => {
 };
 
 const blocks = (seeds: OrisoSeeds): string =>
-  [brandBlock(seeds), block("light", seeds), block("dark", seeds)].join("\n\n");
+  [
+    brandBlock(seeds),
+    ...CONTRAST_LEVELS.flatMap((level) =>
+      SCHEMES.map((scheme) => block(scheme, seeds, level)),
+    ),
+  ].join("\n\n");
 
 /**
- * The runtime stylesheet: both schemes, inside Compound's override layer.
+ * The runtime stylesheet: both schemes at all three contrast levels, inside Compound's override layer.
  * Appended after the shipped stylesheet it wins inside that layer.
  */
 export const buildBrandThemeCss = (seeds: OrisoSeeds): string => {

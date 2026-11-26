@@ -18,7 +18,11 @@ import { ImageIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import styles from "./AtmospherePicker.module.css";
 import { ATMOSPHERE_NAMES, type AtmosphereName } from "./Atmosphere";
-import { type AtmosphereChoice, swatchFor } from "./atmosphereChoice";
+import {
+  type AtmosphereChoice,
+  atmosphereLabel,
+  swatchFor,
+} from "./atmosphereChoice";
 
 interface Props {
   choice: AtmosphereChoice;
@@ -138,7 +142,7 @@ export const AtmospherePicker: FC<Props> = ({
                   aria-hidden="true"
                 />
                 <span className={styles.motifLabel}>
-                  {t(`oriso.atmosphere_${name}`)}
+                  {atmosphereLabel(name, t)}
                 </span>
               </button>
             ))}

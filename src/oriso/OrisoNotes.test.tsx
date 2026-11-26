@@ -109,6 +109,23 @@ describe("the Schmierzettel's card (#112)", () => {
     }
   });
 
+  it("keeps a light notes surface at each personal contrast level", () => {
+    const { rerender } = render(
+      <OrisoNotes {...props({ personalContrast: "high" })} />,
+    );
+    const card = screen.getByRole("region", { name: "Scratchpad" });
+    expect(card).toHaveClass("cpd-theme-light-hc");
+    expect(card).toHaveAttribute("data-oriso-contrast-level", "high");
+    type("An unsent draft");
+    rerender(<OrisoNotes {...props({ personalContrast: "medium" })} />);
+    expect(card).toHaveClass("cpd-theme-light");
+    expect(card).toHaveAttribute("data-oriso-contrast-level", "medium");
+    rerender(<OrisoNotes {...props({ personalContrast: "standard" })} />);
+    expect(card).toHaveClass("cpd-theme-light");
+    expect(card).not.toHaveAttribute("data-oriso-contrast-level");
+    expect(field()).toHaveValue("An unsent draft");
+  });
+
   it("opens in the view as a card, and compact on a phone", () => {
     const onClose = vi.fn();
     const { rerender } = render(

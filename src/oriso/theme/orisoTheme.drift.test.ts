@@ -30,7 +30,7 @@ import {
   buildBrandThemeCss,
   buildStaticThemeCss,
 } from "./brandTheme";
-import { DARK, LIGHT, ROOT, themeBlocks } from "./themeCss.testUtils";
+import { CALL_THEME_SELECTORS, ROOT, themeBlocks } from "./themeCss.testUtils";
 
 const STATIC_PATH = "src/oriso-theme.css";
 const FRONTEND_ARTEFACT =
@@ -50,7 +50,9 @@ describe("the static default palette", () => {
     const fromRuntime = themeBlocks(
       buildBrandThemeCss({ primary: DEFAULT_SEED }),
     );
-    expect(Object.keys(fromFile).sort()).toEqual([DARK, LIGHT, ROOT].sort());
+    expect(Object.keys(fromFile).sort()).toEqual(
+      [...CALL_THEME_SELECTORS, ROOT].sort(),
+    );
     expect(fromRuntime).toEqual(fromFile);
   });
 });
@@ -59,7 +61,7 @@ describe("the app's own call theme", () => {
   it("has the same Compound roles as the generator for the default seed", () => {
     const app = themeBlocks(readFileSync(FRONTEND_ARTEFACT, "utf8"));
     const here = themeBlocks(buildStaticThemeCss({ primary: DEFAULT_SEED }));
-    for (const selector of [LIGHT, DARK]) {
+    for (const selector of CALL_THEME_SELECTORS) {
       const compound = Object.fromEntries(
         Object.entries(here[selector]).filter(([name]) =>
           name.startsWith("--cpd-"),

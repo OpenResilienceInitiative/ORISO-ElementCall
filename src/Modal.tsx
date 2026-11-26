@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-import { type FC, type ReactNode, useCallback } from "react";
+import { type FC, type ReactNode, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Root as DialogRoot,
@@ -54,6 +54,8 @@ export interface Props {
    * will be non-dismissable.
    */
   onDismiss?: () => void;
+  /** Return focus to the external control that launched this modal. */
+  restoreTriggerFocus?: boolean;
   /**
    * Whether the modal content has tabs.
    */
@@ -74,6 +76,7 @@ export const Modal: FC<Props> = ({
   classNameModal,
   open,
   onDismiss,
+  restoreTriggerFocus,
   tabbed,
   ...rest
 }) => {
@@ -88,12 +91,32 @@ export const Modal: FC<Props> = ({
     [onDismiss],
   );
 
+  const triggerFocus = useRef<HTMLElement | null>(null);
+  const rememberTrigger = (): void => {
+    const focused = document.activeElement;
+    triggerFocus.current =
+      focused instanceof HTMLElement && focused !== document.body
+        ? focused
+        : null;
+  };
+  const focusTrigger = (event: Event): void => {
+    const trigger = triggerFocus.current;
+    triggerFocus.current = null;
+    if (trigger?.isConnected) {
+      event.preventDefault();
+      trigger.focus();
+    }
+  };
+
   if (touchscreen) {
     return (
       <Drawer.Root
         open={open}
         onOpenChange={onOpenChange}
         dismissible={onDismiss !== undefined}
+        // On a user-opened dialog, keyboard focus must enter the focus trap.
+        // eslint-disable-next-line jsx-a11y/no-autofocus
+        autoFocus={restoreTriggerFocus}
       >
         <Drawer.Portal>
           <Drawer.Overlay className={classNames(overlayStyles.bg)} />
@@ -107,6 +130,8 @@ export const Modal: FC<Props> = ({
               { [styles.tabbed]: tabbed },
             )}
             role="dialog"
+            onOpenAutoFocus={restoreTriggerFocus ? rememberTrigger : undefined}
+            onCloseAutoFocus={restoreTriggerFocus ? focusTrigger : undefined}
             // Suppress the warning about there being no description; the modal
             // has an accessible title
             aria-describedby={undefined}
@@ -160,6 +185,8 @@ export const Modal: FC<Props> = ({
             // has an accessible title
             aria-describedby={undefined}
             role="dialog"
+            onOpenAutoFocus={restoreTriggerFocus ? rememberTrigger : undefined}
+            onCloseAutoFocus={restoreTriggerFocus ? focusTrigger : undefined}
             {...rest}
           >
             <Glass

@@ -102,4 +102,80 @@ describe("useTheme", () => {
     );
     expect(originalClassList.add).toHaveBeenLastCalledWith("cpd-theme-light");
   });
+
+  test.each(["light", "dark"] as const)(
+    "uses Medium with %s from the widget address",
+    (scheme) => {
+      (getUrlParams as Mock).mockReturnValue({
+        theme: `${scheme}-medium-contrast`,
+      });
+
+      const { result } = renderHook(() => useTheme());
+
+      expect(result.current).toEqual({ scheme, contrast: "medium" });
+      expect(document.body).toHaveClass(`cpd-theme-${scheme}`);
+      expect(document.body).toHaveAttribute(
+        "data-oriso-contrast-level",
+        "medium",
+      );
+    },
+  );
+
+  test("changes a live widget's appearance and keeps the last valid scale", () => {
+    const previous =
+      document.documentElement.style.getPropertyValue("--font-scale");
+    try {
+      document.documentElement.style.setProperty("--font-scale", "1.25");
+      renderHook(() => useTheme());
+      const action = WidgetApiToWidgetAction.ThemeChange;
+      const publish = (data: { name?: string; fontScale?: unknown }): void => {
+        widget!.lazyActions.emit(
+          action,
+          new CustomEvent(action, { detail: { data } }),
+        );
+      };
+      act(() => publish({ name: "dark-medium-contrast", fontScale: 1.5 }));
+      expect(document.body).toHaveClass("cpd-theme-dark");
+      expect(document.body).toHaveAttribute(
+        "data-oriso-contrast-level",
+        "medium",
+      );
+      act(() => publish({ name: "light-high-contrast" }));
+      expect(document.body).toHaveAttribute(
+        "data-oriso-contrast-level",
+        "high",
+      );
+      expect(document.body.classList.add).toHaveBeenLastCalledWith(
+        "cpd-theme-light-hc",
+      );
+      expect(
+        document.documentElement.style.getPropertyValue("--font-scale"),
+      ).toBe("1.5");
+      act(() => publish({ name: "dark-high-contrast", fontScale: -1 }));
+      expect(document.body.classList.add).toHaveBeenLastCalledWith(
+        "cpd-theme-dark-hc",
+      );
+      expect(
+        document.documentElement.style.getPropertyValue("--font-scale"),
+      ).toBe("1.5");
+      act(() => publish({ name: "dark-medium-contrast" }));
+      expect(document.body).not.toHaveClass("cpd-theme-dark-hc");
+      expect(document.body).toHaveClass("cpd-theme-dark");
+      expect(document.body).toHaveAttribute(
+        "data-oriso-contrast-level",
+        "medium",
+      );
+      act(() => publish({ name: "dark" }));
+      expect(document.body).not.toHaveAttribute("data-oriso-contrast-level");
+      expect(
+        document.documentElement.style.getPropertyValue("--font-scale"),
+      ).toBe("1.5");
+      act(() => publish({ name: "light", fontScale: 1 }));
+      expect(
+        document.documentElement.style.getPropertyValue("--font-scale"),
+      ).toBe("1");
+    } finally {
+      document.documentElement.style.setProperty("--font-scale", previous);
+    }
+  });
 });
