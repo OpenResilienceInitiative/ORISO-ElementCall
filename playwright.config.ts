@@ -11,6 +11,14 @@ const baseURL = process.env.USE_DOCKER
   ? "http://localhost:8080"
   : "https://localhost:3000";
 
+// The two-party media spec needs the dedicated fixture started by
+// scripts/ci/run-two-party-media.sh. The ordinary suite never runs it.
+const twoPartyMedia = "**/two-party-media.spec.ts";
+const desktopIgnore =
+  process.env.ORISO_TWO_PARTY_MEDIA === "1"
+    ? ["**/mobile/**"]
+    : ["**/mobile/**", twoPartyMedia];
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -38,7 +46,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: "**/mobile/**",
+      testIgnore: desktopIgnore,
       use: {
         ...devices["Desktop Chrome"],
         permissions: [
@@ -59,7 +67,7 @@ export default defineConfig({
     },
     {
       name: "firefox",
-      testIgnore: "**/mobile/**",
+      testIgnore: ["**/mobile/**", twoPartyMedia],
       use: {
         ...devices["Desktop Firefox"],
         ignoreHTTPSErrors: true,

@@ -73,9 +73,22 @@ curl --fail --silent --show-error --max-time 10 --cacert backend/dev_tls_local-c
   --resolve synapse.m.localhost:443:127.0.0.1 https://synapse.m.localhost/_matrix/client/versions \
   -o "$ORISO_MEDIA_RUN/matrix-versions.json"
 
+phase="check that only the dedicated job selects the media spec"
+media_listed() {
+  local listing
+  listing=$(corepack yarn playwright test --list --reporter=list "$@")
+  grep -c 'two-party-media.spec.ts' <<<"$listing" || true
+}
+ordinary=$(USE_DOCKER=1 media_listed)
+dedicated=$(unset USE_DOCKER; ORISO_TWO_PARTY_MEDIA=1 media_listed --project=chromium)
+if [ "$ordinary" != 0 ] || [ "$dedicated" != 1 ]; then
+  echo "The media spec must run only in the dedicated job (ordinary: $ordinary, dedicated: $dedicated)." >&2
+  exit 1
+fi
+
 phase="run the two-browser call and rejoin in Chromium"
 unset USE_DOCKER
-PLAYWRIGHT_JSON_OUTPUT_FILE="$ORISO_MEDIA_RUN/playwright-result.json" \
+ORISO_TWO_PARTY_MEDIA=1 PLAYWRIGHT_JSON_OUTPUT_FILE="$ORISO_MEDIA_RUN/playwright-result.json" \
   corepack yarn playwright test playwright/two-party-media.spec.ts \
   --project=chromium --workers=1 --retries=0 --trace=off --reporter=line,json
 
