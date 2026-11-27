@@ -61,12 +61,40 @@ export function atmosphereLabel(
   return ATMOSPHERE_LABELS[choice](t);
 }
 
-/** The backdrop to draw for a choice. */
+/**
+ * The motifs whose field is dark (`dark: true` in `pond.js`). Read off the
+ * file; the test checks the two stay one fact.
+ */
+export const DARK_ATMOSPHERES: readonly AtmosphereName[] = [
+  "nacht",
+  "spirale",
+  "lagerfeuer",
+];
+
+/**
+ * The dark counterpart of the carrier's light motif (FE#1134): a person who
+ * chose dark mode should not get a bright field behind their call.
+ */
+export const DARK_COUNTERPART: AtmosphereName = "nacht";
+
+/**
+ * The backdrop to draw for a choice.
+ *
+ * `scheme` is the person's own appearance, passed only where the call follows
+ * it (a single video call). With "dark", the carrier's default gives way to
+ * its dark counterpart when that default is a light motif. A motif the person
+ * picked themselves is always kept.
+ */
 export function resolveAtmosphere(
   choice: AtmosphereChoice,
   urlValue: string | null,
+  scheme?: "light" | "dark",
 ): AtmosphereName {
-  return choice === "traeger" ? carrierAtmosphere(urlValue) : choice;
+  if (choice !== "traeger") return choice;
+  const carrier = carrierAtmosphere(urlValue);
+  return scheme === "dark" && !DARK_ATMOSPHERES.includes(carrier)
+    ? DARK_COUNTERPART
+    : carrier;
 }
 
 /**

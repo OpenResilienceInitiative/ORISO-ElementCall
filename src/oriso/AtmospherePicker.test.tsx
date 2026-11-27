@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type FC, useState } from "react";
@@ -13,6 +15,7 @@ import { AtmospherePicker } from "./AtmospherePicker";
 import { ATMOSPHERE_NAMES } from "./Atmosphere";
 import {
   type AtmosphereChoice,
+  DARK_ATMOSPHERES,
   readAtmosphereChoice,
   resolveAtmosphere,
 } from "./atmosphereChoice";
@@ -33,6 +36,28 @@ describe("the atmosphere a person chooses (S5)", () => {
   it("lets the person's own choice win over the carrier's", () => {
     expect(readAtmosphereChoice("glut")).toBe("glut");
     expect(resolveAtmosphere("glut", "lichtung")).toBe("glut");
+  });
+
+  it("gives the carrier's light motif its dark counterpart in dark mode (FE#1134)", () => {
+    expect(resolveAtmosphere("traeger", "fluss", "dark")).toBe("nacht");
+    expect(resolveAtmosphere("traeger", null, "dark")).toBe("nacht");
+    expect(resolveAtmosphere("traeger", "fluss", "light")).toBe("fluss");
+    expect(resolveAtmosphere("traeger", "fluss")).toBe("fluss");
+  });
+
+  it("keeps a dark carrier motif and the person's own choice in dark mode", () => {
+    expect(resolveAtmosphere("traeger", "lagerfeuer", "dark")).toBe(
+      "lagerfeuer",
+    );
+    expect(resolveAtmosphere("glut", "fluss", "dark")).toBe("glut");
+  });
+
+  it("lists exactly the motifs pond.js marks as dark", () => {
+    const pond = readFileSync(resolve(__dirname, "pond.js"), "utf8");
+    const dark = ATMOSPHERE_NAMES.filter((name) =>
+      new RegExp(`\\n\\t${name}: \\{[^}]*?dark: true`).test(pond),
+    );
+    expect([...DARK_ATMOSPHERES].sort()).toEqual([...dark].sort());
   });
 
   it("reads the name style, capsule by default", () => {

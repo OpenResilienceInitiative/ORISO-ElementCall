@@ -758,7 +758,13 @@ export const InCallView: FC<InCallViewProps> = ({
     ATMOSPHERE_CHOICE_KEY,
   );
   const atmosphereChoice = readAtmosphereChoice(storedAtmosphere);
-  const atmosphere = resolveAtmosphere(atmosphereChoice, orisoAtmosphere);
+  const atmosphere = resolveAtmosphere(
+    atmosphereChoice,
+    orisoAtmosphere,
+    // A single call follows the person's own light or dark choice; a group
+    // call keeps the carrier's motif on its fixed dark chrome.
+    followsHostAppearance ? callScheme : undefined,
+  );
   const [atmosphereOpen, setAtmosphereOpen] = useState(false);
   const chooseAtmosphere = useCallback(
     (choice: AtmosphereChoice) => setStoredAtmosphere(choice),
