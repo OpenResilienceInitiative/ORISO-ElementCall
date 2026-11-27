@@ -37,6 +37,7 @@ import { switchWhen } from "../utils/observable";
 import { type Behavior, constant } from "./Behavior";
 import {
   initialInputDevice$,
+  type InitialDeviceKind,
   type InitialInputKind,
 } from "./initialInputDevices";
 
@@ -457,19 +458,26 @@ export class MediaDevices {
     this.unmatchedInitialInputsReported$;
 
   public constructor(private readonly scope: ObservableScope) {
-    const { audioInput, videoInput } = getUrlParams();
+    const { audioInput, videoInput, audioOutput, controlledAudioDevices } =
+      getUrlParams();
     this.selectInitialInput("audioinput", this.audioInput, audioInput);
     this.selectInitialInput("videoinput", this.videoInput, videoInput);
+    // The speaker (ORISO-Frontend#2558). Not when a native host controls the
+    // audio devices: there the host picks the output itself.
+    if (!controlledAudioDevices)
+      this.selectInitialInput("audiooutput", this.audioOutput, audioOutput);
   }
 
   /**
    * Selects the host's device as soon as the device list carries labels —
    * at start-up, long before the call creates its tracks, so the call opens
    * on it rather than switching to it later.
+   *
+   * An unmatched speaker is only logged: the notice covers inputs only.
    */
   private selectInitialInput(
-    kind: InitialInputKind,
-    device: MediaDevice<DeviceLabel, unknown>,
+    kind: InitialDeviceKind,
+    device: MediaDevice<AudioOutputDeviceLabel, unknown>,
     label: string | null,
   ): void {
     if (!label) return;
@@ -482,6 +490,7 @@ export class MediaDevices {
           rootLogger.warn(
             `[MediaDevices] the host's ${kind} was not found; keeping the default`,
           );
+          if (kind === "audiooutput") return;
           this.unmatchedInitialInputsReported$.next([
             ...this.unmatchedInitialInputsReported$.value,
             kind,

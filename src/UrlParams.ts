@@ -344,6 +344,24 @@ export interface InitialInputDevices {
   audioInput: string | null;
   /** `videoInput`: label of the camera to start with. */
   videoInput: string | null;
+  /**
+   * `audioOutput`: label of the speaker to start with (ORISO-Frontend#2558).
+   * Same label convention as the inputs. No match, or a browser that cannot
+   * pick a speaker (Safari), keeps the default output.
+   */
+  audioOutput: string | null;
+}
+
+/**
+ * Call settings the host app asks the call to start with (ORISO-Frontend#2558).
+ */
+export interface InitialCallSettings {
+  /**
+   * `backgroundBlur`: start with background blur on (`true`) or off
+   * (`false`). `undefined` (parameter absent) keeps Element Call's own stored
+   * setting. Applied once at start; the person can still toggle it in the call.
+   */
+  backgroundBlur: boolean | undefined;
 }
 
 interface IntentAndPlatformDerivedConfiguration {
@@ -361,7 +379,8 @@ export interface UrlParams
     UrlProperties,
     UrlConfiguration,
     IntentAndPlatformDerivedConfiguration,
-    InitialInputDevices {}
+    InitialInputDevices,
+    InitialCallSettings {}
 
 // This is here as a stopgap, but what would be far nicer is a function that
 // takes a UrlParams and returns a query string. That would enable us to
@@ -709,6 +728,12 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
   const initialInputDevices: InitialInputDevices = {
     audioInput: parser.getParam("audioInput") || null,
     videoInput: parser.getParam("videoInput") || null,
+    audioOutput: parser.getParam("audioOutput") || null,
+  };
+
+  // The counsellor's saved profile choice (ORISO-Frontend#2558).
+  const initialCallSettings: InitialCallSettings = {
+    backgroundBlur: parser.getFlag("backgroundBlur"),
   };
 
   // Log the final configuration for debugging purposes.
@@ -731,6 +756,7 @@ export const computeUrlParams = (search = "", hash = ""): UrlParams => {
     ...pickBy(configuration, (v?: unknown) => v !== undefined),
     ...intentAndPlatformDerivedConfiguration,
     ...initialInputDevices,
+    ...initialCallSettings,
   };
 };
 

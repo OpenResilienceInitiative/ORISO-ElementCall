@@ -17,6 +17,7 @@ import {
   use,
   useEffect,
   useMemo,
+  useState,
 } from "react";
 import { type LocalVideoTrack } from "livekit-client";
 import { combineLatest, map, type Observable } from "rxjs";
@@ -24,8 +25,10 @@ import { useObservable } from "observable-hooks";
 
 import {
   backgroundBlur as backgroundBlurSettings,
+  type Setting,
   useSetting,
 } from "../settings/settings";
+import { getUrlParams } from "../UrlParams";
 import { BlurBackgroundTransformer } from "./BlurBackgroundTransformer";
 import { type Behavior } from "../state/Behavior";
 import { type ObservableScope } from "../state/ObservableScope";
@@ -102,11 +105,29 @@ export const useTrackProcessorSync = (
   }, [processor, videoTrack]);
 };
 
+/**
+ * Applies the host's `backgroundBlur` URL flag (ORISO-Frontend#2558) to the
+ * stored setting. `undefined` (flag absent) keeps the stored setting. Stored
+ * like a choice made in Element Call's own settings, so toggling it there in
+ * the call works as before.
+ */
+export function applyInitialBackgroundBlur(
+  urlValue: boolean | undefined,
+  setting: Setting<boolean> = backgroundBlurSettings,
+): void {
+  if (urlValue === undefined || setting.getValue() === urlValue) return;
+  setting.setValue(urlValue);
+}
+
 interface Props {
   children: JSX.Element;
 }
 
 export const ProcessorProvider: FC<Props> = ({ children }) => {
+  // Once per mount and before the setting is read below, so the first
+  // processor state (and with it the first video track) already follows the
+  // host's choice.
+  useState(() => applyInitialBackgroundBlur(getUrlParams().backgroundBlur));
   // The setting the user wants to have
   const [blurActivated] = useSetting(backgroundBlurSettings);
   const supported = useMemo(() => supportsBackgroundProcessors(), []);

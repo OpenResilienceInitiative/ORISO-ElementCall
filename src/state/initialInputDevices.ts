@@ -7,7 +7,7 @@ Please see LICENSE in the repository root for full details.
 
 import { filter, map, type Observable, take } from "rxjs";
 
-import { type DeviceLabel } from "./MediaDevices";
+import { type AudioOutputDeviceLabel } from "./MediaDevices";
 
 /**
  * Starting the call on the microphone and camera the person picked in the
@@ -17,10 +17,15 @@ import { type DeviceLabel } from "./MediaDevices";
  * URL): device ids are scoped to the origin that asked for them, and the host
  * runs on another origin than the call. Labels are the same on both once
  * media permission is granted.
+ *
+ * The speaker (`audioOutput`, ORISO-Frontend#2558) goes the same way.
  */
 
 /** The input kinds the host can choose a device for. */
 export type InitialInputKind = "audioinput" | "videoinput";
+
+/** All device kinds the host can choose a device for, the speaker included. */
+export type InitialDeviceKind = InitialInputKind | "audiooutput";
 
 /** What became of one requested device. */
 export type InitialInputOutcome = "selected" | "unmatched";
@@ -33,7 +38,7 @@ export type InitialInputOutcome = "selected" | "unmatched";
  * there is nothing better to tell them apart by.
  */
 export function deviceIdForLabel(
-  available: ReadonlyMap<string, DeviceLabel>,
+  available: ReadonlyMap<string, AudioOutputDeviceLabel>,
   label: string,
 ): string | undefined {
   for (const [id, deviceLabel] of available) {
@@ -50,10 +55,12 @@ export function deviceIdForLabel(
  * Waiting for labels rather than deciding on the first list: browsers report
  * numbered, label-less devices until media permission is granted, and an
  * `unmatched` on such a list would be a false alarm. Should labels never come
- * (no permission), nothing is emitted and the call keeps its default.
+ * (no permission), nothing is emitted and the call keeps its default. The
+ * same holds for a speaker list that stays empty (Safari, no `setSinkId`).
+ * Only real devices (`name` labels) match; the virtual default output does not.
  */
 export function initialInputDevice$(
-  available$: Observable<ReadonlyMap<string, DeviceLabel>>,
+  available$: Observable<ReadonlyMap<string, AudioOutputDeviceLabel>>,
   label: string,
 ): Observable<{ outcome: InitialInputOutcome; id?: string }> {
   return available$.pipe(

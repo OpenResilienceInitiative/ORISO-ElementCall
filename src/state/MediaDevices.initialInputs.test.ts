@@ -48,6 +48,7 @@ describe("MediaDevices: the host's devices by label (#116)", () => {
   let scope: ObservableScope;
   let microphones$: BehaviorSubject<MediaDeviceInfo[]>;
   let cameras$: BehaviorSubject<MediaDeviceInfo[]>;
+  let speakers$: BehaviorSubject<MediaDeviceInfo[]>;
 
   beforeEach(() => {
     localStorage.clear();
@@ -63,7 +64,11 @@ describe("MediaDevices: the host's devices by label (#116)", () => {
     ]);
     lists.set("audioinput", microphones$);
     lists.set("videoinput", cameras$);
-    lists.set("audiooutput", new BehaviorSubject([]));
+    speakers$ = new BehaviorSubject([
+      device("audiooutput", "spk-builtin", "MacBook Pro Speakers"),
+      device("audiooutput", "spk-jabra", "Jabra Evolve2 65"),
+    ]);
+    lists.set("audiooutput", speakers$);
   });
 
   afterEach(() => {
@@ -109,6 +114,24 @@ describe("MediaDevices: the host's devices by label (#116)", () => {
       device("audioinput", "mic-jabra", "Jabra Evolve2 65"),
     ]);
     expect(devices.audioInput.selected$.value?.id).toBe("mic-jabra");
+  });
+
+  it("starts on the speaker the host picked (#2558)", async () => {
+    const devices = await create({ audioOutput: "Jabra Evolve2 65" });
+    expect(devices.audioOutput.selected$.value?.id).toBe("spk-jabra");
+  });
+
+  it("keeps the default speaker without a notice on an unknown label (#2558)", async () => {
+    const devices = await create({ audioOutput: "Speaker that left" });
+    expect(devices.audioOutput.selected$.value?.id).not.toBe("spk-jabra");
+    expect(devices.unmatchedInitialInputs$.value).toEqual([]);
+  });
+
+  it("does nothing when the browser lists no speakers (Safari) (#2558)", async () => {
+    speakers$.next([]);
+    const devices = await create({ audioOutput: "Jabra Evolve2 65" });
+    expect(devices.audioOutput.selected$.value).toBeUndefined();
+    expect(devices.unmatchedInitialInputs$.value).toEqual([]);
   });
 
   it("leaves everything alone when the host names no device", async () => {

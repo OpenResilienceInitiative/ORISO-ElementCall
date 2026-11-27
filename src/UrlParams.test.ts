@@ -422,6 +422,35 @@ describe("UrlParams", () => {
         computeUrlParams("", `#${widget}&audioInput=&videoInput=`),
       ).toMatchObject({ audioInput: null, videoInput: null });
     });
+
+    it("reads the chosen speaker by label (#2558)", () => {
+      const params = new URLSearchParams({
+        audioOutput: "Jabra Evolve2 65 (0b0e:030c)",
+      });
+      expect(
+        computeUrlParams("", `#${widget}&${params.toString()}`),
+      ).toMatchObject({ audioOutput: "Jabra Evolve2 65 (0b0e:030c)" });
+    });
+
+    it("treats an empty or absent speaker label as no choice (#2558)", () => {
+      expect(computeUrlParams("", `#${widget}&audioOutput=`).audioOutput).toBe(
+        null,
+      );
+      expect(computeUrlParams("", `#${widget}`).audioOutput).toBe(null);
+    });
+
+    it("reads the background blur choice (#2558)", () => {
+      expect(
+        computeUrlParams("", `#${widget}&backgroundBlur=true`).backgroundBlur,
+      ).toBe(true);
+      expect(
+        computeUrlParams("", `#${widget}&backgroundBlur=false`).backgroundBlur,
+      ).toBe(false);
+    });
+
+    it("leaves background blur to Element Call when absent (#2558)", () => {
+      expect(computeUrlParams("", `#${widget}`).backgroundBlur).toBeUndefined();
+    });
   });
 
   describe("skipLobby", () => {
