@@ -9,7 +9,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as MatrixSdk from "matrix-js-sdk";
 import type * as UrlParams from "../UrlParams";
-import { initClient } from "./matrix";
+import { E2eeType } from "../e2ee/e2eeType";
+import { createRoom, initClient } from "./matrix";
 
 const createClientMock = vi.hoisted(() => vi.fn());
 const getUrlParamsMock = vi.hoisted(() =>
@@ -60,5 +61,33 @@ describe("standalone Matrix client boundary", () => {
     ).rejects.toThrow("Standalone Matrix clients are disabled in widget mode");
 
     expect(createClientMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("standalone call room permissions", () => {
+  it("lets the homeserver assign the creator's power level", async () => {
+    const sdk = await vi.importActual<typeof MatrixSdk>("matrix-js-sdk");
+    const client = sdk.createClient({
+      baseUrl: "https://matrix.example.invalid",
+      userId: "@creator:example.invalid",
+    });
+    const stop = new Error("stop after inspecting room creation options");
+    const requestRoom = vi
+      .spyOn(client, "createRoom")
+      .mockRejectedValueOnce(stop);
+
+    await expect(createRoom(client, "Guest call", E2eeType.NONE)).rejects.toBe(
+      stop,
+    );
+
+    expect(requestRoom).toHaveBeenCalledOnce();
+    const override = requestRoom.mock.calls[0][0].power_level_content_override;
+    expect(override).toMatchObject({
+      invite: 100,
+      kick: 100,
+      ban: 100,
+      users_default: 0,
+    });
+    expect(override).not.toHaveProperty("users");
   });
 });

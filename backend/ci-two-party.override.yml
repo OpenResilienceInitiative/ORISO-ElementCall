@@ -1,0 +1,51 @@
+services:
+  auth-service:
+    image: ghcr.io/element-hq/lk-jwt-service@sha256:a7c6162a8442895b9ddffa3fd0978f2c8c22816748e073f65f9a1330453e387b
+    ports: !reset []
+  auth-service-1:
+    image: ghcr.io/element-hq/lk-jwt-service@sha256:a7c6162a8442895b9ddffa3fd0978f2c8c22816748e073f65f9a1330453e387b
+    ports: !reset []
+  livekit:
+    image: livekit/livekit-server@sha256:b672d1dd8280ba2501c473803538503707ef72e7559fab53276f7729824593ac
+    ports: !override
+      - "127.0.0.1:7881:7881/tcp"
+      - "127.0.0.1:50100-50200:50100-50200/udp"
+  livekit-1:
+    image: livekit/livekit-server@sha256:b672d1dd8280ba2501c473803538503707ef72e7559fab53276f7729824593ac
+    ports: !reset []
+  nginx:
+    image: nginx@sha256:600f7cd45e27aa13e9304c834ab7c1b0ff39df85ee1dcc5087955455d77bc83b
+    restart: on-failure:3
+    depends_on:
+      - synapse
+      - synapse-1
+      - livekit
+      - livekit-1
+      - auth-service
+      - auth-service-1
+      - element-web
+      - element-web-1
+    ports: !override
+      - "127.0.0.1:443:443/tcp"
+    volumes: !override
+      - "./backend/dev_tls_m.localhost.key:/root/ssl/key.pem:ro,Z"
+      - "./backend/dev_tls_m.localhost.crt:/root/ssl/cert.pem:ro,Z"
+      - "${ORISO_MEDIA_RUN}/nginx.conf:/etc/nginx/conf.d/default.conf:ro,Z"
+  element-web:
+    image: ghcr.io/element-hq/element-web@sha256:11fc308519f7611f83401eb44b3fd9f484b89b7789bd43f3fe97ebefd04d170c
+    ports: !reset []
+  element-web-1:
+    image: ghcr.io/element-hq/element-web@sha256:11fc308519f7611f83401eb44b3fd9f484b89b7789bd43f3fe97ebefd04d170c
+    ports: !reset []
+  synapse:
+    image: matrixdotorg/synapse@sha256:5f868df1f5772907c6dbe973a9b69ab530a5d6bb317c011a3788f7ad78eb1292
+    volumes: !override
+      - "${ORISO_MEDIA_RUN}/primary:/data:Z"
+      - "${ORISO_MEDIA_RUN}/homeserver.yaml:/data/cfg/homeserver.yaml:ro,Z"
+  synapse-1:
+    image: matrixdotorg/synapse@sha256:5f868df1f5772907c6dbe973a9b69ab530a5d6bb317c011a3788f7ad78eb1292
+    volumes: !override
+      - "${ORISO_MEDIA_RUN}/secondary:/data:Z"
+      - "./backend/playwright_homeserver-othersite.yaml:/data/cfg/homeserver.yaml:ro,Z"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fSs http://localhost:18008/health || exit 1"]

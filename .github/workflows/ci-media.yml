@@ -1,0 +1,94 @@
+name: CI - Call Media
+
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+
+permissions: {}
+
+jobs:
+  two-party-media:
+    name: Two-party media and rejoin (Chromium)
+    # The locked Playwright build provides the Chromium shell for Ubuntu 24.04.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.call.outputs.revision }}
+      phase: ${{ steps.phase.outputs.phase }}
+    steps:
+      - id: checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - id: corepack
+        run: corepack enable
+      - id: node
+        uses: actions/setup-node@v4
+        with:
+          cache: yarn
+          node-version-file: .node-version
+      - id: dependencies
+        run: yarn install --immutable
+      - id: chromium
+        run: yarn playwright install --with-deps chromium --only-shell
+      - id: call
+        name: Check version 12 call, two-way media and rejoin
+        run: bash scripts/ci/run-two-party-media.sh
+      - id: phase
+        name: Identify the last verification phase
+        if: ${{ always() }}
+        shell: bash
+        env:
+          CHECKOUT: ${{ steps.checkout.outcome }}
+          COREPACK: ${{ steps.corepack.outcome }}
+          NODE: ${{ steps.node.outcome }}
+          DEPENDENCIES: ${{ steps.dependencies.outcome }}
+          CHROMIUM: ${{ steps.chromium.outcome }}
+          MEDIA_PHASE: ${{ steps.call.outputs.phase }}
+        run: |
+          if [[ "$CHECKOUT" != success ]]; then
+            phase='check out the GitHub candidate'
+          elif [[ "$COREPACK" != success || "$NODE" != success ]]; then
+            phase='set up Node and Corepack'
+          elif [[ "$DEPENDENCIES" != success ]]; then
+            phase='install locked dependencies'
+          elif [[ "$CHROMIUM" != success ]]; then
+            phase='install Chromium'
+          else
+            phase=${MEDIA_PHASE:-'start the browser check'}
+          fi
+          printf 'phase=%s\n' "$phase" >> "$GITHUB_OUTPUT"
+
+  media-verdict:
+    name: Call media verification
+    needs: two-party-media
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require a completed browser check for this candidate
+        shell: bash
+        env:
+          BROWSER_RESULT: ${{ needs.two-party-media.result }}
+          TESTED_REVISION: ${{ needs.two-party-media.outputs.revision }}
+          MEDIA_PHASE: ${{ needs.two-party-media.outputs.phase }}
+        run: |
+          phase=${MEDIA_PHASE:-'media job did not report a phase'}
+          result=FAILED
+          if [[ "$BROWSER_RESULT" == success && "$TESTED_REVISION" == "$GITHUB_SHA" && "$phase" == complete ]]; then
+            result=PASSED
+          fi
+          {
+            printf '## Call media verification\n\n'
+            printf -- '- Result: %s (%s)\n' "$result" "$BROWSER_RESULT"
+            printf -- '- GitHub candidate: `%s`\n' "$GITHUB_SHA"
+            printf -- '- Tested revision: `%s`\n' "${TESTED_REVISION:-unavailable}"
+            printf -- '- Last phase: %s\n' "$phase"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$result" != PASSED ]]; then
+            printf 'Call media verification failed at %s for %s\n' "$phase" "$GITHUB_SHA" >&2
+            exit 1
+          fi
